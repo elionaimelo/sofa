@@ -21,7 +21,7 @@
     <WindowsXamlEnableOverview>true</WindowsXamlEnableOverview>
     <AppxPackage>true</AppxPackage>
     <Platforms>x64</Platforms>
-    <RuntimeIdentifiers>win10-x64</RuntimeIdentifiers>
+    <RuntimeIdentifiers>win10-x64;win10-x64-aot</RuntimeIdentifiers>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
   </PropertyGroup>
