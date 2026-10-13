@@ -5,8 +5,7 @@
     xmlns:controls="using:Microsoft.UI.Xaml.Controls"
     Background="#1B2029">
     <Grid>
-        <controls:WebView2 x:Name="View" DefaultBackgroundColor="#1B2029"
-                           NavigationCompleted="View_NavigationCompleted" />
+        <controls:WebView2 x:Name="View" NavigationCompleted="View_NavigationCompleted" />
         <!-- Shown when Sofa isn't running (the HUD is served by the app itself). -->
         <StackPanel x:Name="Offline" Visibility="Collapsed" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12" Padding="24">
             <TextBlock Text="Sofa is not running" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" />

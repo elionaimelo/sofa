@@ -13,6 +13,9 @@ namespace Sofa.Widget
 
         public App()
         {
+            // WinUI 2's WebView2 has no DefaultBackgroundColor property; this avoids a white
+            // flash before the HUD page paints (AARRGGBB, Sofa's HUD background).
+            System.Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "FF1B2029");
             InitializeComponent();
         }
 
