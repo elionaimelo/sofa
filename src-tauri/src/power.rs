@@ -31,10 +31,24 @@ pub struct PowerCapabilities {
 #[derive(Serialize)]
 pub struct PowerStatus {
     pub batteries: Vec<DeviceBattery>,
+    /// Plugged into AC. The battery driver often reports "unknown" while charging on handhelds.
+    pub ac_power: Option<bool>,
     pub battery_error: bool,
     pub controllers: Vec<ControllerBattery>,
     pub controller_battery_supported: bool,
     pub actions: PowerCapabilities,
+}
+#[cfg(windows)]
+fn ac_power() -> Option<bool> {
+    use windows_sys::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
+    let mut status = SYSTEM_POWER_STATUS::default();
+    // Writes exactly this SDK struct; returns 0 on failure.
+    (unsafe { GetSystemPowerStatus(&mut status) } != 0 && status.ACLineStatus != 255)
+        .then(|| status.ACLineStatus == 1)
+}
+#[cfg(not(windows))]
+fn ac_power() -> Option<bool> {
+    None
 }
 pub fn positive(value: f32) -> Option<f32> {
     (value.is_finite() && value > 0.0).then_some(value)
@@ -154,6 +168,7 @@ fn capabilities() -> PowerCapabilities {
 fn read_power() -> PowerStatus {
     let (batteries, battery_error) = batteries();
     PowerStatus {
+        ac_power: ac_power(),
         batteries,
         battery_error,
         controllers: controllers(),

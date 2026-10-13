@@ -40,6 +40,7 @@ export type DeviceBattery = {
 };
 export type PowerStatus = {
   batteries: DeviceBattery[];
+  ac_power: boolean | null;
   battery_error: boolean;
   controllers: { index: number; kind: string; level: string }[];
   controller_battery_supported: boolean;
@@ -79,14 +80,18 @@ export function BatteryPanels({
           {data.batteries.map((b) => (
             <article className="battery-card" key={b.index}>
               <div className="battery-heading">
-                {b.state === "charging" ? (
+                {b.state === "charging" || data.ac_power ? (
                   <BatteryChargingIcon size={30} />
                 ) : (
                   <BatteryFullIcon size={30} />
                 )}
                 <div>
                   <h3>{b.model || t("deviceBattery")}</h3>
-                  <p>{t(`battery_${b.state}` as Parameters<Translate>[0])}</p>
+                  <p>
+                    {t(
+                      `battery_${b.state === "unknown" && data.ac_power ? "charging" : b.state}` as Parameters<Translate>[0],
+                    )}
+                  </p>
                 </div>
                 <strong>{percent(b.charge_percent)}</strong>
               </div>
@@ -288,20 +293,21 @@ export function TopBatteries({
 }) {
   const battery = data?.batteries[0];
   const percent = battery?.charge_percent;
-  const DeviceIcon =
-    battery?.state === "charging"
-      ? BatteryChargingIcon
-      : percent == null
+  // Plugged in counts as charging: the driver reports "unknown" or "full" on a charger.
+  const charging = battery?.state === "charging" || data?.ac_power === true;
+  const DeviceIcon = charging
+    ? BatteryChargingIcon
+    : percent == null
+      ? BatteryEmptyIcon
+      : percent <= 10
         ? BatteryEmptyIcon
-        : percent <= 10
-          ? BatteryEmptyIcon
-          : percent <= 25
-            ? BatteryLowIcon
-            : percent <= 60
-              ? BatteryMediumIcon
-              : percent <= 85
-                ? BatteryHighIcon
-                : BatteryFullIcon;
+        : percent <= 25
+          ? BatteryLowIcon
+          : percent <= 60
+            ? BatteryMediumIcon
+            : percent <= 85
+              ? BatteryHighIcon
+              : BatteryFullIcon;
   const controllers = data?.controllers ?? [];
   const icons: Record<string, typeof BatteryFullIcon> = {
     empty: BatteryEmptyIcon,
@@ -321,9 +327,7 @@ export function TopBatteries({
         onClick={onOpen}
         aria-label={`${t("deviceBattery")}: ${percent == null ? t("battery_unknown") : `${Math.round(percent)}%`}`}
         title={t("deviceBattery")}
-        data-low={
-          percent != null && percent <= 20 && battery?.state !== "charging"
-        }
+        data-low={percent != null && percent <= 20 && !charging}
       >
         <DeviceIcon />
         <span>{percent == null ? "—" : `${Math.round(percent)}%`}</span>
