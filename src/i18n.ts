@@ -230,6 +230,7 @@ const en = {
   gamesCount: "{count} games",
   browserPreview: "Browser preview — launch is available in the desktop app.",
   checkUpdates: "Check for updates",
+  installedVersion: "Installed version: {version}",
   noUpdate: "You are up to date.",
   updateCheckFailed: "Could not check for updates: {error}",
   browseLibrary: "Browse library",
@@ -511,6 +512,7 @@ const dicts = {
     browserPreview:
       "Prévia no navegador — abra o app desktop para iniciar jogos.",
     checkUpdates: "Verificar atualizações",
+    installedVersion: "Versão instalada: {version}",
     noUpdate: "Você está na versão mais recente.",
     updateCheckFailed: "Não foi possível verificar atualizações: {error}",
     browseLibrary: "Abrir biblioteca",
@@ -786,6 +788,7 @@ const dicts = {
     browserPreview:
       "Vista previa — abre la app de escritorio para iniciar juegos.",
     checkUpdates: "Buscar actualizaciones",
+    installedVersion: "Versión instalada: {version}",
     noUpdate: "Estás en la última versión.",
     updateCheckFailed: "No se pudieron buscar actualizaciones: {error}",
     browseLibrary: "Abrir biblioteca",

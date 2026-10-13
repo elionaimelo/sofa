@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getVersion } from "@tauri-apps/api/app";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { relaunch } from "@tauri-apps/plugin-process";
@@ -292,6 +293,13 @@ export default function App() {
     retry: false,
   });
   const update = updateQuery.data ?? null;
+  // The installed binary's version; it can't change while Sofa runs.
+  const version = useQuery({
+    queryKey: ["app_version"],
+    queryFn: getVersion,
+    enabled: isTauri(),
+    staleTime: Number.POSITIVE_INFINITY,
+  }).data;
   const updating = installUpdate.isPending;
   const checking = updateQuery.isFetching;
   const checkUpdates = async () => {
@@ -1182,7 +1190,9 @@ export default function App() {
           {page === "settings" && (
             <section className="settings-hub" id="content" tabIndex={-1}>
               <div className="settings-hub-heading">
-                <p className="eyebrow">Sofa</p>
+                <p className="eyebrow">
+                  {version ? `Sofa ${version}` : "Sofa"}
+                </p>
                 <h1>{t("settings")}</h1>
                 <p>{t("settingsHubIntro")}</p>
               </div>
@@ -1523,14 +1533,17 @@ export default function App() {
               </>
             )}
             {settingsTarget === "updates" && (
-              <button
-                disabled={checking || updating}
-                onClick={() => (update ? install() : void checkUpdates())}
-              >
-                {update
-                  ? t("updateAvailable", { version: update.version })
-                  : t("checkUpdates")}
-              </button>
+              <>
+                {version && <p>{t("installedVersion", { version })}</p>}
+                <button
+                  disabled={checking || updating}
+                  onClick={() => (update ? install() : void checkUpdates())}
+                >
+                  {update
+                    ? t("updateAvailable", { version: update.version })
+                    : t("checkUpdates")}
+                </button>
+              </>
             )}
             <p className="settings-status" role="status">
               {status}
