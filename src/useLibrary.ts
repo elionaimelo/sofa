@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 import { type Game, mergeLibrary } from "./library";
-import { demo, type Notify, serviceError } from "./services";
+import { demo, httpStatus, type Notify, serviceError } from "./services";
 
 const demoGames: Game[] = [
   ["1245620", "ELDEN RING"],
@@ -87,7 +87,11 @@ export function useLibrary(onStatus: Notify) {
         count: String(owned.length),
       });
     },
-    onError: (error) => onStatus(serviceError(error)),
+    onError: (error) => {
+      const status = httpStatus(error);
+      if (status) onStatus("serviceStatus", { status });
+      else onStatus(serviceError(error));
+    },
   });
   const disconnect = useMutation({
     mutationFn: () => invoke("disconnect_steam_library"),

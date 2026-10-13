@@ -23,6 +23,8 @@ jobs:
       - run: npm ci
       - run: npx biome ci
       - run: npm test
+      # The Rust build bundles ../dist as a resource (HUD server), so build the frontend first.
+      - run: npm run build
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       # Xbox Game Bar widget (widget/): UWP app signed with the same cert; the installer sideloads it.
       - uses: microsoft/setup-msbuild@v2

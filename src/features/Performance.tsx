@@ -145,10 +145,20 @@ export function Hud() {
     refetchInterval: 2000,
   });
   const metrics = metricsQuery.data;
-  const game = useQuery({
-    ...commandQuery<Game | null>("current_game"),
+  const session = useQuery({
+    ...commandQuery<{
+      game: Game;
+      session_seconds: number;
+      total_seconds: number;
+    } | null>("current_session"),
     refetchInterval: 5000,
   }).data;
+  const game = session?.game;
+  const clock = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return h ? `${h}h ${m.toString().padStart(2, "0")}min` : `${m}min`;
+  };
   const power = usePower();
   const display = useQuery(commandQuery<DisplayStatus>("display_status")).data;
   const queryClient = useQueryClient();
@@ -247,6 +257,14 @@ export function Hud() {
             <div>
               <small>{t("hudNowPlaying")}</small>
               <strong>{game.title}</strong>
+              {session && (
+                <small>
+                  {t("hudSession", {
+                    session: clock(session.session_seconds),
+                    total: clock(session.total_seconds),
+                  })}
+                </small>
+              )}
             </div>
           </>
         ) : (

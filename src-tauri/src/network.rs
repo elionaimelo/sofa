@@ -26,7 +26,8 @@ pub async fn text(request: reqwest::RequestBuilder) -> Result<String, String> {
         return Err("accessDenied".into());
     }
     if !(200..300).contains(&status) {
-        return Err("serviceUnavailable".into());
+        // The UI shows the status; it's the only clue when a site changes behaviour.
+        return Err(format!("http:{status}"));
     }
     let mut bytes = Vec::new();
     while let Some(chunk) = response.chunk().await.map_err(|_| "network".to_string())? {

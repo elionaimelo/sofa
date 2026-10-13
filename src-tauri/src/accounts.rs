@@ -42,20 +42,30 @@ fn steam_id_from_cookie(cookie: &str) -> Option<String> {
 }
 
 /// Every window shares one persistent cookie store, so a Steam login survives restarts.
-fn saved_cookie(app: &tauri::AppHandle) -> Option<String> {
-    app.get_webview_window("main")?
+/// Returns the login cookie value and the full `Cookie` header for the store (Steam's ajax
+/// endpoints also want `sessionid` and friends).
+fn saved_cookie(app: &tauri::AppHandle) -> Option<(String, String)> {
+    let cookies = app
+        .get_webview_window("main")?
         .cookies_for_url(STORE.parse().unwrap())
-        .ok()?
-        .into_iter()
-        .find(|c| c.name() == "steamLoginSecure")
-        .map(|c| c.value().to_owned())
+        .ok()?;
+    let names: Vec<_> = cookies.iter().map(|c| c.name().to_owned()).collect();
+    crate::log::info(app, format!("steam: store cookies {names:?}"));
+    let login = cookies.iter().find(|c| c.name() == "steamLoginSecure")?.value().to_owned();
+    let header = cookies
+        .iter()
+        .map(|c| format!("{}={}", c.name(), c.value()))
+        .collect::<Vec<_>>()
+        .join("; ");
+    Some((login, header))
 }
 
 /// Opens a Steam page and waits for a new session cookie.
 /// Visible: Steam's own login page, so Sofa never sees the password.
 /// Hidden: Steam renews an expired session from the refresh token it saved at login.
 async fn new_cookie(app: &tauri::AppHandle, visible: bool) -> Result<String, String> {
-    let stale = saved_cookie(app);
+    let stale = saved_cookie(app).map(|(login, _)| login);
+    crate::log::info(app, format!("steam: opening {} login window", if visible { "visible" } else { "hidden" }));
     let page = if visible { "https://store.steampowered.com/login/" } else { STORE };
     let mut builder = WebviewWindowBuilder::new(app, "steam-login", WebviewUrl::External(page.parse().unwrap()))
         .title("Steam")
@@ -86,23 +96,27 @@ async fn new_cookie(app: &tauri::AppHandle, visible: bool) -> Result<String, Str
             .filter(|value| Some(value) != stale.as_ref());
         if let Some(value) = fresh {
             let _ = window.close();
+            crate::log::info(app, "steam: new session cookie captured");
             return Ok(value);
         }
     }
 }
 
-async fn fetch_owned(cookie: &str) -> Result<Vec<library::Game>, String> {
-    let steam_id = steam_id_from_cookie(cookie).ok_or("invalidResponse")?;
+async fn fetch_owned(app: &tauri::AppHandle, login: &str, cookie_header: &str) -> Result<Vec<library::Game>, String> {
+    let steam_id = steam_id_from_cookie(login).ok_or("invalidResponse")?;
     let client = network::client()?;
     let config: serde_json::Value = network::json(
         client
             .get("https://store.steampowered.com/pointssummary/ajaxgetasyncconfig")
-            .header("cookie", format!("steamLoginSecure={cookie}")),
+            .header("cookie", cookie_header)
+            .header("referer", STORE),
     )
-    .await?;
-    let token = config["data"]["webapi_token"]
-        .as_str()
-        .ok_or("steamSessionExpired")?;
+    .await
+    .inspect_err(|e| crate::log::info(app, format!("steam: token request failed: {e}")))?;
+    let token = config["data"]["webapi_token"].as_str().ok_or_else(|| {
+        crate::log::info(app, format!("steam: no webapi_token in config (success={})", config["success"]));
+        "steamSessionExpired".to_string()
+    })?;
     let response: OwnedResponse = network::json(
         client
             .get("https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/")
@@ -113,7 +127,8 @@ async fn fetch_owned(cookie: &str) -> Result<Vec<library::Game>, String> {
                 ("include_played_free_games", "1"),
             ]),
     )
-    .await?;
+    .await
+    .inspect_err(|e| crate::log::info(app, format!("steam: owned games request failed: {e}")))?;
     let mut games: Vec<_> = response
         .response
         .games
@@ -124,25 +139,31 @@ async fn fetch_owned(cookie: &str) -> Result<Vec<library::Game>, String> {
         .collect();
     games.sort_by(|a, b| a.id.cmp(&b.id));
     games.dedup_by(|a, b| a.id == b.id);
+    crate::log::info(app, format!("steam: {} owned games", games.len()));
     Ok(games)
 }
 
 /// Uses the saved session, renewing it when expired; `sign_in` falls back to Steam's login page.
 async fn owned_games(app: &tauri::AppHandle, sign_in: bool) -> Result<Vec<library::Game>, String> {
-    if let Some(cookie) = saved_cookie(app) {
-        match fetch_owned(&cookie).await {
+    if let Some((login, header)) = saved_cookie(app) {
+        match fetch_owned(app, &login, &header).await {
             Err(e) if e == "steamSessionExpired" => {}
             result => return result,
         }
         match new_cookie(app, false).await {
-            Ok(cookie) => return fetch_owned(&cookie).await,
+            Ok(_) => {
+                let (login, header) = saved_cookie(app).ok_or("steamSessionExpired")?;
+                return fetch_owned(app, &login, &header).await;
+            }
             Err(e) if !sign_in => return Err(e),
             Err(_) => {}
         }
     } else if !sign_in {
         return Err("notConnected".into());
     }
-    fetch_owned(&new_cookie(app, true).await?).await
+    new_cookie(app, true).await?;
+    let (login, header) = saved_cookie(app).ok_or("steamSessionExpired")?;
+    fetch_owned(app, &login, &header).await
 }
 
 fn store_games(

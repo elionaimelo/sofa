@@ -180,6 +180,9 @@ export const commandQuery = <T>(
     queryKey: [command, args ?? null],
     queryFn: () => desktop<T>(command, args),
   });
+/** HTTP status carried by a backend error ("http:302"), for messages that name it. */
+export const httpStatus = (error: unknown) =>
+  /^http:(\d+)$/.exec(String(error))?.[1];
 /** Message key for a failed query, or "" while it hasn't failed. */
 export const queryError = (error: unknown): MessageKey | "" =>
   error ? serviceError(error) : "";

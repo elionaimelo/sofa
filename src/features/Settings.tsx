@@ -247,6 +247,11 @@ export function UpdateSettings({
   return (
     <>
       {version && <p>{t("installedVersion", { version })}</p>}
+      {isTauri() && (
+        <button onClick={() => void invoke("open_log").catch(() => undefined)}>
+          {t("openLog")}
+        </button>
+      )}
       <button
         disabled={updates.checking || updates.installing}
         onClick={() => (update ? updates.install() : void updates.check())}
