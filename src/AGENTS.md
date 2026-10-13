@@ -7,8 +7,8 @@
 - Function components and hooks only; no state library. App-wide state stays in `App.tsx`, feature state in its component.
 - Effects need stable dependencies: derive a string/id key instead of depending on arrays that are recreated on every scan (see `useCategories`).
 - Async work must not restart when the language changes: read the translator through `tRef.current` instead of listing `t` as a dependency.
-- Polling: use `usePoll(read, ms)` from `services.ts`; don't hand-roll `alive`/`setTimeout` loops.
-- Guard concurrent actions with a ref (`scanBusy`, `updateBusy`) and drop results after unmount (`alive` flag).
+- Backend data goes through TanStack Query (`QueryClient` in `main.tsx`): `useQuery(commandQuery<T>("command", args))` for reads, `refetchInterval` for polling, `staleTime` for cache, and `useMutation` for writes that `invalidateQueries` what they change. Map failures with `queryError(query.error)`. Don't hand-roll `alive`/`setTimeout` loops or busy refs.
+- The library scan and Steam owned games still use manual effects in `App.tsx`; move them to queries when you touch them.
 
 ## Controller-first UI
 
@@ -22,6 +22,11 @@
 - Backend errors are i18n keys. Map them with `serviceError(e, known?)`, which returns a typed `MessageKey`; never show raw error text (it can contain URLs or tokens). Store errors as `MessageKey | ""`.
 - Call the backend through `desktop<T>(command, args)`; it throws `desktopRequired` in the browser preview. `?demo` gives a demo library in dev.
 - Icon-only buttons need `aria-label`; status messages use `role="status"`; toggles and selections use `aria-pressed` / `aria-expanded` (CSS styles off those attributes).
+
+## Tooling
+
+- Biome lints and formats (`npm run lint`, `npm run format`). Fix findings; when a rule is wrong for a line, suppress it there with `biome-ignore <rule>: <reason>`.
+- Each window is code-split (`lazy` in `main.tsx`): keep the HUD free of main-window imports.
 
 ## CSS
 

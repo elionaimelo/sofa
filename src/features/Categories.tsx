@@ -57,6 +57,7 @@ export function useCategories(games: Game[]) {
     .map((g) => g.id)
     .sort()
     .join(",");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `revision` is the retry trigger.
   useEffect(() => {
     if (demo) {
       setCatalog(demoCategories);
@@ -157,6 +158,7 @@ export function CategoryEditor({
   const manual = prefs.categories[game.id] ?? [];
   const all = gameCategories(game.id, prefs, catalog);
   const names = all.map((label) => categoryLabel(label, lang));
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure when the labels or language change.
   useLayoutEffect(() => {
     const row = summary.current;
     const measure = measurement.current;

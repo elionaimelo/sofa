@@ -21,6 +21,7 @@ export function Dialog({
     };
   }, []);
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the click only closes on the backdrop; Escape fires the dialog's cancel event.
     <dialog
       ref={ref}
       aria-label={label}

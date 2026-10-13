@@ -1,3 +1,4 @@
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HeartIcon,
@@ -15,6 +16,8 @@ import {
   desktop,
   navigateControls,
   parseWishlist,
+  commandQuery,
+  queryError,
   serviceError,
   type MessageKey,
   usd,
@@ -25,6 +28,10 @@ import {
   type InputRef,
   type PartnerOffer,
 } from "../services";
+const demoShops: Shop[] = [
+  { storeID: "1", storeName: "Steam", isActive: 1 },
+  { storeID: "7", storeName: "GOG", isActive: 1 },
+];
 export function Store({
   t,
   lang,
@@ -39,115 +46,70 @@ export function Store({
   const [tab, setTab] = useState<"discover" | "wishlist">("discover");
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
-  const [refresh, setRefresh] = useState(0);
-  const [deals, setDeals] = useState<Deal[]>([]);
-  const [shops, setShops] = useState<Shop[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<MessageKey | "">("");
   const [status, setStatus] = useState("");
   const storageKey = demo ? "sofa.demo.wishlist" : "sofa.wishlist";
   const [wishlist, setWishlist] = useState(() =>
     parseWishlist(localStorage.getItem(storageKey)),
   );
   const [selected, setSelected] = useState<Deal | null>(null);
-  const [partners, setPartners] = useState<PartnerOffer[]>([]);
-  const [comparison, setComparison] = useState<StoreGame | null>(null);
-  const [compareError, setCompareError] = useState<MessageKey | "">("");
-  const [compareRetry, setCompareRetry] = useState(0);
   const [focus, setFocus] = useState(0);
   const grid = useRef<HTMLDivElement>(null);
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(wishlist));
   }, [wishlist, storageKey]);
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    setError("");
-    const load = async () => {
-      try {
-        const [items, stores] = demo
-          ? [
-              demoDeals.filter((d) =>
-                d.title.toLowerCase().includes(search.toLowerCase()),
-              ),
-              [
-                { storeID: "1", storeName: "Steam", isActive: 1 },
-                { storeID: "7", storeName: "GOG", isActive: 1 },
-              ],
-            ]
-          : await Promise.all([
-              desktop<Deal[]>("store_deals", { query: search }),
-              desktop<Shop[]>("store_shops"),
-            ]);
-        if (alive) {
-          setDeals(items);
-          setShops(stores);
-        }
-      } catch (e) {
-        if (alive)
-          setError(
-            serviceError(e),
-          );
-      } finally {
-        if (alive) setLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      alive = false;
-    };
-  }, [search, refresh]);
-  useEffect(() => {
-    let alive = true;
-    setComparison(null);
-    setCompareError("");
-    if (!selected) return;
-    const load = async () => {
-      try {
-        const g = demo
-          ? {
-              info: {
-                title: selected.title,
-                thumb: selected.thumb,
-                steamAppID: selected.steamAppID,
+  // Prices move slowly; revisiting the store or a game within 5 minutes reuses the cache.
+  const dealsQuery = useQuery({
+    queryKey: ["store_deals", search],
+    queryFn: () =>
+      demo
+        ? demoDeals.filter((d) => d.title.toLowerCase().includes(search.toLowerCase()))
+        : desktop<Deal[]>("store_deals", { query: search }),
+    staleTime: 5 * 60_000,
+    placeholderData: keepPreviousData,
+  });
+  const shopsQuery = useQuery({
+    queryKey: ["store_shops"],
+    queryFn: () => (demo ? demoShops : desktop<Shop[]>("store_shops")),
+    staleTime: 60 * 60_000,
+  });
+  const deals = dealsQuery.data ?? [];
+  const shops = shopsQuery.data ?? [];
+  const loading = dealsQuery.isFetching || shopsQuery.isPending;
+  const error = queryError(dealsQuery.error ?? shopsQuery.error);
+  const refresh = () => {
+    void dealsQuery.refetch();
+    if (shopsQuery.error) void shopsQuery.refetch();
+  };
+  const compareQuery = useQuery({
+    queryKey: ["store_game", selected?.gameID],
+    queryFn: (): Promise<StoreGame> | StoreGame =>
+      demo && selected
+        ? {
+            info: { title: selected.title, thumb: selected.thumb, steamAppID: selected.steamAppID },
+            cheapestPriceEver: { price: selected.salePrice, date: 0 },
+            deals: [
+              {
+                storeID: selected.storeID,
+                dealID: selected.dealID,
+                price: selected.salePrice,
+                retailPrice: selected.normalPrice,
+                savings: selected.savings,
               },
-              cheapestPriceEver: { price: selected.salePrice, date: 0 },
-              deals: [
-                {
-                  storeID: selected.storeID,
-                  dealID: selected.dealID,
-                  price: selected.salePrice,
-                  retailPrice: selected.normalPrice,
-                  savings: selected.savings,
-                },
-              ],
-            }
-          : await desktop<StoreGame>("store_game", { id: selected.gameID });
-        if (alive) setComparison(g);
-      } catch (e) {
-        if (alive) setCompareError(serviceError(e));
-      }
-    };
-    void load();
-    return () => {
-      alive = false;
-    };
-  }, [selected, compareRetry]);
-  useEffect(() => {
-    let alive = true;
-    setPartners([]);
-    if (!selected?.steamAppID || demo) return;
-    void desktop<PartnerOffer[]>("partner_offers", {
-      steamAppId: selected.steamAppID,
-    })
-      .then((offers) => {
-        if (alive) setPartners(offers);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [selected]);
+            ],
+          }
+        : desktop<StoreGame>("store_game", { id: selected?.gameID }),
+    enabled: !!selected,
+    staleTime: 5 * 60_000,
+  });
+  const comparison = compareQuery.data ?? null;
+  const compareError = queryError(compareQuery.error);
+  // Partner offers are optional extras: failures just hide them.
+  const partners =
+    useQuery({
+      ...commandQuery<PartnerOffer[]>("partner_offers", { steamAppId: selected?.steamAppID }),
+      enabled: !!selected?.steamAppID && !demo,
+      staleTime: 60 * 60_000,
+    }).data ?? [];
   const visible = useMemo(
     () =>
       tab === "discover"
@@ -157,6 +119,7 @@ export function Store({
           ),
     [deals, wishlist, tab, query],
   );
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new tab or search starts at the first deal.
   useEffect(() => setFocus(0), [tab, search]);
   useEffect(() => {
     setFocus((f) => Math.min(f, Math.max(visible.length - 1, 0)));
@@ -202,7 +165,7 @@ export function Store({
     }
     if (a === "a" && visible[focus]) setSelected(visible[focus]);
     if (a === "x" && visible[focus]) toggle(visible[focus]);
-    if (a === "y") setRefresh((n) => n + 1);
+    if (a === "y") refresh();
     const cols = grid.current
       ? getComputedStyle(grid.current).gridTemplateColumns.split(" ").length
       : 1;
@@ -267,7 +230,7 @@ export function Store({
         <button type="submit">{t("search")}</button>
         <button
           type="button"
-          onClick={() => setRefresh((n) => n + 1)}
+          onClick={refresh}
           disabled={loading}
           aria-label={t("refresh")}
         >
@@ -284,13 +247,14 @@ export function Store({
           role="status"
         >
           {Array.from({ length: 6 }, (_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: fixed, identical loading placeholders.
             <div className="skeleton" key={i} />
           ))}
         </div>
       ) : error && tab === "discover" ? (
         <div className="feature-empty" role="alert">
           <h2>{t(error as MessageKey)}</h2>
-          <button onClick={() => setRefresh((n) => n + 1)}>{t("retry")}</button>
+          <button onClick={refresh}>{t("retry")}</button>
         </div>
       ) : !visible.length ? (
         <div className="feature-empty">
@@ -386,7 +350,7 @@ export function Store({
             {compareError ? (
               <div className="inline-error" role="alert">
                 {t(compareError as MessageKey)}
-                <button onClick={() => setCompareRetry((n) => n + 1)}>
+                <button onClick={() => void compareQuery.refetch()}>
                   {t("retry")}
                 </button>
               </div>

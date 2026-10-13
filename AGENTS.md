@@ -15,12 +15,15 @@ Each directory has its own `AGENTS.md` with the rules for that layer:
 npm install
 npm run tauri dev          # app with hot reload
 npx tsc --noEmit           # typecheck
+npm run lint               # Biome: lint, format and import order (npm run format fixes)
 npm test                   # tests/*.test.ts (Node 22.6+)
 npx vite build             # frontend build
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
 Run all of them before you call a change done. The release CI (`.github/workflows/release.yml`) runs `npm test` and `cargo test` on `windows-latest`, so Windows-only code (`#[cfg(windows)]`) must compile there even if you develop on macOS. `cargo check --target x86_64-pc-windows-msvc` fails locally on `ring`'s C build; check Windows-only modules in a scratch crate that includes them with `#[path]` and skips `reqwest`.
+
+Agent skills (TanStack Query, React composition, web interface guidelines) are pinned in `skills-lock.json`; restore them with `npx skills experimental_install`.
 
 ## Ground rules
 

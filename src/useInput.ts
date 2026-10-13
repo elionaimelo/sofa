@@ -84,7 +84,7 @@ export function useInput(onAction: (action: Action) => void) {
       const now = performance.now(),
         held = new Set<Action>();
       for (const pad of navigator.getGamepads?.() ?? []) {
-        if (!pad || pad.mapping !== "standard") continue;
+        if (pad?.mapping !== "standard") continue;
         for (const [i, a] of buttons) if (pad.buttons[i]?.pressed) held.add(a);
         const [x = 0, y = 0] = pad.axes;
         if (y < -0.5) held.add("up");
@@ -103,7 +103,7 @@ export function useInput(onAction: (action: Action) => void) {
       if (!held.has("menu") && !held.has("settings")) chord = false;
       for (const a of held) {
         const repeats = ["up", "down", "left", "right"].includes(a);
-        if (!last.has(a) || (repeats && now - last.get(a)! > 180)) {
+        if (!last.has(a) || (repeats && now - (last.get(a) ?? 0) > 180)) {
           last.set(a, now);
           if (!deferred.includes(a)) fire(a);
         }

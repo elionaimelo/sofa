@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { check, type Update } from "@tauri-apps/plugin-updater";
@@ -35,7 +36,7 @@ import {
 } from "@phosphor-icons/react";
 import { Store } from "./features/Store";
 import { TopBatteries, PowerMenu, usePower } from "./features/Power";
-import { demo, navigateControls, navigateSpatial, serviceError, type InputRef } from "./services";
+import { commandQuery, demo, navigateControls, navigateSpatial, serviceError, type InputRef } from "./services";
 import {
   CategoryEditor,
   categoryLabel,
@@ -92,6 +93,15 @@ function Cover({ game }: { game: Game }) {
     </>
   );
 }
+/** Ticks on its own so the clock doesn't re-render the whole library every 30 s. */
+function Clock({ lang }: { lang: Lang }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(id);
+  }, []);
+  return <time>{now.toLocaleTimeString(lang, { hour: "2-digit", minute: "2-digit" })}</time>;
+}
 export default function App() {
   const [installedGames, setInstalledGames] = useState<Game[]>([]);
   const [ownedGames, setOwnedGames] = useState<Game[]>([]);
@@ -104,7 +114,7 @@ export default function App() {
   const [steamConnected, setSteamConnected] = useState(false);
   const [steamBusy, setSteamBusy] = useState(false);
   const [page, setPage] = useState<(typeof PAGES)[number] | "settings">("home");
-  const [tab, setTab] = useState<(typeof TABS)[number]>("all");
+  const [tabChoice, setTab] = useState<(typeof TABS)[number]>("all");
   const [query, setQuery] = useState("");
   const [categoryQuery, setCategoryQuery] = useState("");
   const categories = useCategories(games);
@@ -118,20 +128,15 @@ export default function App() {
   );
   const [status, setStatus] = useState("");
   const [lang, setLang] = useState(initialLang);
-  const [update, setUpdate] = useState<Update | null>(null);
-  const [updating, setUpdating] = useState(false);
-  const [checking, setChecking] = useState(false);
   const [details, setDetails] = useState<Game | null>(null);
   const [settings, setSettings] = useState(false);
   const [settingsTarget, setSettingsTarget] = useState<"library" | "appearance" | "updates">("library");
   const [powerMenu, setPowerMenu] = useState(false);
-  const [xboxMode, setXboxMode] = useState<{ home: boolean; startup: boolean; active: boolean | null } | null>(null);
   const powerInput: InputRef = useRef(null);
   const power = usePower();
   const [pendingUninstall, setPendingUninstall] = useState<string | null>(null);
   const [pendingInstalls, setPendingInstalls] = useState<string[]>([]);
   const [launching, setLaunching] = useState(false);
-  const [now, setNow] = useState(new Date());
   const t = useMemo(() => translator(lang), [lang]);
   // Async work reads the current language here, so switching it doesn't rescan or re-check updates.
   const tRef = useRef(t);
@@ -140,8 +145,7 @@ export default function App() {
   const featureInput: InputRef = useRef(null);
   const scanBusy = useRef(false),
     launchBusy = useRef(false),
-    updateBusy = useRef(false),
-    checkBusy = useRef(false);
+    queryClient = useQueryClient();
   const scan = useCallback(async () => {
     if (scanBusy.current) return;
     scanBusy.current = true;
@@ -243,28 +247,35 @@ export default function App() {
       window.removeEventListener("focus", refresh);
     };
   }, [pendingInstalls]);
-  const checkUpdates = useCallback(
-    async (manual = false) => {
-      if (!isTauri()) {
-        if (manual) setStatus(tRef.current("browserPreview"));
-        return;
-      }
-      if (checkBusy.current || updateBusy.current) return;
-      checkBusy.current = true;
-      setChecking(true);
-      try {
-        const next = await check();
-        setUpdate(next);
-        if (manual && !next) setStatus(tRef.current("noUpdate"));
-      } catch (e) {
-        if (manual) setStatus(tRef.current("updateCheckFailed", { error: String(e) }));
-      } finally {
-        checkBusy.current = false;
-        setChecking(false);
-      }
+  const installUpdate = useMutation({
+    mutationFn: async (next: Update) => {
+      await next.downloadAndInstall();
+      await relaunch();
     },
-    [],
-  );
+    onMutate: (next) => setStatus(t("updating", { version: next.version })),
+    onError: (e) => setStatus(t("updateFailed", { error: String(e) })),
+  });
+  const updateQuery = useQuery({
+    queryKey: ["update"],
+    queryFn: () => check(),
+    enabled: isTauri() && !installUpdate.isPending,
+    // Sofa can stay open for days as the home app; keep looking for new releases.
+    refetchInterval: 6 * 3600_000,
+    staleTime: 6 * 3600_000,
+    retry: false,
+  });
+  const update = updateQuery.data ?? null;
+  const updating = installUpdate.isPending;
+  const checking = updateQuery.isFetching;
+  const checkUpdates = async () => {
+    if (!isTauri()) return setStatus(t("browserPreview"));
+    const result = await updateQuery.refetch();
+    if (result.error) setStatus(t("updateCheckFailed", { error: String(result.error) }));
+    else if (!result.data) setStatus(t("noUpdate"));
+  };
+  const install = () => {
+    if (update && !updating) installUpdate.mutate(update);
+  };
   useEffect(() => {
     void scan();
   }, [scan]);
@@ -281,33 +292,10 @@ export default function App() {
       })
       .finally(() => setSteamBusy(false));
   }, []);
-  useEffect(() => {
-    void checkUpdates();
-    // Sofa can stay open for days as the home app; keep looking for new releases.
-    const id = setInterval(() => void checkUpdates(), 6 * 3600000);
-    return () => clearInterval(id);
-  }, [checkUpdates]);
   useEffect(() => saveLang(lang), [lang]);
   useEffect(() => {
     localStorage.setItem(preferencesKey, JSON.stringify(prefs));
   }, [prefs]);
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 30000);
-    return () => clearInterval(id);
-  }, []);
-  const visible = useMemo(
-    () =>
-      filterGames(
-        games,
-        prefs,
-        page === "home" ? "all" : tab,
-        page === "home" ? "" : query,
-        page === "home",
-        Date.now(),
-        categories.catalog,
-      ),
-    [games, prefs, page, tab, query, categories.catalog],
-  );
   const availableTabs = useMemo(
     () => TABS.filter((value) =>
       value === "all" || value === "favorites" || value === "hidden" ||
@@ -315,9 +303,23 @@ export default function App() {
     ),
     [games],
   );
-  useEffect(() => {
-    if (!availableTabs.includes(tab)) setTab("all");
-  }, [availableTabs, tab]);
+  // A source tab disappears when its last game does; fall back to "all" without an extra render.
+  const tab = availableTabs.includes(tabChoice) ? tabChoice : "all";
+  // Typing stays responsive with thousands of owned games; the grid catches up a frame later.
+  const deferredQuery = useDeferredValue(query);
+  const visible = useMemo(
+    () =>
+      filterGames(
+        games,
+        prefs,
+        page === "home" ? "all" : tab,
+        page === "home" ? "" : deferredQuery,
+        page === "home",
+        Date.now(),
+        categories.catalog,
+      ),
+    [games, prefs, page, tab, deferredQuery, categories.catalog],
+  );
   const categoryChoices = useMemo(
     () =>
       categoryOptions(
@@ -368,6 +370,7 @@ export default function App() {
     const current = games.find((game) => game.id === details.id);
     if (current && current.installed !== details.installed) setDetails(current);
   }, [games, details]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new tab, search, page or filter starts at the first tile.
   useEffect(() => setFocus(0), [tab, query, page, prefs.filters, prefs.sort]);
   useEffect(() => {
     if (filtersOpen)
@@ -479,34 +482,19 @@ export default function App() {
       setStatus(t(serviceError(error)));
     }
   };
-  const install = async () => {
-    if (!update || updateBusy.current) return;
-    updateBusy.current = true;
-    setUpdating(true);
-    setStatus(t("updating", { version: update.version }));
-    try {
-      await update.downloadAndInstall();
-      await relaunch();
-    } catch (e) {
-      setStatus(t("updateFailed", { error: String(e) }));
-    } finally {
-      updateBusy.current = false;
-      setUpdating(false);
-    }
-  };
-  useEffect(() => {
-    if (!settings || settingsTarget !== "appearance" || demo || !isTauri()) return;
-    invoke<typeof xboxMode>("xbox_mode_status").then(setXboxMode, () => setXboxMode(null));
-  }, [settings, settingsTarget]);
+  const xboxMode =
+    useQuery({
+      ...commandQuery<{ home: boolean; startup: boolean; active: boolean | null } | null>(
+        "xbox_mode_status",
+      ),
+      enabled: settings && settingsTarget === "appearance" && !demo && isTauri(),
+    }).data ?? null;
   const xboxStartup = !!xboxMode?.home && !!xboxMode.startup;
-  const toggleXboxStartup = async () => {
-    try {
-      await invoke("set_xbox_mode_startup", { on: !xboxStartup });
-      setXboxMode(await invoke<typeof xboxMode>("xbox_mode_status"));
-    } catch (error) {
-      setStatus(t(serviceError(error)));
-    }
-  };
+  const toggleXboxStartup = useMutation({
+    mutationFn: (on: boolean) => invoke("set_xbox_mode_startup", { on }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["xbox_mode_status"] }),
+    onError: (error) => setStatus(t(serviceError(error))),
+  });
   const fullscreen = async () => {
     try {
       if (isTauri()) {
@@ -623,7 +611,7 @@ export default function App() {
       return;
     }
     if (a === "x" && selected) toggleFavorite(selected);
-    if (a === "y") void install();
+    if (a === "y") install();
   });
   return (
     <main className={`page-${page} density-${prefs.density}`}>
@@ -684,12 +672,7 @@ export default function App() {
           >
             <PowerIcon />
           </button>
-          <time>
-            {now.toLocaleTimeString(lang, {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </time>
+          <Clock lang={lang} />
           <button
             className={update ? "has-update" : undefined}
             onClick={() => setPage("settings")}
@@ -755,8 +738,10 @@ export default function App() {
                 </button>
               </div>
               {prefs.filters.categories.length > 0 && (
+                // biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>).
                 <div
                   className="active-categories"
+                  role="group"
                   aria-label={t("activeCategories")}
                 >
                   {categoryChoices
@@ -1071,9 +1056,11 @@ export default function App() {
                       </button>
                     )}
                   </div>
+                  {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>). */}
                   <div
                     className={page === "home" ? "game-row" : "grid"}
                     ref={grid}
+                    role="group"
                     aria-label={t("library")}
                   >
                     {visible.map((g, i) => (
@@ -1097,6 +1084,7 @@ export default function App() {
                         {prefs.favorites.includes(g.id) && (
                           <span
                             className="favorite-mark"
+                            role="img"
                             aria-label={t("favorite")}
                           >
                             <HeartIcon weight="fill" />
@@ -1161,7 +1149,7 @@ export default function App() {
           <button
             className="update"
             disabled={updating}
-            onClick={() => void install()}
+            onClick={install}
           >
             <kbd>Y</kbd>
             {t("updateAvailable", { version: update.version })}
@@ -1375,7 +1363,11 @@ export default function App() {
             <button onClick={() => void fullscreen()}>{t("fullscreen")}</button>
             {xboxMode && (
               <>
-                <button aria-pressed={xboxStartup} onClick={() => void toggleXboxStartup()}>
+                <button
+                  aria-pressed={xboxStartup}
+                  disabled={toggleXboxStartup.isPending}
+                  onClick={() => toggleXboxStartup.mutate(!xboxStartup)}
+                >
                   {t("xboxModeStartup")}: {t(xboxStartup ? "on" : "off")}
                 </button>
                 <p className="muted">{t("xboxModeStartupNote")}</p>
@@ -1404,7 +1396,7 @@ export default function App() {
             <button
               disabled={checking || updating}
               onClick={() =>
-                update ? void install() : void checkUpdates(true)
+                update ? install() : void checkUpdates()
               }
             >
               {update

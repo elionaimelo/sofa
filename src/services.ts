@@ -1,6 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { MutableRefObject } from "react";
-import { useEffect, useState } from "react";
+import { queryOptions } from "@tanstack/react-query";
+import { useEffect } from "react";
 import type { Translate } from "./i18n";
 import type { Action } from "./useInput";
 export type MessageKey = Parameters<Translate>[0];
@@ -147,36 +148,15 @@ export const serviceError = (error: unknown, known: MessageKey[] = []): MessageK
   const key = String(error) as MessageKey;
   return serviceErrors.includes(key) || known.includes(key) ? key : "serviceUnavailable";
 };
-/** Runs `read` now and every `ms` while mounted; each caller polls one fixed command. */
-export function usePoll<T>(read: () => Promise<T>, ms: number) {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<MessageKey | "">("");
-  useEffect(() => {
-    let alive = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const tick = async () => {
-      try {
-        const value = await read();
-        if (alive) {
-          setData(value);
-          setError("");
-        }
-      } catch (e) {
-        if (alive) {
-          setData(null);
-          setError(serviceError(e));
-        }
-      }
-      if (alive) timer = setTimeout(() => void tick(), ms);
-    };
-    void tick();
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-  }, []);
-  return { data, error };
-}
+/** Query for a backend command, cached under the command and its arguments. */
+export const commandQuery = <T>(command: string, args?: Record<string, unknown>) =>
+  queryOptions({
+    queryKey: [command, args ?? null],
+    queryFn: () => desktop<T>(command, args),
+  });
+/** Message key for a failed query, or "" while it hasn't failed. */
+export const queryError = (error: unknown): MessageKey | "" =>
+  error ? serviceError(error) : "";
 export async function desktop<T>(
   command: string,
   args?: Record<string, unknown>,

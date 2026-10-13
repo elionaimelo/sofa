@@ -122,29 +122,29 @@ export function filterGames(
 ): Game[] {
   const q = fold(query.trim());
   const f = home ? defaultFilters : p.filters;
+  // Built once per call: libraries can hold thousands of owned games.
+  const hidden = new Set(p.hidden);
+  const favorites = new Set(p.favorites);
+  const wanted = new Set(f.categories);
   return games
     .filter((g) => {
       if (home && !g.installed) return false;
       if (
-        (tab === "hidden"
-          ? !p.hidden.includes(g.id)
-          : p.hidden.includes(g.id)) ||
+        (tab === "hidden" ? !hidden.has(g.id) : hidden.has(g.id)) ||
         !(
           tab === "all" ||
           tab === "hidden" ||
-          (tab === "favorites" ? p.favorites.includes(g.id) : g.source === tab)
+          (tab === "favorites" ? favorites.has(g.id) : g.source === tab)
         ) ||
-        !fold(g.title).includes(q)
+        (q !== "" && !fold(g.title).includes(q))
       )
         return false;
       if (
-        f.categories.length &&
-        !gameCategories(g.id, p, catalog).some((label) =>
-          f.categories.includes(categoryKey(label)),
-        )
+        wanted.size &&
+        !gameCategories(g.id, p, catalog).some((label) => wanted.has(categoryKey(label)))
       )
         return false;
-      if (f.favoritesOnly && !p.favorites.includes(g.id)) return false;
+      if (f.favoritesOnly && !favorites.has(g.id)) return false;
       const played = p.recent[g.id];
       if (f.played === "never" && played) return false;
       if (f.played === "recent7" || f.played === "recent30") {
@@ -184,6 +184,7 @@ export function cleanCategories(value: unknown): string[] {
   for (const item of value) {
     if (typeof item !== "string") continue;
     const label = item.trim().replace(/\s+/g, " ");
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting control characters is the point.
     if (!label || label.length > 60 || /[\u0000-\u001f]/.test(label)) continue;
     if (!found.has(categoryKey(label))) found.set(categoryKey(label), label);
     if (found.size >= 40) break;

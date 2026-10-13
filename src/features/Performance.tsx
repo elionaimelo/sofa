@@ -1,4 +1,5 @@
-import { useEffect, useState, type ComponentType } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, type ComponentType } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
@@ -16,7 +17,7 @@ import {
 } from "@phosphor-icons/react";
 import type { Translate } from "../i18n";
 import type { Game } from "../library";
-import { desktop, navigateSpatial, serviceError, usePoll, type MessageKey } from "../services";
+import { commandQuery, desktop, navigateSpatial, queryError, serviceError } from "../services";
 import { useInput } from "../useInput";
 import { BatteryPanels, usePower } from "./Power";
 import { initialLang, translator } from "../i18n";
@@ -35,32 +36,19 @@ type DisplayStatus = {
 type AllyProfile = "silent" | "balanced" | "turbo";
 const profileIcons = { silent: MoonIcon, balanced: ScalesIcon, turbo: LightningIcon };
 function AllyProfiles({ t, onMessage }: { t: Translate; onMessage: (m: string) => void }) {
-  const [supported, setSupported] = useState(false);
-  const [checking, setChecking] = useState(true);
-  const [busy, setBusy] = useState(false);
+  // The device model doesn't change while Sofa runs.
+  const status = useQuery({ ...commandQuery<{ supported: boolean }>("ally_status"), staleTime: Infinity });
+  const supported = !!status.data?.supported;
   // ponytail: highlights what Sofa requested this session; read DSTS 0x00120075 if Armoury Crate changes drift.
   const [active, setActive] = useState<AllyProfile | null>(null);
-  useEffect(() => {
-    let alive = true;
-    void desktop<{ supported: boolean }>("ally_status")
-      .then((status) => { if (alive) setSupported(status.supported); })
-      .catch(() => { if (alive) setSupported(false); })
-      .finally(() => { if (alive) setChecking(false); });
-    return () => { alive = false; };
-  }, []);
-  const apply = async (profile: AllyProfile) => {
-    if (!supported || busy) return;
-    setBusy(true);
-    try {
-      await desktop("set_ally_profile", { profile });
+  const apply = useMutation({
+    mutationFn: (profile: AllyProfile) => desktop("set_ally_profile", { profile }),
+    onSuccess: (_, profile) => {
       setActive(profile);
       onMessage(t("allyProfileSent", { profile: t(`ally_${profile}`) }));
-    } catch (error) {
-      onMessage(t(serviceError(error)));
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+    onError: (error) => onMessage(t(serviceError(error))),
+  });
   return (
     <section className="ally-profiles" aria-label={t("allyProfiles")}>
       <h2>{t("allyProfiles")}</h2>
@@ -71,8 +59,8 @@ function AllyProfiles({ t, onMessage }: { t: Translate; onMessage: (m: string) =
             <button
               key={profile}
               aria-pressed={active === profile}
-              disabled={!supported || busy}
-              onClick={() => void apply(profile)}
+              disabled={!supported || apply.isPending}
+              onClick={() => apply.mutate(profile)}
             >
               <Icon size={22} aria-hidden />
               <strong>{t(`ally_${profile}`)}</strong>
@@ -81,7 +69,7 @@ function AllyProfiles({ t, onMessage }: { t: Translate; onMessage: (m: string) =
           );
         })}
       </div>
-      {!checking && !supported && <p className="muted">{t("allyUnavailable")}</p>}
+      {!status.isPending && !supported && <p className="muted">{t("allyUnavailable")}</p>}
     </section>
   );
 }
@@ -126,31 +114,29 @@ function Tile({
 }
 export function Hud() {
   const t = translator(initialLang());
-  const { data: metrics, error } = usePoll(() => desktop<Metrics>("system_metrics"), 2000);
-  const game = usePoll(() => desktop<Game | null>("current_game"), 5000).data;
+  const metricsQuery = useQuery({ ...commandQuery<Metrics>("system_metrics"), refetchInterval: 2000 });
+  const metrics = metricsQuery.data;
+  const game = useQuery({ ...commandQuery<Game | null>("current_game"), refetchInterval: 5000 }).data;
   const power = usePower();
-  const [display, setDisplay] = useState<DisplayStatus | null>(null);
+  const display = useQuery(commandQuery<DisplayStatus>("display_status")).data;
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState<"resolution" | "refresh" | "brightness" | null>(null);
-  const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const refresh = () =>
-    desktop<DisplayStatus>("display_status").then(setDisplay).catch(() => setDisplay(null));
-  useEffect(() => void refresh(), []);
-  const run = async (command: string, args: Record<string, unknown>) => {
-    if (busy) return;
-    setBusy(true);
-    setMessage("");
-    try {
-      await desktop(command, args);
+  const change = useMutation({
+    mutationFn: ({ command, args }: { command: string; args: Record<string, unknown> }) =>
+      desktop(command, args),
+    onMutate: () => setMessage(""),
+    onSuccess: () => {
       // The focused option is about to unmount; keep controller focus on its tile.
       document.querySelector<HTMLElement>(".hud-tile[aria-expanded='true']")?.focus();
       setOpen(null);
-      await refresh();
-    } catch (e) {
-      setMessage(t(serviceError(e)));
-    } finally {
-      setBusy(false);
-    }
+      return queryClient.invalidateQueries({ queryKey: ["display_status"] });
+    },
+    onError: (error) => setMessage(t(serviceError(error))),
+  });
+  const busy = change.isPending;
+  const run = (command: string, args: Record<string, unknown>) => {
+    if (!busy) change.mutate({ command, args });
   };
   const close = () => {
     if (isTauri()) void getCurrentWindow().close();
@@ -169,8 +155,7 @@ export function Hud() {
     : [];
   // A new resolution keeps the current refresh rate when the panel supports it there.
   const pickResolution = (m: Mode) =>
-    display?.modes.find((o) => same(o, m.width, m.height) && o.refresh === current?.refresh) ??
-    display?.modes.find((o) => same(o, m.width, m.height))!;
+    display?.modes.find((o) => same(o, m.width, m.height) && o.refresh === current?.refresh) ?? m;
   const options =
     open === "resolution"
       ? resolutions.map((m) => ({
@@ -274,7 +259,9 @@ export function Hud() {
         />
       </div>
       <BatteryPanels t={t} data={power.data} error={power.error} />
-      {(message || error) && <p role="status">{message || t(error as MessageKey)}</p>}
+      {(message || metricsQuery.error) && (
+        <p role="status">{message || t(queryError(metricsQuery.error) || "serviceUnavailable")}</p>
+      )}
     </main>
   );
 }
@@ -290,6 +277,7 @@ function Options({
       {options.map((o) => (
         <button
           key={o.label}
+          // biome-ignore lint/a11y/noAutofocus: the controller needs focus on the current value when the list opens.
           autoFocus={o.selected}
           aria-pressed={o.selected}
           disabled={disabled}

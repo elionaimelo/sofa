@@ -692,7 +692,9 @@ dialog::backdrop {
   *,
   *::before,
   *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must beat every component transition. */
     transition: none !important;
+    /* biome-ignore lint/complexity/noImportantStyles: same as above. */
     scroll-behavior: auto !important;
   }
 }

@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 
+# Agent skills are restored from skills-lock.json (npx skills experimental_install)
+.agents/
+.claude/skills/
