@@ -41,6 +41,8 @@
                 <PinningSupported>true</PinningSupported>
                 <ActivateAfterInstall>true</ActivateAfterInstall>
                 <FavoriteAfterInstall>true</FavoriteAfterInstall>
+                <!-- Handheld (compact) Game Bar: list Sofa before other widgets. -->
+                <CompactModePriorityPlacement>true</CompactModePriorityPlacement>
                 <Window>
                   <Size>
                     <Height>640</Height>
