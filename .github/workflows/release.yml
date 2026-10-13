@@ -7,8 +7,11 @@ on:
 permissions:
   contents: write
 
+# Three jobs so the slow parts overlap: `check` (lint + tests) runs alongside the build and
+# gates publishing (only publish the draft when every job is green); `widget` builds the
+# Game Bar package that `release` bundles into the installer.
 jobs:
-  windows:
+  check:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -16,18 +19,27 @@ jobs:
         with:
           node-version: lts/*
           cache: npm
-      - uses: dtolnay/rust-toolchain@stable
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          cache-on-failure: true
       - run: npm ci
       - run: npx biome ci
       - run: npm test
       # The Rust build bundles ../dist as a resource (HUD server), so build the frontend first.
       - run: npm run build
       - run: cargo test --manifest-path src-tauri/Cargo.toml
-      # Xbox Game Bar widget (widget/): UWP app signed with the same cert; the installer sideloads it.
+
+  # Xbox Game Bar widget (widget/): UWP app signed with the same cert; the installer sideloads it.
+  widget:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
       - uses: microsoft/setup-msbuild@v3
+      - uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ hashFiles('widget/Sofa.Widget.csproj') }}
       - name: Build Game Bar widget
         env:
           IDENTITY_PFX_BASE64: ${{ secrets.IDENTITY_PFX_BASE64 }}
@@ -44,10 +56,34 @@ jobs:
             -p:AppxPackageDir="$env:RUNNER_TEMP/widget-out/"
           Remove-Item $pfx
           $out = Get-ChildItem "$env:RUNNER_TEMP/widget-out" -Directory | Select-Object -First 1
-          $dest = 'src-tauri/packaging/widget'
+          $dest = "$env:RUNNER_TEMP/widget"
           New-Item "$dest/Dependencies" -ItemType Directory -Force | Out-Null
           Copy-Item "$($out.FullName)/*.msix" "$dest/Sofa.Widget.msix"
           Copy-Item "$($out.FullName)/Dependencies/x64/*.appx" "$dest/Dependencies"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: widget
+          path: ${{ runner.temp }}/widget
+          if-no-files-found: error
+
+  release:
+    runs-on: windows-latest
+    needs: widget
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-on-failure: true
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: widget
+          path: src-tauri/packaging/widget
       # Sparse MSIX that gives Sofa.exe a package identity (Xbox full screen experience home app).
       # Signed with the self-signed "CN=Sofa" cert; the installer trusts its public half.
       - name: Build identity package

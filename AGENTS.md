@@ -38,6 +38,6 @@ Agent skills (TanStack Query, React composition, web interface guidelines) are p
 
 1. Bump the version in `package.json`, `package-lock.json` (top two entries), `src-tauri/Cargo.toml`, the `sofa` entry in `src-tauri/Cargo.lock` and the user agent in `src-tauri/src/network.rs`.
 2. Commit, push to `main`, push tag `vX.Y.Z`.
-3. CI builds the signed NSIS installer and `latest.json` into a draft release. Publish the draft; installed apps pick it up from `releases/latest/download/latest.json`.
+3. CI runs three jobs: `check` (Biome, tests, `cargo test`), `widget` (Game Bar package) and `release` (installer + `latest.json` into a draft release). `check` runs in parallel and doesn't block the draft, so publish only when **all three** are green; installed apps pick it up from `releases/latest/download/latest.json`.
 
 The updater only offers a higher version than the installed one; never re-release the same number.
