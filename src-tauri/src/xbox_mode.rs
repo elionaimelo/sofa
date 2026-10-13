@@ -67,7 +67,7 @@ fn gaming_api(name: &std::ffi::CStr) -> Option<unsafe extern "system" fn() -> is
 }
 
 #[cfg(windows)]
-fn active() -> Option<bool> {
+pub(crate) fn active() -> Option<bool> {
     let f = gaming_api(c"IsGamingFullScreenExperienceActive")?;
     // BOOL IsGamingFullScreenExperienceActive(void)
     let f: unsafe extern "system" fn() -> i32 = unsafe { std::mem::transmute(f) };
@@ -85,6 +85,11 @@ fn enter() -> Result<(), String> {
         hr if hr == 0x8007_015E_u32 as i32 => Err("restartRequired".into()),
         _ => Err("settingUnavailable".into()),
     }
+}
+
+#[cfg(not(windows))]
+pub(crate) fn active() -> Option<bool> {
+    None
 }
 
 #[cfg(not(windows))]

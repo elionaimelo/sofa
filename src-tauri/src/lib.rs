@@ -12,6 +12,7 @@ mod accounts;
 mod ally;
 mod display;
 mod xbox_mode;
+mod hud_server;
 
 use tauri::Manager;
 
@@ -58,11 +59,20 @@ pub fn run() {
         .setup(|app| {
             #[cfg(windows)]
             hud::watch_controller(app.handle().clone());
-            // Launched by the Xbox full screen experience (see packaging/AppxManifest.xml).
-            if std::env::args().any(|a| a == "--fse") {
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.set_fullscreen(true);
-                }
+            hud_server::start(app.handle().clone());
+            // Launched by the Xbox full screen experience (`--fse`, see packaging/AppxManifest.xml)
+            // or opened while Xbox mode is on: Sofa is the console UI, so no window chrome.
+            // Xbox mode re-lays out the window after activation; apply again once it settles.
+            if std::env::args().any(|a| a == "--fse") || xbox_mode::active() == Some(true) {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    for delay in [0, 500, 2000] {
+                        tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+                        if let Some(w) = handle.get_webview_window("main") {
+                            let _ = w.set_fullscreen(true);
+                        }
+                    }
+                });
             }
             Ok(())
         })

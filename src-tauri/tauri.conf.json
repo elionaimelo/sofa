@@ -37,7 +37,8 @@
     ],
     "createUpdaterArtifacts": true,
     "resources": [
-      "packaging/**/*"
+      "packaging/**/*",
+      "../dist/**/*"
     ],
     "windows": {
       "nsis": {

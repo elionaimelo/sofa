@@ -183,12 +183,25 @@ export const commandQuery = <T>(
 /** Message key for a failed query, or "" while it hasn't failed. */
 export const queryError = (error: unknown): MessageKey | "" =>
   error ? serviceError(error) : "";
+/** The Game Bar widget loads the HUD from Sofa's local server, which exposes HUD commands over HTTP. */
+const servedBySofa = () =>
+  typeof location !== "undefined" &&
+  location.hostname === "127.0.0.1" &&
+  location.port === "47811";
 export async function desktop<T>(
   command: string,
   args?: Record<string, unknown>,
 ): Promise<T> {
-  if (!isTauri()) throw "desktopRequired";
-  return invoke<T>(command, args);
+  if (isTauri()) return invoke<T>(command, args);
+  if (!servedBySofa()) throw "desktopRequired";
+  const response = await fetch(`/api/${command}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(args ?? {}),
+  });
+  const body = await response.json();
+  if (!response.ok) throw body.error ?? "serviceUnavailable";
+  return body as T;
 }
 export type Deal = {
   gameID: string;
