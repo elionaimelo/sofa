@@ -6,6 +6,7 @@ import {
   ArrowsOutIcon,
   CaretDownIcon,
   CpuIcon,
+  GameControllerIcon,
   LightningIcon,
   MemoryIcon,
   MoonIcon,
@@ -14,7 +15,8 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import type { Translate } from "../i18n";
-import { desktop, navigateSpatial, serviceError } from "../services";
+import type { Game } from "../library";
+import { desktop, navigateSpatial, serviceError, usePoll, type MessageKey } from "../services";
 import { useInput } from "../useInput";
 import { BatteryPanels, usePower } from "./Power";
 import { initialLang, translator } from "../i18n";
@@ -31,9 +33,6 @@ type DisplayStatus = {
   cpu_boost: boolean | null;
 };
 type AllyProfile = "silent" | "balanced" | "turbo";
-type Key = Parameters<Translate>[0];
-const errorKey = (e: unknown) =>
-  (String(e) === "desktopRequired" ? "desktopRequired" : serviceError(e)) as Key;
 const profileIcons = { silent: MoonIcon, balanced: ScalesIcon, turbo: LightningIcon };
 function AllyProfiles({ t, onMessage }: { t: Translate; onMessage: (m: string) => void }) {
   const [supported, setSupported] = useState(false);
@@ -57,7 +56,7 @@ function AllyProfiles({ t, onMessage }: { t: Translate; onMessage: (m: string) =
       setActive(profile);
       onMessage(t("allyProfileSent", { profile: t(`ally_${profile}`) }));
     } catch (error) {
-      onMessage(t(errorKey(error)));
+      onMessage(t(serviceError(error)));
     } finally {
       setBusy(false);
     }
@@ -85,35 +84,6 @@ function AllyProfiles({ t, onMessage }: { t: Translate; onMessage: (m: string) =
       {!checking && !supported && <p className="muted">{t("allyUnavailable")}</p>}
     </section>
   );
-}
-function useMetrics() {
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    let alive = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const sample = async () => {
-      try {
-        const value = await desktop<Metrics>("system_metrics");
-        if (alive) {
-          setMetrics(value);
-          setError("");
-        }
-      } catch (e) {
-        if (alive) {
-          setMetrics(null);
-          setError(errorKey(e));
-        }
-      }
-      if (alive) timer = setTimeout(() => void sample(), 2000);
-    };
-    void sample();
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-  }, []);
-  return { metrics, error };
 }
 function Tile({
   icon: Icon,
@@ -156,7 +126,8 @@ function Tile({
 }
 export function Hud() {
   const t = translator(initialLang());
-  const { metrics, error } = useMetrics();
+  const { data: metrics, error } = usePoll(() => desktop<Metrics>("system_metrics"), 2000);
+  const game = usePoll(() => desktop<Game | null>("current_game"), 5000).data;
   const power = usePower();
   const [display, setDisplay] = useState<DisplayStatus | null>(null);
   const [open, setOpen] = useState<"resolution" | "refresh" | "brightness" | null>(null);
@@ -176,7 +147,7 @@ export function Hud() {
       setOpen(null);
       await refresh();
     } catch (e) {
-      setMessage(t(errorKey(e)));
+      setMessage(t(serviceError(e)));
     } finally {
       setBusy(false);
     }
@@ -232,6 +203,22 @@ export function Hud() {
           <XIcon />
         </button>
       </header>
+      <section className="hud-now" aria-label={t("hudNowPlaying")}>
+        {game ? (
+          <>
+            {game.cover && <img src={game.cover} alt="" />}
+            <div>
+              <small>{t("hudNowPlaying")}</small>
+              <strong>{game.title}</strong>
+            </div>
+          </>
+        ) : (
+          <>
+            <GameControllerIcon size={28} aria-hidden />
+            <p>{t("hudNoGame")}</p>
+          </>
+        )}
+      </section>
       <AllyProfiles t={t} onMessage={setMessage} />
       <div className="hud-tiles">
         <Tile
@@ -287,7 +274,7 @@ export function Hud() {
         />
       </div>
       <BatteryPanels t={t} data={power.data} error={power.error} />
-      {(message || error) && <p role="status">{message || t(error as Key)}</p>}
+      {(message || error) && <p role="status">{message || t(error as MessageKey)}</p>}
     </main>
   );
 }

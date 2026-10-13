@@ -25,6 +25,10 @@ test("unknown network errors never surface URLs or credentials", () => {
     "serviceUnavailable",
   );
   assert.equal(serviceError("rateLimit"), "rateLimit");
+  assert.equal(serviceError("desktopRequired"), "desktopRequired");
+  // Feature-specific keys pass only where the caller allows them.
+  assert.equal(serviceError("uninstallBusy"), "serviceUnavailable");
+  assert.equal(serviceError("uninstallBusy", ["uninstallBusy"]), "uninstallBusy");
 });
 test("prices use the provider currency and reject malformed numeric values", () => {
   assert.equal(usd("20.99", "en"), "$20.99");

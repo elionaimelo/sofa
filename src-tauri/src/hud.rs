@@ -69,6 +69,13 @@ fn show_hud(app: &tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// The Steam game running now, with its library title and cover.
+#[tauri::command]
+pub async fn current_game() -> Option<crate::library::Game> {
+    let id = format!("steam:{}", crate::library::running_steam_app()?);
+    crate::library::scan().into_iter().find(|game| game.id == id)
+}
+
 #[tauri::command]
 pub async fn open_hud(app: tauri::AppHandle) -> Result<(), String> {
     show_hud(&app)

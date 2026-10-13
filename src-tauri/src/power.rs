@@ -198,15 +198,7 @@ pub async fn perform_power(
         }
         tauri::async_runtime::spawn_blocking(move || {
             use std::os::windows::process::CommandExt;
-            use windows_sys::Win32::System::SystemInformation::GetSystemDirectoryW;
-            let mut buffer = [0u16; 32768];
-            let length =
-                unsafe { GetSystemDirectoryW(buffer.as_mut_ptr(), buffer.len() as u32) } as usize;
-            if length == 0 || length >= buffer.len() {
-                return Err("powerFailed".to_string());
-            }
-            let executable = std::path::PathBuf::from(String::from_utf16_lossy(&buffer[..length]))
-                .join("shutdown.exe");
+            let executable = crate::system_exe("shutdown.exe").ok_or("powerFailed")?;
             let result = std::process::Command::new(executable)
                 .args(shutdown_args(action))
                 .creation_flags(0x08000000)

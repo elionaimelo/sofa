@@ -16,6 +16,7 @@ import {
   navigateControls,
   parseWishlist,
   serviceError,
+  type MessageKey,
   usd,
   useFeatureInput,
   type Deal,
@@ -42,7 +43,7 @@ export function Store({
   const [deals, setDeals] = useState<Deal[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<MessageKey | "">("");
   const [status, setStatus] = useState("");
   const storageKey = demo ? "sofa.demo.wishlist" : "sofa.wishlist";
   const [wishlist, setWishlist] = useState(() =>
@@ -51,7 +52,7 @@ export function Store({
   const [selected, setSelected] = useState<Deal | null>(null);
   const [partners, setPartners] = useState<PartnerOffer[]>([]);
   const [comparison, setComparison] = useState<StoreGame | null>(null);
-  const [compareError, setCompareError] = useState("");
+  const [compareError, setCompareError] = useState<MessageKey | "">("");
   const [compareRetry, setCompareRetry] = useState(0);
   const [focus, setFocus] = useState(0);
   const grid = useRef<HTMLDivElement>(null);
@@ -85,9 +86,7 @@ export function Store({
       } catch (e) {
         if (alive)
           setError(
-            String(e) === "desktopRequired"
-              ? "desktopRequired"
-              : serviceError(e),
+            serviceError(e),
           );
       } finally {
         if (alive) setLoading(false);
@@ -183,7 +182,7 @@ export function Store({
     try {
       await desktop("open_deal", { id });
     } catch (e) {
-      setStatus(t(serviceError(e) as Parameters<Translate>[0]));
+      setStatus(t(serviceError(e)));
     }
   };
   useFeatureInput(input, (a) => {
@@ -290,7 +289,7 @@ export function Store({
         </div>
       ) : error && tab === "discover" ? (
         <div className="feature-empty" role="alert">
-          <h2>{t(error as Parameters<Translate>[0])}</h2>
+          <h2>{t(error as MessageKey)}</h2>
           <button onClick={() => setRefresh((n) => n + 1)}>{t("retry")}</button>
         </div>
       ) : !visible.length ? (
@@ -386,7 +385,7 @@ export function Store({
             </div>
             {compareError ? (
               <div className="inline-error" role="alert">
-                {t(compareError as Parameters<Translate>[0])}
+                {t(compareError as MessageKey)}
                 <button onClick={() => setCompareRetry((n) => n + 1)}>
                   {t("retry")}
                 </button>
@@ -452,7 +451,7 @@ export function Store({
                           id: offer.id,
                         }).catch((e) =>
                           setStatus(
-                            t(serviceError(e) as Parameters<Translate>[0]),
+                            t(serviceError(e)),
                           ),
                         );
                       }}

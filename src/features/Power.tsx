@@ -18,6 +18,8 @@ import {
   desktop,
   navigateControls,
   serviceError,
+  usePoll,
+  type MessageKey,
   useFeatureInput,
   type InputRef,
 } from "../services";
@@ -41,39 +43,7 @@ export type PowerStatus = {
   controller_battery_supported: boolean;
   actions: Record<PowerAction, boolean>;
 };
-export function usePower() {
-  const [data, setData] = useState<PowerStatus | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    let alive = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const read = async () => {
-      try {
-        const result = await desktop<PowerStatus>("power_status");
-        if (alive) {
-          setData(result);
-          setError("");
-        }
-      } catch (e) {
-        if (alive) {
-          setData(null);
-          setError(
-            String(e) === "desktopRequired"
-              ? "desktopRequired"
-              : serviceError(e),
-          );
-        }
-      }
-      if (alive) timer = setTimeout(() => void read(), 5000);
-    };
-    void read();
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-  }, []);
-  return { data, error };
-}
+export const usePower = () => usePoll(() => desktop<PowerStatus>("power_status"), 5000);
 export function BatteryPanels({
   t,
   data,
@@ -81,7 +51,7 @@ export function BatteryPanels({
 }: {
   t: Translate;
   data: PowerStatus | null;
-  error: string;
+  error: MessageKey | "";
 }) {
   const wh = (value: number | null) =>
     value == null ? "—" : `${value.toFixed(1)} Wh`;
@@ -92,7 +62,7 @@ export function BatteryPanels({
       <h2>{t("deviceBattery")}</h2>
       {!data ? (
         <p className="muted">
-          {t(error ? (error as Parameters<Translate>[0]) : "sampling")}
+          {t(error || "sampling")}
         </p>
       ) : !data.batteries.length ? (
         <p className="muted">
@@ -196,7 +166,7 @@ export function PowerMenu({
 }) {
   const [action, setAction] = useState<PowerAction | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<MessageKey | "">("");
   useEffect(() => {
     if (action)
       document
@@ -225,7 +195,7 @@ export function PowerMenu({
       onClose();
     } catch (e) {
       setError(
-        String(e) === "desktopRequired" ? "desktopRequired" : serviceError(e),
+        serviceError(e),
       );
     } finally {
       setBusy(false);
@@ -297,7 +267,7 @@ export function PowerMenu({
         )}
         {error && (
           <p className="inline-error" role="alert">
-            {t(error as Parameters<Translate>[0])}
+            {t(error as MessageKey)}
           </p>
         )}
       </div>

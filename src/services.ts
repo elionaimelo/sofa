@@ -1,7 +1,9 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { MutableRefObject } from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import type { Translate } from "./i18n";
 import type { Action } from "./useInput";
+export type MessageKey = Parameters<Translate>[0];
 export const demo =
   import.meta.env?.DEV &&
   !isTauri() &&
@@ -116,35 +118,64 @@ export function navigateSpatial(a: Action, root: Element | null, initial?: HTMLE
   }
   return true;
 }
-export const serviceError = (error: unknown): string => {
-  const key = String(error);
-  return [
-    "network",
-    "rateLimit",
-    "authFailed",
-    "privateProfile",
-    "accessDenied",
-    "serviceUnavailable",
-    "invalidResponse",
-    "invalidInput",
-    "invalidSteamAccount",
-    "notConnected",
-    "openFailed",
-    "batteryUnavailable",
-    "powerFailed",
-    "powerUnavailable",
-    "powerControlUnavailable",
-    "hibernateUnavailable",
-    "confirmationRequired",
-    "affiliateNotConfigured",
-    "installUnavailable",
-    "steamLoginCancelled",
-    "steamSessionExpired",
-    "settingUnavailable",
-  ].includes(key)
-    ? key
-    : "serviceUnavailable";
+const serviceErrors: MessageKey[] = [
+  "network",
+  "rateLimit",
+  "authFailed",
+  "accessDenied",
+  "serviceUnavailable",
+  "invalidResponse",
+  "invalidInput",
+  "notConnected",
+  "openFailed",
+  "desktopRequired",
+  "batteryUnavailable",
+  "powerFailed",
+  "powerUnavailable",
+  "powerControlUnavailable",
+  "hibernateUnavailable",
+  "confirmationRequired",
+  "affiliateNotConfigured",
+  "installUnavailable",
+  "steamLoginCancelled",
+  "steamSessionExpired",
+  "settingUnavailable",
+];
+/** Message key for a backend error; anything else (URLs, OS text) becomes serviceUnavailable. */
+export const serviceError = (error: unknown, known: MessageKey[] = []): MessageKey => {
+  const key = String(error) as MessageKey;
+  return serviceErrors.includes(key) || known.includes(key) ? key : "serviceUnavailable";
 };
+/** Runs `read` now and every `ms` while mounted; each caller polls one fixed command. */
+export function usePoll<T>(read: () => Promise<T>, ms: number) {
+  const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState<MessageKey | "">("");
+  useEffect(() => {
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = async () => {
+      try {
+        const value = await read();
+        if (alive) {
+          setData(value);
+          setError("");
+        }
+      } catch (e) {
+        if (alive) {
+          setData(null);
+          setError(serviceError(e));
+        }
+      }
+      if (alive) timer = setTimeout(() => void tick(), ms);
+    };
+    void tick();
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, []);
+  return { data, error };
+}
 export async function desktop<T>(
   command: string,
   args?: Record<string, unknown>,

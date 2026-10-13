@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { TrashIcon } from "@phosphor-icons/react";
-import { desktop, demo, serviceError } from "../services";
+import { desktop, demo, serviceError, type MessageKey } from "../services";
 import type { Translate } from "../i18n";
 import type { Game } from "../library";
 export function Uninstall({
@@ -14,7 +14,7 @@ export function Uninstall({
 }) {
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<MessageKey | "">("");
   const cancel = useRef<HTMLButtonElement>(null);
   const request = useRef(false);
   useEffect(() => {
@@ -32,21 +32,14 @@ export function Uninstall({
       });
       onStarted(game.id, completed);
     } catch (e) {
-      setError(
-        [
-          "confirmationRequired",
+      setError(serviceError(e, ["confirmationRequired",
           "uninstallUnavailable",
           "gameNoLongerInstalled",
           "unsafeUninstallPath",
           "invalidUninstallManifest",
           "uninstallFailed",
           "uninstallTitleRunning",
-          "uninstallBusy",
-          "desktopRequired",
-        ].includes(String(e))
-          ? String(e)
-          : serviceError(e),
-      );
+          "uninstallBusy",]));
     } finally {
       request.current = false;
       setBusy(false);
@@ -103,7 +96,7 @@ export function Uninstall({
       {demo && <p className="uninstall-note">{t("previewUninstall")}</p>}
       {error && (
         <p className="inline-error" role="alert">
-          {t(error as Parameters<Translate>[0])}
+          {t(error as MessageKey)}
         </p>
       )}
     </section>

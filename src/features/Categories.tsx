@@ -51,13 +51,20 @@ export function useCategories(games: Game[]) {
   const [ready, setReady] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const [revision, setRevision] = useState(0);
+  // Rescans hand over a new array every few seconds; only a different set of Steam ids restarts the fetch.
+  const steamIds = games
+    .filter((g) => g.source === "steam")
+    .map((g) => g.id)
+    .sort()
+    .join(",");
   useEffect(() => {
     if (demo) {
       setCatalog(demoCategories);
       setReady(true);
       return;
     }
-    if (!isTauri() || !games.length) return;
+    const ids = steamIds ? steamIds.split(",") : [];
+    if (!isTauri() || !ids.length) return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let wake: (() => void) | undefined;
@@ -81,20 +88,19 @@ export function useCategories(games: Game[]) {
       } catch {
         /* Online results still work if cache is unreadable. */
       }
-      const pending = games.filter(
-        (g) =>
-          g.source === "steam" &&
-          (!cached[g.id]?.labels.length ||
-            Date.now() / 1000 - cached[g.id].updated >= 30 * 86400),
+      const pending = ids.filter(
+        (id) =>
+          !cached[id]?.labels.length ||
+          Date.now() / 1000 - cached[id].updated >= 30 * 86400,
       );
-      for (const game of pending) {
+      for (const id of pending) {
         if (!alive) break;
         try {
           const result = cleanCategories(
-            await invoke<string[]>("game_categories", { id: game.id }),
+            await invoke<string[]>("game_categories", { id }),
           );
           if (alive)
-            setCatalog((previous) => ({ ...previous, [game.id]: result }));
+            setCatalog((previous) => ({ ...previous, [id]: result }));
         } catch (e) {
           if (alive) setUnavailable(true);
           // Stop requests when offline or throttled; cached labels and manual categories stay usable.
@@ -118,7 +124,7 @@ export function useCategories(games: Game[]) {
       clearTimeout(timer);
       wake?.();
     };
-  }, [games, revision]);
+  }, [steamIds, revision]);
   return {
     catalog,
     ready,

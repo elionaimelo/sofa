@@ -72,10 +72,7 @@ pub async fn game_categories(
     app: tauri::AppHandle,
     cache: State<'_, CategoryCache>,
 ) -> Result<Vec<String>, String> {
-    let app_id = id
-        .strip_prefix("steam:")
-        .filter(|v| !v.is_empty() && v.len() <= 10 && v.bytes().all(|b| b.is_ascii_digit()))
-        .ok_or("invalidGame")?;
+    let app_id = crate::library::steam_app_id(&id).ok_or("invalidGame")?;
     let cached = load(&app, &cache)?;
     if let Some(entry) = cached.get(&id) {
         let ttl = if entry.labels.is_empty() {
@@ -91,14 +88,12 @@ pub async fn game_categories(
     let html = network::text(
         network::client()?
             .get(format!("https://store.steampowered.com/app/{app_id}/"))
+            // Adult birth date so age-gated titles answer with their page, not an /agecheck redirect.
+            .header("cookie", "birthtime=470703601; lastagecheckage=1-January-1985; wants_mature_content=1")
             .query(&[("l", "english")]),
     )
     .await?;
     let labels = parse(&html);
-    // Age gates, removed games and markup changes are unknown, not an empty classification.
-    if labels.is_empty() {
-        return Err("categoriesUnavailable".into());
-    }
     let mut guard = cache.0.lock().map_err(|_| "serviceUnavailable")?;
     let entries = guard.get_or_insert_with(BTreeMap::new);
     if entries.len() >= 5000 && !entries.contains_key(&id) {
@@ -129,6 +124,11 @@ pub async fn game_categories(
                 }
             }
         }
+    }
+    // Removed games and markup changes are unknown, not an empty classification.
+    // Cached anyway (1-day TTL above) so the same title isn't fetched on every run.
+    if labels.is_empty() {
+        return Err("categoriesUnavailable".into());
     }
     Ok(labels)
 }

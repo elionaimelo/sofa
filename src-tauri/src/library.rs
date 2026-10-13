@@ -47,6 +47,38 @@ fn parse_acf(text: &str) -> Option<(String, String)> {
     Some((id?, name?))
 }
 
+/// Numeric app id from a `steam:<appid>` game id; the webview only ever sends ids.
+pub fn steam_app_id(id: &str) -> Option<&str> {
+    id.strip_prefix("steam:")
+        .filter(|v| !v.is_empty() && v.len() <= 10 && v.bytes().all(|b| b.is_ascii_digit()))
+}
+
+pub fn steam_game(app_id: impl std::fmt::Display, title: String, installed: bool) -> Game {
+    Game {
+        cover: Some(format!("https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/library_600x900.jpg")),
+        launch: format!("steam://rungameid/{app_id}"),
+        id: format!("steam:{app_id}"),
+        title,
+        source: "steam",
+        installed,
+    }
+}
+
+/// The Steam app currently running, as reported by the Steam client.
+pub fn running_steam_app() -> Option<u32> {
+    #[cfg(windows)]
+    {
+        use winreg::{RegKey, enums::HKEY_CURRENT_USER};
+        RegKey::predef(HKEY_CURRENT_USER)
+            .open_subkey(r"Software\Valve\Steam")
+            .and_then(|k| k.get_value::<u32, _>("RunningAppID"))
+            .ok()
+            .filter(|id| *id != 0)
+    }
+    #[cfg(not(windows))]
+    None
+}
+
 // Redistributables / runtimes that show up as "installed apps" but aren't games.
 const STEAM_SKIP: &[&str] = &["228980", "1070560", "1391110", "1628350", "1493710"];
 
@@ -88,14 +120,7 @@ fn steam() -> Vec<Game> {
         .filter(|e| e.file_name().to_string_lossy().starts_with("appmanifest_"))
         .filter_map(|e| parse_acf(&fs::read_to_string(e.path()).ok()?))
         .filter(|(id, _)| !STEAM_SKIP.contains(&id.as_str()))
-        .map(|(id, title)| Game {
-            cover: Some(format!("https://cdn.cloudflare.steamstatic.com/steam/apps/{id}/library_600x900.jpg")),
-            launch: format!("steam://rungameid/{id}"),
-            id: format!("steam:{id}"),
-            title,
-            source: "steam",
-            installed: true,
-        })
+        .map(|(id, title)| steam_game(id, title, true))
         .collect()
 }
 

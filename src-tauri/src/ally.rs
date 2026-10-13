@@ -29,17 +29,9 @@ pub(crate) fn powershell(script: &str) -> Result<String, String> {
     use std::os::windows::process::CommandExt;
     use std::process::Stdio;
     use std::time::{Duration, Instant};
-    use windows_sys::Win32::System::SystemInformation::GetSystemDirectoryW;
 
-    let mut buffer = [0u16; 32768];
-    let length = unsafe { GetSystemDirectoryW(buffer.as_mut_ptr(), buffer.len() as u32) } as usize;
-    if length == 0 || length >= buffer.len() {
-        return Err("powerControlUnavailable".into());
-    }
-    let executable = std::path::PathBuf::from(String::from_utf16_lossy(&buffer[..length]))
-        .join("WindowsPowerShell")
-        .join("v1.0")
-        .join("powershell.exe");
+    let executable = crate::system_exe(r"WindowsPowerShell\v1.0\powershell.exe")
+        .ok_or("powerControlUnavailable")?;
     let mut child = std::process::Command::new(executable)
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
         .creation_flags(0x08000000)

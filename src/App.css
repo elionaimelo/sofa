@@ -1089,121 +1089,6 @@ select:focus-visible {
 .best-offer {
   background: #3a242f;
 }
-.account-connect label {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  color: #c9cdd6;
-  font-size: 14px;
-}
-.account-connect {
-  display: grid;
-  grid-template-columns: 1.05fr 1fr;
-  max-width: 1100px;
-  margin-top: 30px;
-  background: #222631;
-  border-radius: 22px;
-  overflow: hidden;
-}
-.account-illustration {
-  padding: 48px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 20px;
-  background:
-    radial-gradient(ellipse at 20% 20%, #3f485b, transparent 70%), #292e3a;
-}
-.account-illustration > svg {
-  color: #d9deea;
-}
-.account-illustration h2 {
-  font-size: 40px;
-  font-weight: 600;
-}
-.account-illustration p {
-  color: #b9c1d0;
-  line-height: 1.6;
-  max-width: 40ch;
-}
-.account-connect form {
-  padding: 40px;
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-}
-.account-connect form h2 {
-  font-size: 24px;
-  font-weight: 600;
-}
-.account-connect .text-button {
-  padding: 0;
-  background: none;
-  border: 0;
-  color: #e6b4c3;
-}
-.friend-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 14px;
-  margin-top: 26px;
-}
-.friend-card {
-  justify-content: flex-start;
-  text-align: left;
-  gap: 16px;
-  padding: 18px;
-  background: #242a35;
-  border: 0;
-  border-radius: 14px;
-}
-.friend-card > img {
-  width: 58px;
-  height: 58px;
-  border-radius: 15px;
-  object-fit: cover;
-  background: #394151;
-}
-.friend-card > span {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-}
-.friend-card strong {
-  font-size: 17px;
-  font-weight: 550;
-  overflow-wrap: anywhere;
-}
-.friend-card span span {
-  font-size: 13px;
-}
-.friend-card > svg {
-  margin-left: auto;
-  color: var(--muted);
-}
-.playing-label {
-  color: #bcdca4;
-}
-.online-label {
-  color: #d7dce9;
-}
-.friend-detail {
-  display: flex;
-  align-items: flex-start;
-  gap: 26px;
-  padding: 36px;
-}
-.friend-detail img {
-  width: 100px;
-  height: 100px;
-  border-radius: 24px;
-}
-.friend-detail > div {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-}
 .floating-hud {
   padding: 14px 16px 18px;
   background: #1b2029;
@@ -1243,6 +1128,36 @@ select:focus-visible {
   font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+.hud-now {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.06);
+  font-size: 13px;
+}
+.hud-now img {
+  width: 40px;
+  height: 60px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.hud-now div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.hud-now small {
+  color: var(--muted);
+}
+.hud-now strong {
+  font-size: 16px;
+  overflow-wrap: anywhere;
 }
 .ally-profile-options {
   display: grid;
@@ -1529,12 +1444,6 @@ select:focus-visible {
     grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
     gap: 18px;
   }
-  .account-illustration {
-    padding: 30px;
-  }
-  .account-connect form {
-    padding: 28px;
-  }
 }
 @media (max-width: 700px) {
   .feature-heading {
@@ -1573,28 +1482,6 @@ select:focus-visible {
   }
   .feature-search > svg {
     display: none;
-  }
-  .account-connect {
-    grid-template-columns: 1fr;
-  }
-  .account-illustration {
-    padding: 26px;
-  }
-  .account-illustration svg {
-    width: 50px;
-    height: 50px;
-  }
-  .account-illustration h2 {
-    font-size: 28px;
-  }
-  .friend-detail {
-    padding: 24px;
-    gap: 18px;
-  }
-  .friend-detail img {
-    width: 60px;
-    height: 60px;
-    border-radius: 16px;
   }
   .offer-row {
     flex-wrap: wrap;
@@ -2444,7 +2331,6 @@ footer kbd {
   font-size: 22px;
 }
 .compare-summary,
-.account-connect label,
 .battery-heading p,
 .battery-card dt,
 .controller-batteries p,

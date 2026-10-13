@@ -10,10 +10,7 @@ impl Drop for Operation<'_> {
 }
 
 fn steam_target(id: &str) -> Result<String, String> {
-    let app_id = id
-        .strip_prefix("steam:")
-        .filter(|v| !v.is_empty() && v.len() <= 10 && v.bytes().all(|b| b.is_ascii_digit()))
-        .ok_or("uninstallUnavailable")?;
+    let app_id = library::steam_app_id(id).ok_or("uninstallUnavailable")?;
     Ok(format!("steam://uninstall/{app_id}"))
 }
 /// Re-resolve a scanned identifier; the webview cannot submit a command, path or uninstall URL.

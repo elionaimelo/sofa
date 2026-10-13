@@ -132,6 +132,9 @@ export default function App() {
   const [launching, setLaunching] = useState(false);
   const [now, setNow] = useState(new Date());
   const t = useMemo(() => translator(lang), [lang]);
+  // Async work reads the current language here, so switching it doesn't rescan or re-check updates.
+  const tRef = useRef(t);
+  tRef.current = t;
   const grid = useRef<HTMLDivElement>(null);
   const featureInput: InputRef = useRef(null);
   const scanBusy = useRef(false),
@@ -157,11 +160,11 @@ export default function App() {
           setOwnedGames(await invoke<Game[]>("refresh_steam_library"));
         } catch (error) {
           // Expired web session: show the connect button again instead of a dead "connected" state.
-          if (serviceError(error) === "steamSessionExpired") {
+          if (["steamSessionExpired", "notConnected"].includes(serviceError(error))) {
             setSteamConnected(false);
             setOwnedGames([]);
           }
-          setStatus(t(serviceError(error) as Parameters<typeof t>[0]));
+          setStatus(tRef.current(serviceError(error)));
         }
       }
     } catch (e) {
@@ -170,7 +173,7 @@ export default function App() {
       scanBusy.current = false;
       setLoading(false);
     }
-  }, [steamConnected, t]);
+  }, [steamConnected]);
   useEffect(() => {
     if (!pendingUninstall) return;
     let alive = true;
@@ -183,7 +186,7 @@ export default function App() {
         if (!installed.some((game) => game.id === pendingUninstall)) {
           setInstalledGames(installed);
           setPendingUninstall(null);
-          setStatus(t("uninstallComplete"));
+          setStatus(tRef.current("uninstallComplete"));
           return;
         }
       } catch {
@@ -191,18 +194,18 @@ export default function App() {
       }
       if (alive && Date.now() >= deadline) {
         setPendingUninstall(null);
-        setStatus(t("uninstallStillInstalled"));
+        setStatus(tRef.current("uninstallStillInstalled"));
       } else if (alive) timer = setTimeout(() => void poll(), 3000);
     };
     void poll();
-    const onFocus = () => void scan();
+    const onFocus = () => void poll();
     window.addEventListener("focus", onFocus);
     return () => {
       alive = false;
       clearTimeout(timer);
       window.removeEventListener("focus", onFocus);
     };
-  }, [pendingUninstall, scan, t]);
+  }, [pendingUninstall]);
   useEffect(() => {
     if (!pendingInstalls.length || demo || !isTauri()) return;
     let active = true;
@@ -222,7 +225,7 @@ export default function App() {
           setPendingInstalls((current) =>
             current.filter((id) => !completed.includes(id)),
           );
-          setStatus(t("installComplete"));
+          setStatus(tRef.current("installComplete"));
         }
       } catch {
         // Retry while the launcher is installing the game.
@@ -238,11 +241,11 @@ export default function App() {
       clearTimeout(timer);
       window.removeEventListener("focus", refresh);
     };
-  }, [pendingInstalls, t]);
+  }, [pendingInstalls]);
   const checkUpdates = useCallback(
     async (manual = false) => {
       if (!isTauri()) {
-        if (manual) setStatus(t("browserPreview"));
+        if (manual) setStatus(tRef.current("browserPreview"));
         return;
       }
       if (checkBusy.current || updateBusy.current) return;
@@ -251,19 +254,32 @@ export default function App() {
       try {
         const next = await check();
         setUpdate(next);
-        if (manual && !next) setStatus(t("noUpdate"));
+        if (manual && !next) setStatus(tRef.current("noUpdate"));
       } catch (e) {
-        if (manual) setStatus(t("updateCheckFailed", { error: String(e) }));
+        if (manual) setStatus(tRef.current("updateCheckFailed", { error: String(e) }));
       } finally {
         checkBusy.current = false;
         setChecking(false);
       }
     },
-    [t],
+    [],
   );
   useEffect(() => {
     void scan();
   }, [scan]);
+  useEffect(() => {
+    if (demo || !isTauri()) return;
+    setSteamBusy(true);
+    invoke<Game[]>("connect_steam_library", { signIn: false })
+      .then((owned) => {
+        setOwnedGames(owned);
+        setSteamConnected(true);
+      })
+      .catch(() => {
+        /* No saved Steam session: the Connect button stays. */
+      })
+      .finally(() => setSteamBusy(false));
+  }, []);
   useEffect(() => {
     void checkUpdates();
     // Sofa can stay open for days as the home app; keep looking for new releases.
@@ -418,12 +434,12 @@ export default function App() {
     if (steamBusy || !isTauri()) return;
     setSteamBusy(true);
     try {
-      const owned = await invoke<Game[]>("connect_steam_library");
+      const owned = await invoke<Game[]>("connect_steam_library", { signIn: true });
       setOwnedGames(owned);
       setSteamConnected(true);
       setStatus(t(owned.length ? "steamLibraryConnected" : "steamNoOwnedGames", { count: String(owned.length) }));
     } catch (error) {
-      setStatus(t(serviceError(error) as Parameters<typeof t>[0]));
+      setStatus(t(serviceError(error)));
     } finally {
       setSteamBusy(false);
     }
@@ -437,14 +453,14 @@ export default function App() {
       setOwnedGames([]);
       setStatus(t("steamLibraryDisconnected"));
     } catch (error) {
-      setStatus(t(serviceError(error) as Parameters<typeof t>[0]));
+      setStatus(t(serviceError(error)));
     } finally {
       setSteamBusy(false);
     }
   };
   const openHud = () => {
     if (!isTauri()) return setStatus(t("browserPreview"));
-    invoke("open_hud").catch((e) => setStatus(t(serviceError(e) as Parameters<typeof t>[0])));
+    invoke("open_hud").catch((e) => setStatus(t(serviceError(e))));
   };
   const installGame = async (game: Game) => {
     if (game.installed) return;
@@ -459,7 +475,7 @@ export default function App() {
       );
       setStatus(t("installRequested", { title: game.title }));
     } catch (error) {
-      setStatus(t(serviceError(error) as Parameters<typeof t>[0]));
+      setStatus(t(serviceError(error)));
     }
   };
   const install = async () => {
