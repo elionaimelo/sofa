@@ -35,7 +35,16 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "resources": [
+      "packaging/**/*"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine",
+        "installerHooks": "./nsis/hooks.nsh"
+      }
+    }
   },
   "plugins": {
     "updater": {

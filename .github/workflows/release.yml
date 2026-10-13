@@ -22,6 +22,26 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - run: cargo test --manifest-path src-tauri/Cargo.toml
+      # Sparse MSIX that gives Sofa.exe a package identity (Xbox full screen experience home app).
+      # Signed with the self-signed "CN=Sofa" cert; the installer trusts its public half.
+      - name: Build identity package
+        env:
+          IDENTITY_PFX_BASE64: ${{ secrets.IDENTITY_PFX_BASE64 }}
+          IDENTITY_PFX_PASSWORD: ${{ secrets.IDENTITY_PFX_PASSWORD }}
+        run: |
+          $bin = (Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\10.*\x64\makeappx.exe' | Sort-Object FullName | Select-Object -Last 1).DirectoryName
+          $src = 'src-tauri/packaging'
+          $stage = "$env:RUNNER_TEMP/identity"
+          New-Item "$stage/Assets" -ItemType Directory -Force | Out-Null
+          Copy-Item "$src/Assets/*" "$stage/Assets"
+          Copy-Item "$src/CustomCapability.SCCD" $stage
+          $ver = (Get-Content package.json | ConvertFrom-Json).version + '.0'
+          (Get-Content "$src/AppxManifest.xml") -replace 'Version="0.0.0.0"', "Version=`"$ver`"" | Set-Content "$stage/AppxManifest.xml"
+          & "$bin\makeappx.exe" pack /d $stage /p "$src/Sofa.Identity.msix" /nv /o
+          $pfx = "$env:RUNNER_TEMP/identity.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:IDENTITY_PFX_BASE64))
+          & "$bin\signtool.exe" sign /fd SHA256 /f $pfx /p $env:IDENTITY_PFX_PASSWORD "$src/Sofa.Identity.msix"
+          Remove-Item $pfx
       # Builds the NSIS installer, signs the updater artifact and publishes latest.json,
       # which the app polls at releases/latest/download/latest.json.
       - uses: tauri-apps/tauri-action@v1

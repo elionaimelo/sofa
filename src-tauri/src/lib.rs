@@ -1,5 +1,7 @@
 mod library;
 
+use tauri::Manager;
+
 #[tauri::command]
 async fn scan_library() -> Vec<library::Game> {
     library::scan()
@@ -23,6 +25,15 @@ async fn launch(id: String) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            // Launched by the Xbox full screen experience (see packaging/AppxManifest.xml).
+            if std::env::args().any(|a| a == "--fse") {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.set_fullscreen(true);
+                }
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
