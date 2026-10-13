@@ -21,6 +21,7 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
+      - run: npx biome ci
       - run: npm test
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       # Sparse MSIX that gives Sofa.exe a package identity (Xbox full screen experience home app).
