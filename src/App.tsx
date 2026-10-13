@@ -23,10 +23,10 @@ import {
   filterGames,
   type Game,
   hero,
-  mergeLibrary,
   parsePreferences,
 } from "./library";
 import { useInput } from "./useInput";
+import { useLibrary } from "./useLibrary";
 import "./App.css";
 import "@fontsource-variable/outfit";
 import {
@@ -54,6 +54,7 @@ import {
   commandQuery,
   demo,
   type InputRef,
+  type MessageKey,
   navigateControls,
   navigateSpatial,
   serviceError,
@@ -67,32 +68,6 @@ const pageIcons = {
 };
 const TABS = ["all", "favorites", "steam", "epic", "gog", "hidden"] as const;
 const preferencesKey = demo ? "sofa.demo.preferences" : "sofa.preferences";
-const demoGames: Game[] = [
-  ["1245620", "ELDEN RING"],
-  ["1091500", "Cyberpunk 2077"],
-  ["1086940", "Baldur's Gate 3"],
-  ["1145360", "Hades"],
-  ["553850", "HELLDIVERS 2"],
-  ["620", "Portal 2"],
-  ["413150", "Stardew Valley"],
-  ["1030300", "Hollow Knight: Silksong"],
-].map(([id, title], index) => ({
-  id: `steam:${id}`,
-  title,
-  source: "steam",
-  launch: "",
-  cover: `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/library_600x900.jpg`,
-  installed: index < 2,
-}));
-demoGames.push({
-  id: "epic:demo-control",
-  title: "Control",
-  source: "epic",
-  launch: "",
-  cover:
-    "https://cdn.cloudflare.steamstatic.com/steam/apps/870780/library_600x900.jpg",
-  installed: true,
-});
 function Cover({ game }: { game: Game }) {
   const [failed, setFailed] = useState(false);
   return (
@@ -124,21 +99,10 @@ function Clock({ lang }: { lang: Lang }) {
   );
 }
 export default function App() {
-  const [installedGames, setInstalledGames] = useState<Game[]>([]);
-  const [ownedGames, setOwnedGames] = useState<Game[]>([]);
-  const games = useMemo(
-    () => mergeLibrary(installedGames, ownedGames),
-    [installedGames, ownedGames],
-  );
-  const [loading, setLoading] = useState(true);
-  const [scanError, setScanError] = useState("");
-  const [steamConnected, setSteamConnected] = useState(false);
-  const [steamBusy, setSteamBusy] = useState(false);
   const [page, setPage] = useState<(typeof PAGES)[number] | "settings">("home");
   const [tabChoice, setTab] = useState<(typeof TABS)[number]>("all");
   const [query, setQuery] = useState("");
   const [categoryQuery, setCategoryQuery] = useState("");
-  const categories = useCategories(games);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [focus, setFocus] = useState(0);
   const [prefs, setPrefs] = useState(() =>
@@ -157,8 +121,6 @@ export default function App() {
   const [powerMenu, setPowerMenu] = useState(false);
   const powerInput: InputRef = useRef(null);
   const power = usePower();
-  const [pendingUninstall, setPendingUninstall] = useState<string | null>(null);
-  const [pendingInstalls, setPendingInstalls] = useState<string[]>([]);
   const [launching, setLaunching] = useState(false);
   const t = useMemo(() => translator(lang), [lang]);
   // Async work reads the current language here, so switching it doesn't rescan or re-check updates.
@@ -166,115 +128,17 @@ export default function App() {
   tRef.current = t;
   const grid = useRef<HTMLDivElement>(null);
   const featureInput: InputRef = useRef(null);
-  const scanBusy = useRef(false),
-    launchBusy = useRef(false),
+  const launchBusy = useRef(false),
     queryClient = useQueryClient();
-  const scan = useCallback(async () => {
-    if (scanBusy.current) return;
-    scanBusy.current = true;
-    setLoading(true);
-    setScanError("");
-    try {
-      setInstalledGames(
-        demo
-          ? demoGames.filter((game) => game.installed)
-          : isTauri()
-            ? await invoke<Game[]>("scan_library")
-            : [],
-      );
-      if (demo)
-        setOwnedGames(demoGames.filter((game) => game.source === "steam"));
-      else if (steamConnected) {
-        try {
-          setOwnedGames(await invoke<Game[]>("refresh_steam_library"));
-        } catch (error) {
-          // Expired web session: show the connect button again instead of a dead "connected" state.
-          if (
-            ["steamSessionExpired", "notConnected"].includes(
-              serviceError(error),
-            )
-          ) {
-            setSteamConnected(false);
-            setOwnedGames([]);
-          }
-          setStatus(tRef.current(serviceError(error)));
-        }
-      }
-    } catch (e) {
-      setScanError(String(e));
-    } finally {
-      scanBusy.current = false;
-      setLoading(false);
-    }
-  }, [steamConnected]);
-  useEffect(() => {
-    if (!pendingUninstall) return;
-    let alive = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const deadline = Date.now() + 120000;
-    const poll = async () => {
-      try {
-        const installed = await invoke<Game[]>("scan_library");
-        if (!alive) return;
-        if (!installed.some((game) => game.id === pendingUninstall)) {
-          setInstalledGames(installed);
-          setPendingUninstall(null);
-          setStatus(tRef.current("uninstallComplete"));
-          return;
-        }
-      } catch {
-        /* Refresh can be retried; never claim the removal completed. */
-      }
-      if (alive && Date.now() >= deadline) {
-        setPendingUninstall(null);
-        setStatus(tRef.current("uninstallStillInstalled"));
-      } else if (alive) timer = setTimeout(() => void poll(), 3000);
-    };
-    void poll();
-    const onFocus = () => void poll();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [pendingUninstall]);
-  useEffect(() => {
-    if (!pendingInstalls.length || demo || !isTauri()) return;
-    let active = true;
-    let busy = false;
-    let timer: ReturnType<typeof setTimeout>;
-    const refresh = async () => {
-      if (busy) return;
-      busy = true;
-      try {
-        const installed = await invoke<Game[]>("scan_library");
-        if (!active) return;
-        setInstalledGames(installed);
-        const completed = pendingInstalls.filter((id) =>
-          installed.some((game) => game.id === id),
-        );
-        if (completed.length) {
-          setPendingInstalls((current) =>
-            current.filter((id) => !completed.includes(id)),
-          );
-          setStatus(tRef.current("installComplete"));
-        }
-      } catch {
-        // Retry while the launcher is installing the game.
-      } finally {
-        busy = false;
-        if (active) timer = setTimeout(() => void refresh(), 5000);
-      }
-    };
-    void refresh();
-    window.addEventListener("focus", refresh);
-    return () => {
-      active = false;
-      clearTimeout(timer);
-      window.removeEventListener("focus", refresh);
-    };
-  }, [pendingInstalls]);
+  const library = useLibrary(
+    useCallback(
+      (message: MessageKey, values?: Record<string, string>) =>
+        setStatus(tRef.current(message, values)),
+      [],
+    ),
+  );
+  const { games, loading, scanError, steamConnected, steamBusy } = library;
+  const categories = useCategories(games);
   const installUpdate = useMutation({
     mutationFn: async (next: Update) => {
       await next.downloadAndInstall();
@@ -312,22 +176,6 @@ export default function App() {
   const install = () => {
     if (update && !updating) installUpdate.mutate(update);
   };
-  useEffect(() => {
-    void scan();
-  }, [scan]);
-  useEffect(() => {
-    if (demo || !isTauri()) return;
-    setSteamBusy(true);
-    invoke<Game[]>("connect_steam_library", { signIn: false })
-      .then((owned) => {
-        setOwnedGames(owned);
-        setSteamConnected(true);
-      })
-      .catch(() => {
-        /* No saved Steam session: the Connect button stays. */
-      })
-      .finally(() => setSteamBusy(false));
-  }, []);
   useEffect(() => saveLang(lang), [lang]);
   useEffect(() => {
     localStorage.setItem(preferencesKey, JSON.stringify(prefs));
@@ -474,40 +322,6 @@ export default function App() {
       setLaunching(false);
     }
   };
-  const connectSteamLibrary = async () => {
-    if (steamBusy || !isTauri()) return;
-    setSteamBusy(true);
-    try {
-      const owned = await invoke<Game[]>("connect_steam_library", {
-        signIn: true,
-      });
-      setOwnedGames(owned);
-      setSteamConnected(true);
-      setStatus(
-        t(owned.length ? "steamLibraryConnected" : "steamNoOwnedGames", {
-          count: String(owned.length),
-        }),
-      );
-    } catch (error) {
-      setStatus(t(serviceError(error)));
-    } finally {
-      setSteamBusy(false);
-    }
-  };
-  const disconnectSteamLibrary = async () => {
-    if (steamBusy || !isTauri()) return;
-    setSteamBusy(true);
-    try {
-      await invoke("disconnect_steam_library");
-      setSteamConnected(false);
-      setOwnedGames([]);
-      setStatus(t("steamLibraryDisconnected"));
-    } catch (error) {
-      setStatus(t(serviceError(error)));
-    } finally {
-      setSteamBusy(false);
-    }
-  };
   const openHud = () => {
     if (!isTauri()) return setStatus(t("browserPreview"));
     invoke("open_hud").catch((e) => setStatus(t(serviceError(e))));
@@ -520,9 +334,7 @@ export default function App() {
     }
     try {
       await invoke("install_owned_game", { id: game.id });
-      setPendingInstalls((current) =>
-        current.includes(game.id) ? current : [...current, game.id],
-      );
+      library.watchInstall(game.id);
       setStatus(t("installRequested", { title: game.title }));
     } catch (error) {
       setStatus(t(serviceError(error)));
@@ -797,7 +609,10 @@ export default function App() {
                   placeholder={t("searchHint")}
                   aria-label={t("searchGames")}
                 />
-                <button disabled={loading} onClick={() => void scan()}>
+                <button
+                  disabled={loading}
+                  onClick={() => void library.refresh()}
+                >
                   {t("refresh")}
                 </button>
                 <button
@@ -1007,7 +822,9 @@ export default function App() {
             ) : scanError ? (
               <div className="empty" role="alert">
                 <p>{t("scanFailed", { error: scanError })}</p>
-                <button onClick={() => void scan()}>{t("retry")}</button>
+                <button onClick={() => void library.refresh()}>
+                  {t("retry")}
+                </button>
               </div>
             ) : visible.length === 0 ? (
               <div className="empty">
@@ -1046,7 +863,7 @@ export default function App() {
                     setPage("library");
                     setTab("all");
                     setQuery("");
-                    void scan();
+                    void library.refresh();
                   }}
                 >
                   {t("refresh")}
@@ -1355,8 +1172,8 @@ export default function App() {
                 game={details}
                 t={t}
                 onStarted={(id, completed) => {
-                  if (completed) void scan();
-                  else setPendingUninstall(id);
+                  if (completed) void library.refresh();
+                  else library.watchUninstall(id);
                   setDetails(null);
                   setStatus(
                     t(completed ? "uninstallComplete" : "uninstallStarted"),
@@ -1404,21 +1221,21 @@ export default function App() {
                     <div className="library-account-connected">
                       <span>
                         {t("steamLibraryConnected", {
-                          count: String(ownedGames.length),
+                          count: String(library.ownedCount),
                         })}
                       </span>
                       <div className="detail-actions">
                         <button
                           data-initial-focus
                           disabled={loading}
-                          onClick={() => void scan()}
+                          onClick={() => void library.refresh()}
                         >
                           {t("refresh")}
                         </button>
                         {!demo && (
                           <button
                             disabled={steamBusy}
-                            onClick={() => void disconnectSteamLibrary()}
+                            onClick={library.disconnectSteam}
                           >
                             {t("disconnect")}
                           </button>
@@ -1430,10 +1247,15 @@ export default function App() {
                       data-initial-focus
                       className="accent"
                       disabled={steamBusy || !isTauri()}
-                      onClick={() => void connectSteamLibrary()}
+                      onClick={library.connectSteam}
                     >
                       {t(steamBusy ? "connecting" : "connectSteam")}
                     </button>
+                  )}
+                  {library.steamError && (
+                    <p className="inline-error" role="alert">
+                      {t(library.steamError)}
+                    </p>
                   )}
                   <p className="muted">{t("steamLibraryPrivacy")}</p>
                   <p className="muted">{t("otherSourcesInstalledOnly")}</p>

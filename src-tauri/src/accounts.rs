@@ -158,7 +158,7 @@ fn store_games(
     Ok(())
 }
 
-/// `sign_in: false` only restores a saved session (used at startup).
+/// `sign_in: false` restores or refreshes the saved session without opening Steam's login page.
 #[tauri::command]
 pub async fn connect_steam_library(
     sign_in: bool,
@@ -168,25 +168,13 @@ pub async fn connect_steam_library(
     let generation = {
         let mut session = session.0.lock().map_err(|_| "serviceUnavailable")?;
         session.generation = session.generation.wrapping_add(1);
-        session.games = None;
+        // A new sign-in may be another account; a refresh keeps the games installable meanwhile.
+        if sign_in {
+            session.games = None;
+        }
         session.generation
     };
     let games = owned_games(&app, sign_in).await?;
-    store_games(&session, generation, &games)?;
-    Ok(games)
-}
-
-#[tauri::command]
-pub async fn refresh_steam_library(
-    app: tauri::AppHandle,
-    session: tauri::State<'_, SteamLibrarySession>,
-) -> Result<Vec<library::Game>, String> {
-    let generation = {
-        let session = session.0.lock().map_err(|_| "serviceUnavailable")?;
-        session.games.as_ref().ok_or("notConnected")?;
-        session.generation
-    };
-    let games = owned_games(&app, false).await?;
     store_games(&session, generation, &games)?;
     Ok(games)
 }
