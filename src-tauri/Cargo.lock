@@ -3769,7 +3769,7 @@ dependencies = [
 
 [[package]]
 name = "sofa"
-version = "0.3.9"
+version = "0.3.10"
 dependencies = [
  "flate2",
  "reqwest",
