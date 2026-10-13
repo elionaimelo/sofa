@@ -2,7 +2,12 @@ import { XIcon } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import {
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+  useState,
+} from "react";
 import { Dialog } from "../components/Dialog";
 import { LANGS, type Lang, type Translate } from "../i18n";
 import type { Preferences } from "../library";
@@ -70,11 +75,13 @@ export function LibrarySettings({
   setPrefs: SetPrefs;
   onShowHidden: () => void;
 }) {
+  // Signing out deletes the saved session; ask once, like power actions do.
+  const [confirming, setConfirming] = useState(false);
   return (
     <>
       <section className="library-account">
         <div>
-          <h3>Steam</h3>
+          <h2>Steam</h2>
           <p>{t("steamLibraryDescription")}</p>
         </div>
         {library.steamConnected || demo ? (
@@ -87,15 +94,16 @@ export function LibrarySettings({
             <div className="detail-actions">
               <button
                 data-initial-focus
-                disabled={library.loading}
+                aria-disabled={library.loading}
+                aria-busy={library.loading}
                 onClick={() => void library.refresh()}
               >
                 {t("refresh")}
               </button>
-              {!demo && (
+              {!demo && !confirming && (
                 <button
-                  disabled={library.steamBusy}
-                  onClick={library.disconnectSteam}
+                  aria-disabled={library.steamBusy}
+                  onClick={() => !library.steamBusy && setConfirming(true)}
                 >
                   {t("disconnect")}
                 </button>
@@ -106,11 +114,40 @@ export function LibrarySettings({
           <button
             data-initial-focus
             className="accent"
-            disabled={library.steamBusy || !isTauri()}
-            onClick={library.connectSteam}
+            disabled={!isTauri()}
+            aria-disabled={library.steamBusy}
+            aria-busy={library.steamBusy}
+            onClick={() => !library.steamBusy && library.connectSteam()}
           >
             {t(library.steamBusy ? "connecting" : "connectSteam")}
           </button>
+        )}
+        {confirming && (
+          // biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>).
+          <div
+            className="detail-actions"
+            role="group"
+            aria-label={t("disconnect")}
+          >
+            <p>{t("steamDisconnectConfirm")}</p>
+            <button
+              data-initial-focus
+              // biome-ignore lint/a11y/noAutofocus: the controller needs focus on the safe choice when the confirmation appears.
+              autoFocus
+              onClick={() => setConfirming(false)}
+            >
+              {t("cancel")}
+            </button>
+            <button
+              className="accent"
+              onClick={() => {
+                setConfirming(false);
+                library.disconnectSteam();
+              }}
+            >
+              {t("disconnect")}
+            </button>
+          </div>
         )}
         {library.steamError && (
           <p className="inline-error" role="alert">
@@ -222,8 +259,11 @@ export function AppearanceSettings({
       {xboxMode?.active !== true && (
         <button
           aria-pressed={!!fullscreen.data}
-          disabled={toggleFullscreen.isPending}
-          onClick={() => toggleFullscreen.mutate(!fullscreen.data)}
+          aria-disabled={toggleFullscreen.isPending}
+          onClick={() =>
+            !toggleFullscreen.isPending &&
+            toggleFullscreen.mutate(!fullscreen.data)
+          }
         >
           {t("fullscreen")}: {t(fullscreen.data ? "on" : "off")}
         </button>
@@ -232,8 +272,10 @@ export function AppearanceSettings({
         <>
           <button
             aria-pressed={startup}
-            disabled={toggleStartup.isPending}
-            onClick={() => toggleStartup.mutate(!startup)}
+            aria-disabled={toggleStartup.isPending}
+            onClick={() =>
+              !toggleStartup.isPending && toggleStartup.mutate(!startup)
+            }
           >
             {t("xboxModeStartup")}: {t(startup ? "on" : "off")}
           </button>
@@ -277,8 +319,13 @@ export function UpdateSettings({
         </button>
       )}
       <button
-        disabled={updates.checking || updates.installing}
-        onClick={() => (update ? updates.install() : void updates.check())}
+        aria-disabled={updates.checking || updates.installing}
+        aria-busy={updates.checking || updates.installing}
+        onClick={() => {
+          if (updates.checking || updates.installing) return;
+          if (update) updates.install();
+          else void updates.check();
+        }}
       >
         {update
           ? t("updateAvailable", { version: update.version })

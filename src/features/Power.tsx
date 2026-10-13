@@ -212,7 +212,7 @@ export function PowerMenu({
     <Dialog label={t("powerMenu")} onClose={close}>
       <div className="settings-head">
         <h1>{action ? t(action) : t("powerMenu")}</h1>
-        <button onClick={close} disabled={busy} aria-label={t("close")}>
+        <button onClick={close} aria-disabled={busy} aria-label={t("close")}>
           <XIcon />
         </button>
       </div>
@@ -225,15 +225,16 @@ export function PowerMenu({
             <div className="detail-actions">
               <button
                 data-initial-focus
-                onClick={() => setAction(null)}
-                disabled={busy}
+                onClick={() => !busy && setAction(null)}
+                aria-disabled={busy}
               >
                 {t("cancel")}
               </button>
               <button
                 className="accent"
                 onClick={() => void execute()}
-                disabled={busy}
+                aria-disabled={busy}
+                aria-busy={busy}
               >
                 {t(action)}
               </button>

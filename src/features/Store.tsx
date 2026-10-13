@@ -205,7 +205,8 @@ export function Store({
             {t(demo ? "demoPrices" : "storeNote")}
           </p>
         </div>
-        <nav className="segmented" aria-label={t("store")}>
+        {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>). */}
+        <div className="segmented" role="group" aria-label={t("store")}>
           <button
             aria-pressed={tab === "discover"}
             onClick={() => setTab("discover")}
@@ -220,7 +221,7 @@ export function Store({
             {t("wishlist")}
             <span>{wishlist.length}</span>
           </button>
-        </nav>
+        </div>
       </div>
       <form
         className="feature-search"
@@ -296,7 +297,13 @@ export function Store({
                   </span>
                 )}
                 {wishlist.some((g) => g.gameID === d.gameID) && (
-                  <HeartIcon weight="fill" className="saved-heart" />
+                  <HeartIcon
+                    weight="fill"
+                    className="saved-heart"
+                    role="img"
+                    aria-hidden={false}
+                    aria-label={t("wishlist")}
+                  />
                 )}
               </div>
               <div className="deal-copy">

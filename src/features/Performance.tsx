@@ -84,8 +84,11 @@ function AllyProfiles({
             <button
               key={profile}
               aria-pressed={active === profile}
-              disabled={!supported || apply.isPending}
-              onClick={() => apply.mutate(profile)}
+              // Unsupported devices can't use profiles at all; busy keeps focus (aria-disabled).
+              disabled={!supported}
+              aria-disabled={apply.isPending}
+              aria-busy={apply.isPending}
+              onClick={() => !apply.isPending && apply.mutate(profile)}
             >
               <Icon size={22} aria-hidden />
               <strong>{t(`ally_${profile}`)}</strong>
@@ -119,14 +122,16 @@ function Tile({
   disabled?: boolean;
   onClick?: () => void;
 }) {
-  const Tag = onClick ? "button" : "article";
+  const Tag = onClick ? "button" : "div";
   return (
     <Tag
       className="hud-tile"
       aria-expanded={expanded}
+      aria-controls={expanded ? "hud-options" : undefined}
       aria-pressed={pressed}
-      disabled={onClick ? disabled : undefined}
-      onClick={onClick}
+      // aria-disabled keeps the tile focusable while busy, so the controller stays put.
+      aria-disabled={onClick ? disabled : undefined}
+      onClick={disabled ? undefined : onClick}
     >
       <span className="hud-tile-label">
         <Icon size={20} aria-hidden />
@@ -278,9 +283,11 @@ export function Hud() {
   return (
     <main className="floating-hud">
       {/* Inside the Game Bar widget the host draws the title bar and close button. */}
+      {/* The Game Bar draws its own title bar; keep the page heading for screen readers. */}
+      {inWidget && <h1 className="visually-hidden">Sofa HUD</h1>}
       {!inWidget && (
         <header data-tauri-drag-region>
-          <span data-tauri-drag-region>Sofa HUD</span>
+          <h1 data-tauri-drag-region>Sofa HUD</h1>
           {battery != null && (
             <span className="hud-pill">{Math.round(battery)}%</span>
           )}
@@ -292,7 +299,9 @@ export function Hud() {
       <section className="hud-now" aria-label={t("hudNowPlaying")}>
         {game ? (
           <>
-            {game.cover && <img src={game.cover} alt="" />}
+            {game.cover && (
+              <img src={game.cover} alt="" width={40} height={60} />
+            )}
             <div>
               <small>{t("hudNowPlaying")}</small>
               <strong>{game.title}</strong>
@@ -419,9 +428,11 @@ export function Hud() {
         />
       </div>
       <BatteryPanels t={t} data={power.data} error={power.error} />
-      {(message || metricsQuery.error) && (
-        <p role="status">
-          {message || t(queryError(metricsQuery.error) || "serviceUnavailable")}
+      {/* Live regions stay mounted so screen readers announce changes, not insertions. */}
+      <p role="status">{message}</p>
+      {metricsQuery.error && (
+        <p role="alert">
+          {t(queryError(metricsQuery.error) || "serviceUnavailable")}
         </p>
       )}
     </main>
@@ -435,15 +446,15 @@ function Options({
   disabled: boolean;
 }) {
   return (
-    <div className="hud-options">
+    <div className="hud-options" id="hud-options">
       {options.map((o) => (
         <button
           key={o.label}
           // biome-ignore lint/a11y/noAutofocus: the controller needs focus on the current value when the list opens.
           autoFocus={o.selected}
           aria-pressed={o.selected}
-          disabled={disabled}
-          onClick={o.pick}
+          aria-disabled={disabled}
+          onClick={disabled ? undefined : o.pick}
         >
           {o.label}
         </button>

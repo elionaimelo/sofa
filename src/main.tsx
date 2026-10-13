@@ -1,6 +1,8 @@
+import { IconContext } from "@phosphor-icons/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
+import { initialLang } from "./i18n";
 import { serviceError } from "./services";
 import "./App.css";
 import "@fontsource-variable/outfit";
@@ -27,16 +29,23 @@ const queryClient = new QueryClient({
   },
 });
 
+// Each window (main, HUD, Game Bar widget) announces its language, not the HTML default.
+document.documentElement.lang = initialLang();
+// Icons sit next to text or inside labelled buttons: hide them from screen readers.
+const iconDefaults = { "aria-hidden": true } as const;
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <Suspense fallback={null}>
-        {new URLSearchParams(location.search).get("hud") === "1" ? (
-          <Hud />
-        ) : (
-          <App />
-        )}
-      </Suspense>
+      <IconContext.Provider value={iconDefaults}>
+        <Suspense fallback={null}>
+          {new URLSearchParams(location.search).get("hud") === "1" ? (
+            <Hud />
+          ) : (
+            <App />
+          )}
+        </Suspense>
+      </IconContext.Provider>
     </QueryClientProvider>
   </React.StrictMode>,
 );

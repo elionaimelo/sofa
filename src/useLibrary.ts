@@ -139,7 +139,7 @@ export function useLibrary(onStatus: Notify) {
     steamError: steam.error ? serviceError(steam.error) : null,
     steamBusy: connect.isPending || disconnect.isPending || steam.isPending,
     loading: installed.isFetching,
-    scanError: installed.error ? String(installed.error) : "",
+    scanError: installed.error ? serviceError(installed.error) : ("" as const),
     refresh: () => queryClient.invalidateQueries({ queryKey: keys.all }),
     connectSteam: () => connect.mutate(),
     disconnectSteam: () => disconnect.mutate(),

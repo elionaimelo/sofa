@@ -3,9 +3,9 @@ const en = {
     "Close this title and Epic Launcher before uninstalling. Sofa stays open.",
   uninstallBusy: "Another title is being uninstalled. Wait for it to finish.",
   uninstallEpicNote:
-    "Epic: removes only files listed in this title's installed build manifest. Close the title and Epic Launcher first.",
+    "Epic: removes only files listed in this title’s installed build manifest. Close the title and Epic Launcher first.",
   uninstallSteamNote:
-    "Steam: uses Steam's own uninstall confirmation. Sofa stays open.",
+    "Steam: uses Steam’s own uninstall confirmation. Sofa stays open.",
   uninstallEpicConfirm:
     "Remove the installed files of this title? Unlisted files, mods and saves outside the installation are retained. This operation cannot be undone by Sofa. Close the title and Epic Launcher before continuing.",
   unsafeUninstallPath:
@@ -20,7 +20,7 @@ const en = {
   uninstallSteam: "Continue in Steam",
   uninstallTitle: "Uninstall {title}?",
   uninstallConfirm:
-    "Steam will ask you to confirm the removal of this title's local files. Sofa stays open. Save preservation depends on the title and its cloud settings.",
+    "Steam will ask you to confirm the removal of this title’s local files. Sofa stays open. Save preservation depends on the title and its cloud settings.",
   uninstallStarted:
     "Uninstallation requested. Waiting for removal or cancellation.",
   uninstallComplete: "Title removed. Library updated.",
@@ -36,7 +36,7 @@ const en = {
   categoryMatchAny: "Select one or more. Games matching any selection appear.",
   activeCategories: "Selected categories",
   categoriesLoading: "Loading your library categories…",
-  noCategories: "No categories identified yet. Add one in a game's details.",
+  noCategories: "No categories identified yet. Add one in a game’s details.",
   categoriesOffline:
     "Some categories could not be updated. Saved categories remain available.",
   noCategorySearch: "No category matches your search.",
@@ -227,7 +227,9 @@ const en = {
   steamNoOwnedGames:
     "Steam returned no owned games. Check your game-details privacy settings.",
   steamLibraryPrivacy:
-    "You sign in on Steam's own page; Sofa never sees your password. The session stays saved on this device until you disconnect.",
+    "You sign in on Steam’s own page; Sofa never sees your password. The session stays saved on this device until you disconnect.",
+  steamDisconnectConfirm:
+    "Sign out of Steam on this device? Owned games that aren’t installed leave the library.",
   steamLoginCancelled: "Steam sign-in was cancelled.",
   steamSessionExpired: "Your Steam session expired. Connect again.",
   otherSourcesInstalledOnly:
@@ -264,7 +266,7 @@ const en = {
   homeNoInstalled:
     "No games installed yet. Browse your library to install one.",
   launching: "Launching {title}…",
-  launchFailed: "Couldn't launch {title}: {error}",
+  launchFailed: "Couldn’t launch {title}: {error}",
   play: "Play",
   source: "Source",
   language: "Language",
@@ -518,6 +520,8 @@ const dicts = {
       "A Steam não retornou jogos da conta. Verifique a privacidade dos detalhes dos jogos.",
     steamLibraryPrivacy:
       "O login é feito na página oficial da Steam; o Sofa nunca vê sua senha. A sessão fica salva neste dispositivo até você desconectar.",
+    steamDisconnectConfirm:
+      "Sair da Steam neste dispositivo? Os jogos não instalados saem da biblioteca.",
     steamLoginCancelled: "Login na Steam cancelado.",
     steamSessionExpired: "Sua sessão da Steam expirou. Conecte novamente.",
     otherSourcesInstalledOnly:
@@ -803,6 +807,8 @@ const dicts = {
       "Steam no devolvió juegos de la cuenta. Revisa la privacidad de los detalles de los juegos.",
     steamLibraryPrivacy:
       "Inicias sesión en la página oficial de Steam; Sofa nunca ve tu contraseña. La sesión queda guardada en este dispositivo hasta que te desconectes.",
+    steamDisconnectConfirm:
+      "¿Cerrar sesión de Steam en este dispositivo? Los juegos no instalados salen de la biblioteca.",
     steamLoginCancelled: "Inicio de sesión en Steam cancelado.",
     steamSessionExpired: "Tu sesión de Steam expiró. Conéctate de nuevo.",
     otherSourcesInstalledOnly:

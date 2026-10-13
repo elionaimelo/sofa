@@ -292,7 +292,9 @@ export default function App() {
       setDetails(null);
       setStatus("");
     } catch (e) {
-      setStatus(t("launchFailed", { title: g.title, error: String(e) }));
+      setStatus(
+        t("launchFailed", { title: g.title, error: t(serviceError(e)) }),
+      );
     } finally {
       launchBusy.current = false;
       setLaunching(false);
@@ -449,6 +451,8 @@ export default function App() {
     if (a === "x" && selected) toggleFavorite(selected);
     if (a === "y") install();
   });
+  // The library's collection title is its page heading; on Home the hero title is.
+  const CollectionHeading = page === "library" ? "h1" : "h2";
   const hints: [string, string][] = details
     ? [
         ["A", t("selectAction")],
@@ -529,7 +533,9 @@ export default function App() {
           className="header-search"
           type="search"
           value={query}
-          onFocus={() => setPage("library")}
+          name="search"
+          autoComplete="off"
+          enterKeyHint="search"
           onChange={(event) => {
             setQuery(event.target.value);
             setPage("library");
@@ -567,8 +573,13 @@ export default function App() {
         <Scene key={page}>
           {page === "library" && (
             <section className="library-toolbar">
-              <nav className="source-tabs" aria-label={t("sources")}>
-                <kbd>LB</kbd>
+              {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>). */}
+              <div
+                className="source-tabs"
+                role="group"
+                aria-label={t("sources")}
+              >
+                <kbd aria-hidden>LB</kbd>
                 {availableTabs.map((s) => (
                   <button
                     key={s}
@@ -586,8 +597,8 @@ export default function App() {
                             : "Epic"}
                   </button>
                 ))}
-                <kbd>RB</kbd>
-              </nav>
+                <kbd aria-hidden>RB</kbd>
+              </div>
               <div className="tools">
                 <input
                   type="search"
@@ -597,8 +608,9 @@ export default function App() {
                   aria-label={t("searchGames")}
                 />
                 <button
-                  disabled={loading}
-                  onClick={() => void library.refresh()}
+                  aria-disabled={loading}
+                  aria-busy={loading}
+                  onClick={() => !loading && void library.refresh()}
                 >
                   {t("refresh")}
                 </button>
@@ -698,8 +710,10 @@ export default function App() {
                       <p className="category-sync-note">
                         {t("categoriesOffline")}{" "}
                         <button
-                          onClick={categories.retry}
-                          disabled={categories.loading}
+                          onClick={() =>
+                            !categories.loading && categories.retry()
+                          }
+                          aria-disabled={categories.loading}
                         >
                           {t("retry")}
                         </button>
@@ -808,7 +822,7 @@ export default function App() {
               </div>
             ) : scanError ? (
               <div className="empty" role="alert">
-                <p>{t("scanFailed", { error: scanError })}</p>
+                <p>{t("scanFailed", { error: t(scanError) })}</p>
                 <button onClick={() => void library.refresh()}>
                   {t("retry")}
                 </button>
@@ -876,7 +890,8 @@ export default function App() {
                     <div className="hero-actions">
                       <button
                         className="accent"
-                        disabled={launching}
+                        aria-disabled={launching}
+                        aria-busy={launching}
                         onClick={() => void play(selected)}
                       >
                         <PlayIcon weight="fill" />
@@ -903,7 +918,7 @@ export default function App() {
                 )}
                 <section className="collection" id="content" tabIndex={-1}>
                   <div className="collection-heading">
-                    <h2>
+                    <CollectionHeading>
                       {page === "home"
                         ? t(
                             visible.some((g) => prefs.recent[g.id])
@@ -922,7 +937,7 @@ export default function App() {
                               ).length,
                             ),
                           })}
-                    </h2>
+                    </CollectionHeading>
                     {page === "library" && (
                       <span className="library-stats">
                         {t("availabilitySummary", {
@@ -1050,7 +1065,8 @@ export default function App() {
         {update && (
           <button
             className="update"
-            disabled={updates.installing}
+            aria-disabled={updates.installing}
+            aria-busy={updates.installing}
             onClick={install}
           >
             <kbd>Y</kbd>
@@ -1128,7 +1144,8 @@ export default function App() {
               <button
                 data-initial-focus
                 className="accent"
-                disabled={details.installed && launching}
+                aria-disabled={details.installed && launching}
+                aria-busy={details.installed && launching}
                 onClick={() =>
                   void (details.installed
                     ? play(details)

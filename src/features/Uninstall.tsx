@@ -72,14 +72,16 @@ export function Uninstall({
             <button
               ref={cancel}
               data-uninstall-cancel
-              disabled={busy}
-              onClick={() => setConfirm(false)}
+              aria-disabled={busy}
+              onClick={() => !busy && setConfirm(false)}
             >
               {t("cancel")}
             </button>
             <button
               className="danger-action"
-              disabled={busy || demo}
+              disabled={demo}
+              aria-disabled={busy}
+              aria-busy={busy}
               onClick={() => void uninstall()}
             >
               <TrashIcon />
