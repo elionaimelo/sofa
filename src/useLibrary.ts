@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 import { type Game, mergeLibrary } from "./library";
-import { demo, type MessageKey, serviceError } from "./services";
+import { demo, type Notify, serviceError } from "./services";
 
 const demoGames: Game[] = [
   ["1245620", "ELDEN RING"],
@@ -55,9 +55,7 @@ async function steamLibrary(): Promise<Game[] | null> {
  * Installed games plus owned Steam games, with Steam sign-in and the polling that
  * confirms installs and uninstalls started in the launchers.
  */
-export function useLibrary(
-  onStatus: (message: MessageKey, values?: Record<string, string>) => void,
-) {
+export function useLibrary(onStatus: Notify) {
   const queryClient = useQueryClient();
   const [pendingUninstall, setPendingUninstall] = useState<string | null>(null);
   const [pendingInstalls, setPendingInstalls] = useState<string[]>([]);
@@ -83,6 +81,7 @@ export function useLibrary(
   const connect = useMutation({
     mutationFn: () => invoke<Game[]>("connect_steam_library", { signIn: true }),
     onSuccess: (owned) => {
+      // Also clears any error from the startup restore attempt.
       queryClient.setQueryData(keys.steam, owned);
       onStatus(owned.length ? "steamLibraryConnected" : "steamNoOwnedGames", {
         count: String(owned.length),

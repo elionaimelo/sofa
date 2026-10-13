@@ -5,6 +5,11 @@ import { useEffect } from "react";
 import type { Translate } from "./i18n";
 import type { Action } from "./useInput";
 export type MessageKey = Parameters<Translate>[0];
+/** Shows a translated status message; hooks report through it instead of owning UI. */
+export type Notify = (
+  message: MessageKey,
+  values?: Record<string, string>,
+) => void;
 export const demo =
   import.meta.env?.DEV &&
   !isTauri() &&

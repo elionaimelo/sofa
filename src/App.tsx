@@ -1,9 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getVersion } from "@tauri-apps/api/app";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { relaunch } from "@tauri-apps/plugin-process";
-import { check, type Update } from "@tauri-apps/plugin-updater";
 import { AnimatePresence } from "motion/react";
 import {
   useCallback,
@@ -15,7 +11,7 @@ import {
 } from "react";
 import { Dialog } from "./components/Dialog";
 import { Scene } from "./components/Scene";
-import { initialLang, LANGS, type Lang, saveLang, translator } from "./i18n";
+import { initialLang, type Lang, saveLang, translator } from "./i18n";
 import {
   activeFilters,
   categoryOptions,
@@ -27,6 +23,7 @@ import {
 } from "./library";
 import { useInput } from "./useInput";
 import { useLibrary } from "./useLibrary";
+import { useUpdates } from "./useUpdates";
 import "./App.css";
 import "@fontsource-variable/outfit";
 import {
@@ -48,13 +45,19 @@ import {
   useCategories,
 } from "./features/Categories";
 import { PowerMenu, TopBatteries, usePower } from "./features/Power";
+import {
+  AppearanceSettings,
+  LibrarySettings,
+  SettingsDialog,
+  type SettingsPanel,
+  UpdateSettings,
+} from "./features/Settings";
 import { Store } from "./features/Store";
 import { Uninstall } from "./features/Uninstall";
 import {
-  commandQuery,
   demo,
   type InputRef,
-  type MessageKey,
+  type Notify,
   navigateControls,
   navigateSpatial,
   serviceError,
@@ -114,10 +117,7 @@ export default function App() {
   const [status, setStatus] = useState("");
   const [lang, setLang] = useState(initialLang);
   const [details, setDetails] = useState<Game | null>(null);
-  const [settings, setSettings] = useState(false);
-  const [settingsTarget, setSettingsTarget] = useState<
-    "library" | "appearance" | "updates"
-  >("library");
+  const [settings, setSettings] = useState<SettingsPanel | null>(null);
   const [powerMenu, setPowerMenu] = useState(false);
   const powerInput: InputRef = useRef(null);
   const power = usePower();
@@ -128,54 +128,16 @@ export default function App() {
   tRef.current = t;
   const grid = useRef<HTMLDivElement>(null);
   const featureInput: InputRef = useRef(null);
-  const launchBusy = useRef(false),
-    queryClient = useQueryClient();
-  const library = useLibrary(
-    useCallback(
-      (message: MessageKey, values?: Record<string, string>) =>
-        setStatus(tRef.current(message, values)),
-      [],
-    ),
+  const launchBusy = useRef(false);
+  const notify = useCallback<Notify>(
+    (message, values) => setStatus(tRef.current(message, values)),
+    [],
   );
-  const { games, loading, scanError, steamConnected, steamBusy } = library;
+  const library = useLibrary(notify);
+  const updates = useUpdates(notify);
+  const { update, install } = updates;
+  const { games, loading, scanError } = library;
   const categories = useCategories(games);
-  const installUpdate = useMutation({
-    mutationFn: async (next: Update) => {
-      await next.downloadAndInstall();
-      await relaunch();
-    },
-    onMutate: (next) => setStatus(t("updating", { version: next.version })),
-    onError: (e) => setStatus(t("updateFailed", { error: String(e) })),
-  });
-  const updateQuery = useQuery({
-    queryKey: ["update"],
-    queryFn: () => check(),
-    enabled: isTauri() && !installUpdate.isPending,
-    // Sofa can stay open for days as the home app; keep looking for new releases.
-    refetchInterval: 6 * 3600_000,
-    staleTime: 6 * 3600_000,
-    retry: false,
-  });
-  const update = updateQuery.data ?? null;
-  // The installed binary's version; it can't change while Sofa runs.
-  const version = useQuery({
-    queryKey: ["app_version"],
-    queryFn: getVersion,
-    enabled: isTauri(),
-    staleTime: Number.POSITIVE_INFINITY,
-  }).data;
-  const updating = installUpdate.isPending;
-  const checking = updateQuery.isFetching;
-  const checkUpdates = async () => {
-    if (!isTauri()) return setStatus(t("browserPreview"));
-    const result = await updateQuery.refetch();
-    if (result.error)
-      setStatus(t("updateCheckFailed", { error: String(result.error) }));
-    else if (!result.data) setStatus(t("noUpdate"));
-  };
-  const install = () => {
-    if (update && !updating) installUpdate.mutate(update);
-  };
   useEffect(() => saveLang(lang), [lang]);
   useEffect(() => {
     localStorage.setItem(preferencesKey, JSON.stringify(prefs));
@@ -340,23 +302,6 @@ export default function App() {
       setStatus(t(serviceError(error)));
     }
   };
-  const xboxMode =
-    useQuery({
-      ...commandQuery<{
-        home: boolean;
-        startup: boolean;
-        active: boolean | null;
-      } | null>("xbox_mode_status"),
-      enabled:
-        settings && settingsTarget === "appearance" && !demo && isTauri(),
-    }).data ?? null;
-  const xboxStartup = !!xboxMode?.home && !!xboxMode.startup;
-  const toggleXboxStartup = useMutation({
-    mutationFn: (on: boolean) => invoke("set_xbox_mode_startup", { on }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["xbox_mode_status"] }),
-    onError: (error) => setStatus(t(serviceError(error))),
-  });
   const fullscreen = async () => {
     try {
       if (isTauri()) {
@@ -422,7 +367,7 @@ export default function App() {
     }
     if (a === "b") {
       if (details) closeDetails();
-      else if (settings) setSettings(false);
+      else if (settings) setSettings(null);
       else if (page === "library" || page === "settings") setPage("home");
       else if (page !== "home") featureInput.current?.(a);
       return;
@@ -1008,7 +953,7 @@ export default function App() {
             <section className="settings-hub" id="content" tabIndex={-1}>
               <div className="settings-hub-heading">
                 <p className="eyebrow">
-                  {version ? `Sofa ${version}` : "Sofa"}
+                  {updates.version ? `Sofa ${updates.version}` : "Sofa"}
                 </p>
                 <h1>{t("settings")}</h1>
                 <p>{t("settingsHubIntro")}</p>
@@ -1016,8 +961,7 @@ export default function App() {
               <div className="settings-hub-grid">
                 <button
                   onClick={() => {
-                    setSettingsTarget("library");
-                    setSettings(true);
+                    setSettings("library");
                   }}
                 >
                   <SquaresFourIcon aria-hidden />
@@ -1026,8 +970,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => {
-                    setSettingsTarget("appearance");
-                    setSettings(true);
+                    setSettings("appearance");
                   }}
                 >
                   <GearSixIcon aria-hidden />
@@ -1042,8 +985,7 @@ export default function App() {
                 <button
                   className={update ? "has-update" : undefined}
                   onClick={() => {
-                    setSettingsTarget("updates");
-                    setSettings(true);
+                    setSettings("updates");
                   }}
                 >
                   <ArrowRightIcon aria-hidden />
@@ -1064,7 +1006,11 @@ export default function App() {
           {status || (!isTauri() && !demo ? t("browserPreview") : "Sofa")}
         </span>
         {update && (
-          <button className="update" disabled={updating} onClick={install}>
+          <button
+            className="update"
+            disabled={updates.installing}
+            onClick={install}
+          >
             <kbd>Y</kbd>
             {t("updateAvailable", { version: update.version })}
           </button>
@@ -1185,193 +1131,42 @@ export default function App() {
         </Dialog>
       )}
       {settings && (
-        <Dialog
-          label={t(
-            settingsTarget === "library"
-              ? "librarySettings"
-              : settingsTarget === "appearance"
-                ? "appearance"
-                : "updates",
-          )}
-          onClose={() => setSettings(false)}
+        <SettingsDialog
+          panel={settings}
+          t={t}
+          status={status}
+          onClose={() => setSettings(null)}
         >
-          <div className="settings-head">
-            <h1>
-              {t(
-                settingsTarget === "library"
-                  ? "librarySettings"
-                  : settingsTarget === "appearance"
-                    ? "appearance"
-                    : "updates",
-              )}
-            </h1>
-            <button onClick={() => setSettings(false)} aria-label={t("close")}>
-              <XIcon />
-            </button>
-          </div>
-          <div className="settings-body">
-            {settingsTarget === "library" && (
-              <>
-                <section className="library-account">
-                  <div>
-                    <h3>Steam</h3>
-                    <p>{t("steamLibraryDescription")}</p>
-                  </div>
-                  {steamConnected || demo ? (
-                    <div className="library-account-connected">
-                      <span>
-                        {t("steamLibraryConnected", {
-                          count: String(library.ownedCount),
-                        })}
-                      </span>
-                      <div className="detail-actions">
-                        <button
-                          data-initial-focus
-                          disabled={loading}
-                          onClick={() => void library.refresh()}
-                        >
-                          {t("refresh")}
-                        </button>
-                        {!demo && (
-                          <button
-                            disabled={steamBusy}
-                            onClick={library.disconnectSteam}
-                          >
-                            {t("disconnect")}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      data-initial-focus
-                      className="accent"
-                      disabled={steamBusy || !isTauri()}
-                      onClick={library.connectSteam}
-                    >
-                      {t(steamBusy ? "connecting" : "connectSteam")}
-                    </button>
-                  )}
-                  {library.steamError && (
-                    <p className="inline-error" role="alert">
-                      {t(library.steamError)}
-                    </p>
-                  )}
-                  <p className="muted">{t("steamLibraryPrivacy")}</p>
-                  <p className="muted">{t("otherSourcesInstalledOnly")}</p>
-                </section>
-                <label>
-                  {t("sort")}
-                  <select
-                    value={prefs.sort}
-                    onChange={(e) =>
-                      setPrefs((p) => ({
-                        ...p,
-                        sort: e.target.value as typeof p.sort,
-                      }))
-                    }
-                  >
-                    <option value="recent">{t("recent")}</option>
-                    <option value="title">{t("titleAsc")}</option>
-                    <option value="titleDesc">{t("titleDesc")}</option>
-                  </select>
-                </label>
-                <button
-                  onClick={() => {
-                    setPage("library");
-                    setTab("hidden");
-                    setSettings(false);
-                  }}
-                >
-                  {t("hidden")} ({prefs.hidden.length})
-                </button>
-              </>
-            )}
-            {settingsTarget === "appearance" && (
-              <>
-                <label>
-                  {t("language")}
-                  <select
-                    value={lang}
-                    onChange={(e) => setLang(e.target.value as Lang)}
-                  >
-                    {Object.entries(LANGS).map(([code, name]) => (
-                      <option key={code} value={code}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  {t("density")}
-                  <select
-                    value={prefs.density}
-                    onChange={(e) =>
-                      setPrefs((p) => ({
-                        ...p,
-                        density: e.target.value as typeof p.density,
-                      }))
-                    }
-                  >
-                    <option value="comfortable">{t("comfortable")}</option>
-                    <option value="compact">{t("compact")}</option>
-                  </select>
-                </label>
-                <button onClick={() => void fullscreen()}>
-                  {t("fullscreen")}
-                </button>
-                {xboxMode && (
-                  <>
-                    <button
-                      aria-pressed={xboxStartup}
-                      disabled={toggleXboxStartup.isPending}
-                      onClick={() => toggleXboxStartup.mutate(!xboxStartup)}
-                    >
-                      {t("xboxModeStartup")}: {t(xboxStartup ? "on" : "off")}
-                    </button>
-                    <p className="muted">{t("xboxModeStartupNote")}</p>
-                    {xboxMode.home && xboxMode.active === false && (
-                      <button
-                        onClick={() =>
-                          void invoke("enter_xbox_mode").catch((error) =>
-                            setStatus(t(serviceError(error))),
-                          )
-                        }
-                      >
-                        {t("enterXboxMode")}
-                      </button>
-                    )}
-                  </>
-                )}
-                <button
-                  onClick={() => {
-                    setSettings(false);
-                    setPowerMenu(true);
-                  }}
-                >
-                  <PowerIcon />
-                  {t("powerMenu")}
-                </button>
-              </>
-            )}
-            {settingsTarget === "updates" && (
-              <>
-                {version && <p>{t("installedVersion", { version })}</p>}
-                <button
-                  disabled={checking || updating}
-                  onClick={() => (update ? install() : void checkUpdates())}
-                >
-                  {update
-                    ? t("updateAvailable", { version: update.version })
-                    : t("checkUpdates")}
-                </button>
-              </>
-            )}
-            <p className="settings-status" role="status">
-              {status}
-            </p>
-          </div>
-        </Dialog>
+          {settings === "library" && (
+            <LibrarySettings
+              t={t}
+              library={library}
+              prefs={prefs}
+              setPrefs={setPrefs}
+              onShowHidden={() => {
+                setPage("library");
+                setTab("hidden");
+                setSettings(null);
+              }}
+            />
+          )}
+          {settings === "appearance" && (
+            <AppearanceSettings
+              t={t}
+              lang={lang}
+              setLang={setLang}
+              prefs={prefs}
+              setPrefs={setPrefs}
+              notify={notify}
+              onFullscreen={() => void fullscreen()}
+              onPowerMenu={() => {
+                setSettings(null);
+                setPowerMenu(true);
+              }}
+            />
+          )}
+          {settings === "updates" && <UpdateSettings t={t} updates={updates} />}
+        </SettingsDialog>
       )}
     </main>
   );
