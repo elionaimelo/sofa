@@ -114,7 +114,7 @@ fn uninstall_gog(id: &str) -> Result<(), String> {
         if executable.parent() != Some(root.as_path()) {
             return Err("unsafeUninstallPath".into());
         }
-        return tauri_plugin_opener::open_path(executable.to_string_lossy(), None::<&str>)
+        return tauri_plugin_opener::open_path(executable, None::<&str>)
             .map_err(|_| "openFailed".into());
     }
     Err("uninstallUnavailable".into())

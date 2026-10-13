@@ -1,6 +1,6 @@
 [package]
 name = "sofa"
-version = "0.3.0"
+version = "0.3.1"
 description = "Controller-first game library"
 authors = ["you"]
 edition = "2024"
