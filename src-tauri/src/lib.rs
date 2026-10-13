@@ -1,4 +1,14 @@
 mod library;
+mod uninstall;
+mod epic_uninstall;
+mod categories;
+mod network;
+mod store;
+mod social;
+mod hud;
+mod power;
+mod publisher;
+mod publisher_config;
 
 use tauri::Manager;
 
@@ -25,6 +35,12 @@ async fn launch(id: String) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(uninstall::UninstallState::default())
+        .manage(categories::CategoryCache::default())
+        .manage(store::StoreCache::default())
+        .manage(social::SocialSession::default())
+        .manage(hud::Telemetry::default())
+        .manage(publisher::Publisher::default())
         .setup(|app| {
             // Launched by the Xbox full screen experience (see packaging/AppxManifest.xml).
             if std::env::args().any(|a| a == "--fse") {
@@ -37,7 +53,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![scan_library, launch])
+        .invoke_handler(tauri::generate_handler![scan_library, launch, uninstall::uninstall_game, categories::cached_categories, categories::game_categories, store::store_deals, store::store_shops, store::store_game, store::open_deal, social::connect_friends, social::refresh_friends, social::disconnect_friends, social::open_social, hud::system_metrics, hud::open_hud, power::power_status, power::perform_power, publisher::publisher_status, publisher::partner_offers, publisher::open_partner_offer])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

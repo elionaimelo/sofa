@@ -6,3 +6,5 @@
 # will have schema files for capabilities auto-completion
 /gen/schemas
 /packaging/Sofa.Identity.msix
+
+/publisher.local.json

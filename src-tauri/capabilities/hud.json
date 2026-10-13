@@ -1,0 +1,11 @@
+{
+  "identifier": "hud",
+  "windows": [
+    "hud"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging"
+  ]
+}

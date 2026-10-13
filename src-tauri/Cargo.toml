@@ -1,6 +1,6 @@
 [package]
 name = "sofa"
-version = "0.1.0"
+version = "0.3.0"
 description = "Controller-first game library"
 authors = ["you"]
 edition = "2024"
@@ -15,6 +15,8 @@ name = "sofa_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
@@ -23,6 +25,12 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-process = "2"
+reqwest = { version = "0.13", features = ["json", "query"] }
+sysinfo = { version = "0.39", default-features = false, features = ["system"] }
+starship-battery = "0.12"
+scraper = "0.27"
+flate2 = "1"
+sha1 = "0.10"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
@@ -34,6 +42,7 @@ panic = "abort"
 strip = true
 
 [target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_UI_Input_XboxController", "Win32_System_Power", "Win32_Foundation", "Win32_System_SystemInformation"] }
 winreg = "0.55"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]

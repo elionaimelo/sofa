@@ -1,0 +1,212 @@
+import { useEffect, useState } from "react";
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import { XIcon, PlusIcon, CheckIcon } from "@phosphor-icons/react";
+import {
+  categoryKey,
+  cleanCategories,
+  gameCategories,
+  type CategoryMap,
+  type Game,
+  type Preferences,
+} from "../library";
+import type { Translate, Lang } from "../i18n";
+import { demo } from "../services";
+// Demonstration data stays in the explicitly labeled browser demo.
+const demoCategories: CategoryMap = {
+  "steam:1245620": ["Action", "RPG", "Souls-like", "Open World"],
+  "steam:1091500": ["RPG", "Open World", "Cyberpunk"],
+  "steam:1086940": ["RPG", "Strategy", "Turn-Based"],
+  "steam:1145360": ["Action", "Rogue-like", "Indie"],
+  "steam:553850": ["Action", "Co-op", "Shooter"],
+  "steam:620": ["Action", "Adventure", "Puzzle", "Co-op"],
+  "steam:413150": ["RPG", "Simulation", "Indie"],
+  "steam:1030300": ["Action", "Adventure", "Metroidvania", "Indie"],
+};
+const labels: Record<string, [string, string]> = {
+  Action: ["Ação", "Acción"],
+  Adventure: ["Aventura", "Aventura"],
+  Strategy: ["Estratégia", "Estrategia"],
+  Simulation: ["Simulação", "Simulación"],
+  Sports: ["Esportes", "Deportes"],
+  Racing: ["Corrida", "Carreras"],
+  "Souls-like": ["Soulslike", "Soulslike"],
+  "Open World": ["Mundo aberto", "Mundo abierto"],
+  "Co-op": ["Cooperativo", "Cooperativo"],
+  Puzzle: ["Quebra-cabeça", "Puzles"],
+  "Turn-Based": ["Por turnos", "Por turnos"],
+  Shooter: ["Tiro", "Disparos"],
+  Horror: ["Terror", "Terror"],
+  "Rogue-like": ["Roguelike", "Roguelike"],
+  "Action RPG": ["RPG de ação", "RPG de acción"],
+  Singleplayer: ["Um jogador", "Un jugador"],
+  Multiplayer: ["Multijogador", "Multijugador"],
+  "Dark Fantasy": ["Fantasia sombria", "Fantasía oscura"],
+  "Third Person": ["Terceira pessoa", "Tercera persona"],
+};
+export const categoryLabel = (value: string, lang: Lang) =>
+  lang === "en" ? value : (labels[value]?.[lang === "pt-BR" ? 0 : 1] ?? value);
+export function useCategories(games: Game[]) {
+  const [catalog, setCatalog] = useState<CategoryMap>({});
+  const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    if (demo) {
+      setCatalog(demoCategories);
+      setReady(true);
+      return;
+    }
+    if (!isTauri() || !games.length) return;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let wake: (() => void) | undefined;
+    const run = async () => {
+      setLoading(true);
+      setUnavailable(false);
+      let cached: Record<string, { updated: number; labels: string[] }> = {};
+      try {
+        cached = await invoke<typeof cached>("cached_categories");
+        if (alive) {
+          setCatalog(
+            Object.fromEntries(
+              Object.entries(cached).map(([id, entry]) => [
+                id,
+                cleanCategories(entry.labels),
+              ]),
+            ),
+          );
+          setReady(true);
+        }
+      } catch {
+        /* Online results still work if cache is unreadable. */
+      }
+      const pending = games.filter(
+        (g) =>
+          g.source === "steam" &&
+          (!cached[g.id]?.labels.length ||
+            Date.now() / 1000 - cached[g.id].updated >= 30 * 86400),
+      );
+      for (const game of pending) {
+        if (!alive) break;
+        try {
+          const result = cleanCategories(
+            await invoke<string[]>("game_categories", { id: game.id }),
+          );
+          if (alive)
+            setCatalog((previous) => ({ ...previous, [game.id]: result }));
+        } catch (e) {
+          if (alive) setUnavailable(true);
+          // Stop requests when offline or throttled; cached labels and manual categories stay usable.
+          if (["network", "rateLimit", "accessDenied"].includes(String(e)))
+            break;
+        }
+        if (alive)
+          await new Promise<void>((resolve) => {
+            wake = resolve;
+            timer = setTimeout(resolve, 1000);
+          });
+      }
+      if (alive) {
+        setLoading(false);
+        setReady(true);
+      }
+    };
+    void run();
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+      wake?.();
+    };
+  }, [games, revision]);
+  return {
+    catalog,
+    ready,
+    loading,
+    unavailable,
+    retry: () => setRevision((n) => n + 1),
+  };
+}
+export function CategoryEditor({
+  game,
+  prefs,
+  catalog,
+  t,
+  lang,
+  onChange,
+}: {
+  game: Game;
+  prefs: Preferences;
+  catalog: CategoryMap;
+  t: Translate;
+  lang: Lang;
+  onChange: (labels: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const manual = prefs.categories[game.id] ?? [];
+  const all = gameCategories(game.id, prefs, catalog);
+  const add = () => {
+    const next = cleanCategories([...manual, draft]);
+    if (next.length > manual.length) {
+      onChange(next);
+      setDraft("");
+    }
+  };
+  return (
+    <section className="category-editor">
+      <h2>{t("categories")}</h2>
+      <div className="category-chips">
+        {all.map((label) =>
+          manual.some((m) => categoryKey(m) === categoryKey(label)) ? (
+            <button
+              key={categoryKey(label)}
+              onClick={() =>
+                onChange(
+                  manual.filter((m) => categoryKey(m) !== categoryKey(label)),
+                )
+              }
+              aria-label={t("removeCategory", {
+                category: categoryLabel(label, lang),
+              })}
+            >
+              {categoryLabel(label, lang)}
+              <XIcon />
+            </button>
+          ) : (
+            <span key={categoryKey(label)}>
+              {categoryLabel(label, lang)}
+              <CheckIcon aria-hidden />
+            </span>
+          ),
+        )}
+      </div>
+      <p className="muted">{t("categoriesSource")}</p>
+      <form
+        className="category-add"
+        onSubmit={(e) => {
+          e.preventDefault();
+          add();
+        }}
+      >
+        <label htmlFor="new-category">{t("addCategory")}</label>
+        <div>
+          <input
+            id="new-category"
+            value={draft}
+            maxLength={60}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={t("categoryPlaceholder")}
+            autoComplete="off"
+          />
+          <button
+            type="submit"
+            disabled={!draft.trim() || manual.length >= 40}
+            aria-label={t("addCategory")}
+          >
+            <PlusIcon />
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}

@@ -1,0 +1,208 @@
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import type { MutableRefObject } from "react";
+import { useEffect } from "react";
+import type { Action } from "./useInput";
+export const demo =
+  import.meta.env?.DEV &&
+  !isTauri() &&
+  new URLSearchParams(location.search).has("demo");
+export type InputRef = MutableRefObject<((a: Action) => void) | null>;
+export function useFeatureInput(ref: InputRef, handler: (a: Action) => void) {
+  useEffect(() => {
+    ref.current = handler;
+    return () => {
+      ref.current = null;
+    };
+  });
+}
+export function navigateControls(a: Action, root: Element | null): boolean {
+  if (!root) return false;
+  const controls = [
+    ...root.querySelectorAll<HTMLElement>(
+      "button:not(:disabled), input, select, a[href]",
+    ),
+  ];
+  const current = document.activeElement as HTMLElement;
+  if (["up", "down", "left", "right"].includes(a)) {
+    const i = controls.indexOf(current);
+    controls[
+      (i + (["up", "left"].includes(a) ? -1 : 1) + controls.length) %
+        controls.length
+    ]?.focus();
+    return true;
+  }
+  if (
+    a === "a" &&
+    (current instanceof HTMLButtonElement ||
+      current instanceof HTMLAnchorElement ||
+      (current instanceof HTMLInputElement && current.type === "checkbox"))
+  ) {
+    current.click();
+    return true;
+  }
+  if ((a === "lb" || a === "rb") && current instanceof HTMLSelectElement) {
+    current.selectedIndex =
+      (current.selectedIndex + (a === "lb" ? -1 : 1) + current.options.length) %
+      current.options.length;
+    current.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  }
+  return false;
+}
+export const serviceError = (error: unknown): string => {
+  const key = String(error);
+  return [
+    "network",
+    "rateLimit",
+    "authFailed",
+    "privateProfile",
+    "accessDenied",
+    "serviceUnavailable",
+    "invalidResponse",
+    "invalidInput",
+    "invalidSteamAccount",
+    "notConnected",
+    "openFailed",
+    "batteryUnavailable",
+    "powerFailed",
+    "powerUnavailable",
+    "hibernateUnavailable",
+    "confirmationRequired",
+    "affiliateNotConfigured",
+  ].includes(key)
+    ? key
+    : "serviceUnavailable";
+};
+export async function desktop<T>(
+  command: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
+  if (!isTauri()) throw "desktopRequired";
+  return invoke<T>(command, args);
+}
+export type Deal = {
+  gameID: string;
+  dealID: string;
+  storeID: string;
+  title: string;
+  salePrice: string;
+  normalPrice: string;
+  savings: string;
+  thumb: string;
+  steamAppID: string | null;
+};
+export type Shop = { storeID: string; storeName: string; isActive: number };
+export type StoreGame = {
+  info: { title: string; thumb: string; steamAppID: string | null };
+  cheapestPriceEver: { price: string; date: number };
+  deals: {
+    storeID: string;
+    dealID: string;
+    price: string;
+    retailPrice: string;
+    savings: string;
+  }[];
+};
+export function parseWishlist(raw: string | null): Deal[] {
+  try {
+    const list: unknown = JSON.parse(raw ?? "[]");
+    if (!Array.isArray(list)) return [];
+    const seen = new Set<string>();
+    return list.filter((item): item is Deal => {
+      if (!item || typeof item !== "object") return false;
+      const d = item as Deal;
+      if (
+        ![
+          d.gameID,
+          d.dealID,
+          d.storeID,
+          d.title,
+          d.salePrice,
+          d.normalPrice,
+          d.savings,
+          d.thumb,
+        ].every((v) => typeof v === "string") ||
+        !/^\d{1,16}$/.test(d.gameID) ||
+        seen.has(d.gameID) ||
+        (d.steamAppID !== null && typeof d.steamAppID !== "string")
+      )
+        return false;
+      seen.add(d.gameID);
+      return true;
+    });
+  } catch {
+    return [];
+  }
+}
+export function usd(value: string, lang: string) {
+  const n = Number(value);
+  return Number.isFinite(n)
+    ? new Intl.NumberFormat(lang, {
+        style: "currency",
+        currency: "USD",
+      }).format(n)
+    : "—";
+}
+export const demoDeals: Deal[] = [
+  {
+    gameID: "1",
+    dealID: "demo",
+    storeID: "1",
+    title: "Cyberpunk 2077",
+    salePrice: "20.99",
+    normalPrice: "59.99",
+    savings: "65",
+    steamAppID: "1091500",
+    thumb:
+      "https://cdn.cloudflare.steamstatic.com/steam/apps/1091500/header.jpg",
+  },
+  {
+    gameID: "2",
+    dealID: "demo",
+    storeID: "7",
+    title: "ELDEN RING",
+    salePrice: "35.99",
+    normalPrice: "59.99",
+    savings: "40",
+    steamAppID: "1245620",
+    thumb:
+      "https://cdn.cloudflare.steamstatic.com/steam/apps/1245620/header.jpg",
+  },
+  {
+    gameID: "3",
+    dealID: "demo",
+    storeID: "1",
+    title: "Hades",
+    salePrice: "8.49",
+    normalPrice: "24.99",
+    savings: "66",
+    steamAppID: "1145360",
+    thumb:
+      "https://cdn.cloudflare.steamstatic.com/steam/apps/1145360/header.jpg",
+  },
+  {
+    gameID: "4",
+    dealID: "demo",
+    storeID: "1",
+    title: "Baldur's Gate 3",
+    salePrice: "44.99",
+    normalPrice: "59.99",
+    savings: "25",
+    steamAppID: "1086940",
+    thumb:
+      "https://cdn.cloudflare.steamstatic.com/steam/apps/1086940/header.jpg",
+  },
+];
+export const dealArt = (
+  d: { steamAppID: string | null; thumb: string },
+  wide = false,
+) =>
+  d.steamAppID && /^\d+$/.test(d.steamAppID)
+    ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${d.steamAppID}/${wide ? "library_hero" : "library_600x900"}.jpg`
+    : d.thumb;
+
+export type PartnerOffer = {
+  id: string;
+  shop: string;
+  quote: { amount: string; currency: string; expires_at: number } | null;
+};

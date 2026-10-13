@@ -21,6 +21,7 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
+      - run: npm test
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       # Sparse MSIX that gives Sofa.exe a package identity (Xbox full screen experience home app).
       # Signed with the self-signed "CN=Sofa" cert; the installer trusts its public half.
@@ -42,16 +43,17 @@ jobs:
           [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:IDENTITY_PFX_BASE64))
           & "$bin\signtool.exe" sign /fd SHA256 /f $pfx /p $env:IDENTITY_PFX_PASSWORD "$src/Sofa.Identity.msix"
           Remove-Item $pfx
-      # Create the release up front so tauri-action only has to upload assets.
+      # Create a draft before uploading; publish only after the build and assets are verified.
       - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release view ${{ github.ref_name }} 2>$null || gh release create ${{ github.ref_name }} --title "Sofa ${{ github.ref_name }}" --notes "See the commits for changes."
+          gh release view ${{ github.ref_name }} 2>$null || gh release create ${{ github.ref_name }} --title "Sofa ${{ github.ref_name }}" --generate-notes --draft
       # Builds the NSIS installer, signs the updater artifact and publishes latest.json,
       # which the app polls at releases/latest/download/latest.json.
       - uses: tauri-apps/tauri-action@v1
         env:
+          SOFA_PUBLISHER_CONFIG: ${{ vars.SOFA_PUBLISHER_CONFIG }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -59,4 +61,4 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Sofa ${{ github.ref_name }}
           releaseBody: See the commits for changes.
-          releaseDraft: false
+          releaseDraft: true

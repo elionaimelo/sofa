@@ -115,7 +115,7 @@ fn parse_epic_item(text: &str) -> Option<Game> {
     Some(Game { id: format!("epic:{app}"), title: s("DisplayName")?, source: "epic", launch, cover: None })
 }
 
-fn epic_manifests_dir() -> Option<PathBuf> {
+pub(crate) fn epic_manifests_dir() -> Option<PathBuf> {
     #[cfg(windows)]
     let dir = PathBuf::from(std::env::var_os("ProgramData")?).join(r"Epic\EpicGamesLauncher\Data\Manifests");
     #[cfg(not(windows))]
