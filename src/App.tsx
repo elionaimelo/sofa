@@ -1,5 +1,4 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AnimatePresence } from "motion/react";
 import {
   useCallback,
@@ -300,17 +299,6 @@ export default function App() {
       setStatus(t("installRequested", { title: game.title }));
     } catch (error) {
       setStatus(t(serviceError(error)));
-    }
-  };
-  const fullscreen = async () => {
-    try {
-      if (isTauri()) {
-        const w = getCurrentWindow();
-        await w.setFullscreen(!(await w.isFullscreen()));
-      } else if (document.fullscreenElement) await document.exitFullscreen();
-      else await document.documentElement.requestFullscreen();
-    } catch (e) {
-      setStatus(String(e));
     }
   };
   useInput((a) => {
@@ -1158,7 +1146,6 @@ export default function App() {
               prefs={prefs}
               setPrefs={setPrefs}
               notify={notify}
-              onFullscreen={() => void fullscreen()}
               onPowerMenu={() => {
                 setSettings(null);
                 setPowerMenu(true);

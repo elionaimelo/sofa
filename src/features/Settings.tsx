@@ -1,6 +1,7 @@
 import { PowerIcon, XIcon } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { Dialog } from "../components/Dialog";
 import { LANGS, type Lang, type Translate } from "../i18n";
@@ -151,7 +152,6 @@ export function AppearanceSettings({
   prefs,
   setPrefs,
   notify,
-  onFullscreen,
   onPowerMenu,
 }: {
   t: Translate;
@@ -160,7 +160,6 @@ export function AppearanceSettings({
   prefs: Preferences;
   setPrefs: SetPrefs;
   notify: Notify;
-  onFullscreen: () => void;
   onPowerMenu: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -170,6 +169,23 @@ export function AppearanceSettings({
       ...commandQuery<XboxMode | null>("xbox_mode_status"),
       enabled: !demo && isTauri(),
     }).data ?? null;
+  const fullscreen = useQuery({
+    queryKey: ["fullscreen"],
+    queryFn: () =>
+      isTauri()
+        ? getCurrentWindow().isFullscreen()
+        : document.fullscreenElement !== null,
+  });
+  const toggleFullscreen = useMutation({
+    mutationFn: async (on: boolean) => {
+      if (isTauri()) await getCurrentWindow().setFullscreen(on);
+      else if (on) await document.documentElement.requestFullscreen();
+      else if (document.fullscreenElement) await document.exitFullscreen();
+    },
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: ["fullscreen"] }),
+    onError: (error) => notify(serviceError(error)),
+  });
   const startup = !!xboxMode?.home && !!xboxMode.startup;
   const toggleStartup = useMutation({
     mutationFn: (on: boolean) => invoke("set_xbox_mode_startup", { on }),
@@ -204,7 +220,16 @@ export function AppearanceSettings({
           <option value="compact">{t("compact")}</option>
         </select>
       </label>
-      <button onClick={onFullscreen}>{t("fullscreen")}</button>
+      {/* Xbox mode owns the window layout; the toggle only makes sense outside it. */}
+      {xboxMode?.active !== true && (
+        <button
+          aria-pressed={!!fullscreen.data}
+          disabled={toggleFullscreen.isPending}
+          onClick={() => toggleFullscreen.mutate(!fullscreen.data)}
+        >
+          {t("fullscreen")}: {t(fullscreen.data ? "on" : "off")}
+        </button>
+      )}
       {xboxMode && (
         <>
           <button

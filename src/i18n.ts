@@ -202,7 +202,7 @@ const en = {
   density: "Cover size",
   comfortable: "Large",
   compact: "Compact",
-  fullscreen: "Toggle fullscreen",
+  fullscreen: "Fullscreen",
   xboxModeStartup: "Start in Xbox mode at sign-in",
   xboxModeStartupNote:
     "Makes Sofa the Xbox mode home app and turns on Windows’ “Enter Xbox mode on startup”.",
@@ -488,7 +488,7 @@ const dicts = {
     density: "Tamanho das capas",
     comfortable: "Grande",
     compact: "Compacto",
-    fullscreen: "Alternar tela cheia",
+    fullscreen: "Tela cheia",
     xboxModeStartup: "Abrir no modo Xbox ao entrar no Windows",
     xboxModeStartupNote:
       "Define o Sofa como app inicial do modo Xbox e liga a opção do Windows de entrar no modo Xbox ao iniciar.",
@@ -772,7 +772,7 @@ const dicts = {
     density: "Tamaño de portadas",
     comfortable: "Grande",
     compact: "Compacto",
-    fullscreen: "Alternar pantalla completa",
+    fullscreen: "Pantalla completa",
     xboxModeStartup: "Abrir en modo Xbox al iniciar sesión",
     xboxModeStartupNote:
       "Define Sofa como app de inicio del modo Xbox y activa la opción de Windows de entrar en modo Xbox al iniciar.",
