@@ -168,6 +168,8 @@ const en = {
   on: "On",
   off: "Off",
   hudNowPlaying: "Playing now",
+  hudTdp: "Power limit (TDP)",
+  hudTdpNote: "Custom watts; a profile above resets it",
   hudSaveForGame: "Save for this game",
   hudGameSettingsSaved:
     "Saved: Sofa applies these settings when this game starts.",
@@ -452,6 +454,8 @@ const dicts = {
     on: "Ligado",
     off: "Desligado",
     hudNowPlaying: "Jogando agora",
+    hudTdp: "Limite de potência (TDP)",
+    hudTdpNote: "Watts manuais; um perfil acima redefine",
     hudSaveForGame: "Salvar para este jogo",
     hudGameSettingsSaved:
       "Salvo: o Sofa aplica estes ajustes quando este jogo abrir.",
@@ -733,6 +737,8 @@ const dicts = {
     on: "Activado",
     off: "Desactivado",
     hudNowPlaying: "Jugando ahora",
+    hudTdp: "Límite de potencia (TDP)",
+    hudTdpNote: "Vatios manuales; un perfil arriba lo restablece",
     hudSaveForGame: "Guardar para este juego",
     hudGameSettingsSaved:
       "Guardado: Sofa aplica estos ajustes al abrir este juego.",

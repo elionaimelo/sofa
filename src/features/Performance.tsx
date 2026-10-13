@@ -161,11 +161,18 @@ export function Hud() {
   const queryClient = useQueryClient();
   // Last profile picked in this HUD; what "save for this game" stores.
   const [profile, setProfile] = useState<AllyProfile | null>(null);
+  const ally = useQuery({
+    ...commandQuery<{ supported: boolean; tdp: number | null }>("ally_status"),
+    staleTime: Number.POSITIVE_INFINITY,
+  }).data;
+  const [tdp, setTdp] = useState<number | null>(null);
+  const currentTdp = tdp ?? ally?.tdp ?? null;
   const saved = useQuery({
     ...commandQuery<{
       profile?: AllyProfile;
       mode?: Mode;
       brightness?: number;
+      tdp?: number;
     } | null>("game_settings", { id: game?.id }),
     enabled: !!game,
   });
@@ -186,7 +193,7 @@ export function Hud() {
   const power = usePower();
   const display = useQuery(commandQuery<DisplayStatus>("display_status")).data;
   const [open, setOpen] = useState<
-    "resolution" | "refresh" | "brightness" | null
+    "resolution" | "refresh" | "brightness" | "tdp" | null
   >(null);
   const [message, setMessage] = useState("");
   const change = useMutation({
@@ -254,7 +261,16 @@ export function Hud() {
               selected: percent === display?.brightness,
               pick: () => run("set_brightness", { percent }),
             }))
-          : [];
+          : open === "tdp"
+            ? [5, 8, 10, 12, 15, 18, 20, 25, 30].map((watts) => ({
+                label: `${watts} W`,
+                selected: watts === currentTdp,
+                pick: () => {
+                  setTdp(watts);
+                  run("set_tdp", { watts });
+                },
+              }))
+            : [];
   const toggle = (name: NonNullable<typeof open>) =>
     setOpen(open === name ? null : name);
   const gb = (n: number) => (n / 1024 ** 3).toFixed(1);
@@ -338,6 +354,18 @@ export function Hud() {
           onClick={() => void run("set_cpu_boost", { on: !display?.cpu_boost })}
         />
         {open === "brightness" && <Options options={options} disabled={busy} />}
+        {ally?.supported && (
+          <Tile
+            icon={LightningIcon}
+            label={t("hudTdp")}
+            value={currentTdp != null ? `${currentTdp} W` : "—"}
+            note={t("hudTdpNote")}
+            expanded={open === "tdp"}
+            disabled={busy}
+            onClick={() => toggle("tdp")}
+          />
+        )}
+        {open === "tdp" && <Options options={options} disabled={busy} />}
         {game && (
           <Tile
             icon={FloppyDiskIcon}
@@ -354,6 +382,7 @@ export function Hud() {
                       profile: profile ?? undefined,
                       mode: display?.current ?? undefined,
                       brightness: display?.brightness ?? undefined,
+                      tdp: tdp ?? undefined,
                     },
               )
             }

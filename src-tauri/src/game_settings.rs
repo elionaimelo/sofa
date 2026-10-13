@@ -14,6 +14,8 @@ pub struct GameSettings {
     pub mode: Option<Mode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub brightness: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tdp: Option<u8>,
 }
 
 type Store = HashMap<String, GameSettings>;
@@ -68,6 +70,11 @@ pub async fn apply(app: &tauri::AppHandle, id: &str) {
     if let Some(profile) = s.profile {
         if let Err(e) = crate::ally::set_ally_profile(profile).await {
             crate::log::info(app, format!("launch: profile failed: {e}"));
+        }
+    }
+    if let Some(watts) = s.tdp {
+        if let Err(e) = crate::ally::set_tdp(watts).await {
+            crate::log::info(app, format!("launch: tdp failed: {e}"));
         }
     }
     if let Some(mode) = s.mode {

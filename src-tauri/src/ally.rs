@@ -3,7 +3,19 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize)]
 pub struct AllyStatus {
     supported: bool,
+    /// Sustained power limit (SPL) in watts, when the firmware reports it.
+    tdp: Option<u8>,
 }
+
+/// ASUS WMI device ids, as documented by the Linux `asus-wmi` driver.
+#[cfg(windows)]
+const PPT_PL1_SPL: u32 = 0x001200A3;
+#[cfg(windows)]
+const PPT_PL2_SPPT: u32 = 0x001200A0;
+#[cfg(windows)]
+const PPT_PL3_FPPT: u32 = 0x001200C1;
+/// The ROG Ally's firmware accepts this envelope; anything outside is rejected here.
+pub const TDP_RANGE: std::ops::RangeInclusive<u8> = 5..=30;
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -85,7 +97,66 @@ pub async fn ally_status() -> AllyStatus {
     let supported = tauri::async_runtime::spawn_blocking(supported)
         .await
         .unwrap_or(false);
-    AllyStatus { supported }
+    let tdp = if supported {
+        tauri::async_runtime::spawn_blocking(read_tdp).await.ok().flatten()
+    } else {
+        None
+    };
+    AllyStatus { supported, tdp }
+}
+
+/// Custom TDP: sets sustained, slow and fast limits to the same watts (the firmware
+/// keeps its own ratios for the fixed profiles; a flat limit is what "Custom" means).
+#[tauri::command]
+pub async fn set_tdp(watts: u8) -> Result<(), String> {
+    if !TDP_RANGE.contains(&watts) {
+        return Err("invalidInput".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || write_tdp(watts))
+        .await
+        .map_err(|_| "powerControlUnavailable".to_string())?
+}
+
+#[cfg(windows)]
+fn read_tdp() -> Option<u8> {
+    // DSTS answers presence bit 0x10000 plus the value in the low bits.
+    let out = powershell(&format!(
+        "$ErrorActionPreference='Stop'; \
+         $device=Get-CimInstance -Namespace root/wmi -ClassName AsusAtkWmi_WMNB | Select-Object -First 1; \
+         (Invoke-CimMethod -InputObject $device -MethodName DSTS -Arguments @{{Device_ID=[uint32]{PPT_PL1_SPL}}}).device_status"
+    ))
+    .ok()?;
+    let raw: u32 = out.trim().parse().ok()?;
+    (raw & 0x10000 != 0).then(|| (raw & 0xFF) as u8).filter(|w| TDP_RANGE.contains(w))
+}
+
+#[cfg(windows)]
+fn write_tdp(watts: u8) -> Result<(), String> {
+    let script = format!(
+        "$ErrorActionPreference='Stop'; \
+         $model=(Get-CimInstance Win32_ComputerSystem).Model; \
+         if($model -notmatch 'RC71L'){{exit 1}}; \
+         $device=Get-CimInstance -Namespace root/wmi -ClassName AsusAtkWmi_WMNB | Select-Object -First 1; \
+         if($null -eq $device){{exit 1}}; \
+         foreach($id in @([uint32]{PPT_PL1_SPL},[uint32]{PPT_PL2_SPPT},[uint32]{PPT_PL3_FPPT})){{ \
+           $result=Invoke-CimMethod -InputObject $device -MethodName DEVS -Arguments @{{Device_ID=$id; Control_status=[uint32]{watts}}}; \
+           if($result.result -ne 1){{exit 1}} }}; 'ok'"
+    );
+    if powershell(&script)?.trim() == "ok" {
+        Ok(())
+    } else {
+        Err("powerControlUnavailable".into())
+    }
+}
+
+#[cfg(not(windows))]
+fn read_tdp() -> Option<u8> {
+    None
+}
+
+#[cfg(not(windows))]
+fn write_tdp(_watts: u8) -> Result<(), String> {
+    Err("powerControlUnavailable".into())
 }
 
 #[tauri::command]

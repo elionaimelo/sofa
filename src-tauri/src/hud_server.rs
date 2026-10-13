@@ -56,6 +56,7 @@ async fn dispatch(app: &tauri::AppHandle, command: &str, args: serde_json::Value
         "power_status" => out(power::power_status().await?),
         "ally_status" => out(ally::ally_status().await),
         "set_ally_profile" => out(ally::set_ally_profile(parse(arg("profile"))?).await?),
+        "set_tdp" => out(ally::set_tdp(parse(arg("watts"))?).await?),
         "display_status" => out(display::display_status().await),
         "set_display_mode" => out(display::set_display_mode(parse(arg("mode"))?).await?),
         "set_brightness" => out(display::set_brightness(parse(arg("percent"))?).await?),
