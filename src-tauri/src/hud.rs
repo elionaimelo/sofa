@@ -57,7 +57,7 @@ pub async fn open_hud(app: tauri::AppHandle) -> Result<(), String> {
     }
     WebviewWindowBuilder::new(&app, "hud", WebviewUrl::App("index.html?hud=1".into()))
         .title("Sofa HUD")
-        .inner_size(360.0, 190.0)
+        .inner_size(430.0, 350.0)
         .position(24.0, 24.0)
         .decorations(false)
         .resizable(false)

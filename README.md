@@ -2,19 +2,19 @@
 
 Controller-first game library for Windows handhelds and the couch. Tauri 2 (Rust) + React.
 
-- Finds installed games from **Steam**, **Epic** and **GOG** and launches them through their launchers.
+- Finds installed games from **Steam**, **Epic** and **GOG** and launches them through their launchers. Connecting a Steam account in Settings adds owned, uninstalled Steam games to the same library; those covers are dimmed and offer installation through Steam. Epic and GOG ownership sync is not available yet, so they show installed games only.
 - Home with contextual game artwork, recently played games, and responsive icon navigation on handhelds. Library filters combine source, search, favorites, play history, cover availability, sorting and multiple categories.
-- Categories come only from installed titles: Steam catalog genres/tags are cached for offline use, and custom categories can organize titles from any provider. Category acquisition depends on public Steam store markup; unavailable/age-gated listings are left unknown.
+- Categories are available for detected titles: Steam catalog genres/tags are cached for offline use, and custom categories can organize titles from any provider. Category acquisition depends on public Steam store markup; unavailable/age-gated listings are left unknown.
 - Uninstall installed titles from their details with confirmation: Steam through its uninstall protocol and Epic by validating its local build manifest and removing only listed files. Epic requires the game/launcher to be closed; unlisted saves/mods stay on disk. Invalid/encrypted manifests, permissions or unavailable uninstallers produce errors rather than fabricated success. Library refresh verifies completion.
 - Game details with launch, favorites, hide and restore. Preferences and successful launches are saved locally.
 - Gamepad navigation: D-pad/stick move, **A** details/activate, **B** back, **X** favorite, **LB/RB** switch source (change a focused setting in dialogs), **Y** install update (hide/restore in game details), **Start** settings, **View** main navigation. Keyboard: arrows, Enter, Escape, X, Q/E, U, F2, F4 (power), Home, M (main navigation).
 - Settings for language, cover size, sorting, fullscreen, library refresh and update checks.
+- Steam ownership sync uses a SteamID64 and personal Web API key. The Steam API only returns games whose details are visible to the API. The key stays in Rust memory for the current Sofa session and is cleared on disconnect or exit; it is not saved to disk.
 - Store: live deals and price comparison through CheapShark, with a local wishlist. Prices are USD; purchases open the provider redirect in the browser.
-- Steam friends: presence and profiles through the official Web API. Connect with a SteamID64 and personal API key; the friend list must be public. Credentials stay in Rust memory and are discarded on disconnect or exit. Chat opens in Steam’s web chat.
 - Top bar: device battery and up to two controller battery indicators; additional controllers are grouped with a link to full details. Battery details: charge, design/full capacity, health and cycle count when supplied by the OS; approximate controller battery levels via Windows XInput.
 - Windows power menu: shutdown, restart and supported hibernation, each requiring confirmation. Commands do not force-close apps.
 - Publisher affiliate links: prepared for approved tracking links per game. Configuration is fixed in the distributed build; see [affiliate setup](docs/affiliate-setup.md). Your affiliate revenue remains inactive until your program is approved and configured.
-- CPU/RAM performance page and a draggable, always-on-top HUD. Readings come from the OS and refresh every two seconds.
+- Performance page and draggable quick panel: CPU/RAM readings plus fixed Silent, Balanced and Turbo firmware profiles on the original ROG Ally (RC71L) when its ASUS system driver is installed. The panel works over windowed and borderless games; it is not yet an Xbox Game Bar widget. The requested profile is sent to ASUS firmware, which determines the actual wattage based on power source and device state. Other devices do not get these controls.
 - Languages: English, Português (Brasil), Español. Follows the OS language and can be changed in the header.
 - OTA updates through GitHub Releases, signed with the Tauri updater key.
 - Registers as an **Xbox full screen experience home app** (Windows 11 24H2+): Settings → Gaming → Full Screen Experience → pick Sofa.
@@ -58,7 +58,7 @@ The private signing key lives outside the repo (`~/.tauri/sofa.key`) and in the 
 
 ## Remaining scope
 
-Store pricing is currently USD only; region-aware pricing and the release calendar remain open. Native in-app messaging and Xbox/PSN/Discord friends remain open. The HUD reads CPU/RAM and works over windowed/borderless games; FPS/GPU telemetry, Game Bar integration, TDP and fan controls are not implemented. Xbox FSE registration and OTA installation require a Windows end-to-end check.
+Store pricing is currently USD only; region-aware pricing and the release calendar remain open. Native in-app messaging and Xbox/PSN/Discord friends remain open. The quick panel reads CPU/RAM and works over windowed/borderless games; FPS/GPU telemetry, Game Bar integration, custom TDP and fan controls are not implemented. ROG Ally firmware profile switching, Xbox FSE registration and OTA installation require a Windows end-to-end check.
 
 ## Design direction
 

@@ -11,6 +11,7 @@ import type { Translate } from "../i18n";
 import {
   desktop,
   navigateControls,
+  navigateSpatial,
   serviceError,
   useFeatureInput,
   type InputRef,
@@ -23,6 +24,52 @@ type Metrics = {
   used_memory: number;
   total_memory: number;
 };
+type AllyProfile = "silent" | "balanced" | "turbo";
+function AllyProfiles({ t }: { t: Translate }) {
+  const [supported, setSupported] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  useEffect(() => {
+    let alive = true;
+    void desktop<{ supported: boolean }>("ally_status")
+      .then((status) => { if (alive) setSupported(status.supported); })
+      .catch(() => { if (alive) setSupported(false); })
+      .finally(() => { if (alive) setChecking(false); });
+    return () => { alive = false; };
+  }, []);
+  const apply = async (profile: AllyProfile) => {
+    if (!supported || busy) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      await desktop("set_ally_profile", { profile });
+      setMessage(t("allyProfileSent", { profile: t(`ally_${profile}`) }));
+    } catch (error) {
+      setMessage(t(serviceError(error) as Parameters<Translate>[0]));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="ally-profiles" aria-label={t("allyProfiles")}>
+      <div className="ally-profiles-heading">
+        <h2>{t("allyProfiles")}</h2>
+        <span>{t("allyModel")}</span>
+      </div>
+      <div className="ally-profile-options">
+        {(["silent", "balanced", "turbo"] as const).map((profile) => (
+          <button key={profile} disabled={!supported || busy} onClick={() => void apply(profile)}>
+            <strong>{t(`ally_${profile}`)}</strong>
+            <small>{t(`ally_${profile}Watts`)}</small>
+          </button>
+        ))}
+      </div>
+      {!checking && !supported && <p className="muted">{t("allyUnavailable")}</p>}
+      {message && <p role="status">{message}</p>}
+    </section>
+  );
+}
 function useMetrics() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [error, setError] = useState("");
@@ -138,6 +185,7 @@ export function Performance({
           {t("openHud")}
         </button>
       </div>
+      <AllyProfiles t={t} />
       <Readings t={t} metrics={metrics} />
       <BatteryPanels t={t} data={power} error={powerError} />
       <p className="inline-note">{t("hardwareScope")}</p>
@@ -158,6 +206,7 @@ export function Hud() {
   };
   useInput((a) => {
     if (a === "b") close();
+    else navigateSpatial(a, document.querySelector(".floating-hud"));
   });
   return (
     <main className="floating-hud">
@@ -167,6 +216,7 @@ export function Hud() {
           <XIcon />
         </button>
       </header>
+      <AllyProfiles t={t} />
       <Readings t={t} metrics={metrics} />
       {error && <p role="alert">{t(error as Parameters<Translate>[0])}</p>}
     </main>

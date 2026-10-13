@@ -2,7 +2,7 @@ use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Debug, PartialEq, Clone)]
 pub struct Game {
     pub id: String,
     pub title: String,
@@ -10,6 +10,7 @@ pub struct Game {
     /// URI (steam://, com.epicgames.launcher://) or an executable path.
     pub launch: String,
     pub cover: Option<String>,
+    pub installed: bool,
 }
 
 pub fn scan() -> Vec<Game> {
@@ -93,6 +94,7 @@ fn steam() -> Vec<Game> {
             id: format!("steam:{id}"),
             title,
             source: "steam",
+            installed: true,
         })
         .collect()
 }
@@ -112,7 +114,7 @@ fn parse_epic_item(text: &str) -> Option<Game> {
         s("CatalogItemId")?,
         app
     );
-    Some(Game { id: format!("epic:{app}"), title: s("DisplayName")?, source: "epic", launch, cover: None })
+    Some(Game { id: format!("epic:{app}"), title: s("DisplayName")?, source: "epic", launch, cover: None, installed: true })
 }
 
 pub(crate) fn epic_manifests_dir() -> Option<PathBuf> {
@@ -157,6 +159,7 @@ fn gog() -> Vec<Game> {
                 launch: get("exe").or_else(|| get("EXE"))?,
                 id: format!("gog:{id}"),
                 source: "gog",
+                installed: true,
                 cover: None,
             })
         })
@@ -189,7 +192,7 @@ mod tests {
     fn dedupes_same_game_from_two_library_paths() {
         let mut games: Vec<Game> = ["steam:1", "steam:1", "epic:a"]
             .iter()
-            .map(|id| Game { id: id.to_string(), title: "x".into(), source: "steam", launch: String::new(), cover: None })
+            .map(|id| Game { id: id.to_string(), title: "x".into(), source: "steam", launch: String::new(), cover: None, installed: true })
             .collect();
         games.sort_by(|a, b| a.id.cmp(&b.id));
         games.dedup_by(|a, b| a.id == b.id);

@@ -8,6 +8,7 @@ import {
   categoryOptions,
   filterGames,
   hero,
+  mergeLibrary,
   parsePreferences,
   activeFilters,
   defaultFilters,
@@ -23,7 +24,6 @@ import {
   HouseIcon,
   SquaresFourIcon,
   StorefrontIcon,
-  UsersThreeIcon,
   GaugeIcon,
   GearSixIcon,
   SlidersHorizontalIcon,
@@ -34,22 +34,20 @@ import {
   ArrowRightIcon,
 } from "@phosphor-icons/react";
 import { Store } from "./features/Store";
-import { Friends } from "./features/Friends";
 import { Performance } from "./features/Performance";
 import { TopBatteries, PowerMenu, usePower } from "./features/Power";
-import { demo, navigateControls, type InputRef } from "./services";
+import { demo, navigateControls, navigateSpatial, serviceError, type InputRef } from "./services";
 import {
   CategoryEditor,
   categoryLabel,
   useCategories,
 } from "./features/Categories";
 import { Uninstall } from "./features/Uninstall";
-const PAGES = ["home", "library", "store", "friends", "hud"] as const;
+const PAGES = ["home", "library", "store", "hud"] as const;
 const pageIcons = {
   home: HouseIcon,
   library: SquaresFourIcon,
   store: StorefrontIcon,
-  friends: UsersThreeIcon,
   hud: GaugeIcon,
 };
 const TABS = ["all", "favorites", "steam", "epic", "gog", "hidden"] as const;
@@ -63,13 +61,22 @@ const demoGames: Game[] = [
   ["620", "Portal 2"],
   ["413150", "Stardew Valley"],
   ["1030300", "Hollow Knight: Silksong"],
-].map(([id, title]) => ({
+].map(([id, title], index) => ({
   id: `steam:${id}`,
   title,
   source: "steam",
   launch: "",
   cover: `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/library_600x900.jpg`,
+  installed: index < 2,
 }));
+demoGames.push({
+  id: "epic:demo-control",
+  title: "Control",
+  source: "epic",
+  launch: "",
+  cover: "https://cdn.cloudflare.steamstatic.com/steam/apps/870780/library_600x900.jpg",
+  installed: true,
+});
 function Cover({ game }: { game: Game }) {
   const [failed, setFailed] = useState(false);
   return (
@@ -88,10 +95,19 @@ function Cover({ game }: { game: Game }) {
   );
 }
 export default function App() {
-  const [games, setGames] = useState<Game[]>([]);
+  const [installedGames, setInstalledGames] = useState<Game[]>([]);
+  const [ownedGames, setOwnedGames] = useState<Game[]>([]);
+  const games = useMemo(
+    () => mergeLibrary(installedGames, ownedGames),
+    [installedGames, ownedGames],
+  );
   const [loading, setLoading] = useState(true);
   const [scanError, setScanError] = useState("");
-  const [page, setPage] = useState<(typeof PAGES)[number]>("home");
+  const [steamId, setSteamId] = useState("");
+  const [steamKey, setSteamKey] = useState("");
+  const [steamConnected, setSteamConnected] = useState(false);
+  const [steamBusy, setSteamBusy] = useState(false);
+  const [page, setPage] = useState<(typeof PAGES)[number] | "settings">("home");
   const [tab, setTab] = useState<(typeof TABS)[number]>("all");
   const [query, setQuery] = useState("");
   const [categoryQuery, setCategoryQuery] = useState("");
@@ -111,10 +127,12 @@ export default function App() {
   const [checking, setChecking] = useState(false);
   const [details, setDetails] = useState<Game | null>(null);
   const [settings, setSettings] = useState(false);
+  const [settingsTarget, setSettingsTarget] = useState<"library" | "appearance" | "updates">("library");
   const [powerMenu, setPowerMenu] = useState(false);
   const powerInput: InputRef = useRef(null);
   const power = usePower();
   const [pendingUninstall, setPendingUninstall] = useState<string | null>(null);
+  const [pendingInstalls, setPendingInstalls] = useState<string[]>([]);
   const [launching, setLaunching] = useState(false);
   const [now, setNow] = useState(new Date());
   const t = useMemo(() => translator(lang), [lang]);
@@ -130,20 +148,28 @@ export default function App() {
     setLoading(true);
     setScanError("");
     try {
-      setGames(
+      setInstalledGames(
         demo
-          ? demoGames
+          ? demoGames.filter((game) => game.installed)
           : isTauri()
             ? await invoke<Game[]>("scan_library")
             : [],
       );
+      if (demo) setOwnedGames(demoGames.filter((game) => game.source === "steam"));
+      else if (steamConnected) {
+        try {
+          setOwnedGames(await invoke<Game[]>("refresh_steam_library"));
+        } catch (error) {
+          setStatus(t(serviceError(error) as Parameters<typeof t>[0]));
+        }
+      }
     } catch (e) {
       setScanError(String(e));
     } finally {
       scanBusy.current = false;
       setLoading(false);
     }
-  }, []);
+  }, [steamConnected, t]);
   useEffect(() => {
     if (!pendingUninstall) return;
     let alive = true;
@@ -154,7 +180,7 @@ export default function App() {
         const installed = await invoke<Game[]>("scan_library");
         if (!alive) return;
         if (!installed.some((game) => game.id === pendingUninstall)) {
-          setGames(installed);
+          setInstalledGames(installed);
           setPendingUninstall(null);
           setStatus(t("uninstallComplete"));
           return;
@@ -176,6 +202,42 @@ export default function App() {
       window.removeEventListener("focus", onFocus);
     };
   }, [pendingUninstall, scan, t]);
+  useEffect(() => {
+    if (!pendingInstalls.length || demo || !isTauri()) return;
+    let active = true;
+    let busy = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const refresh = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const installed = await invoke<Game[]>("scan_library");
+        if (!active) return;
+        setInstalledGames(installed);
+        const completed = pendingInstalls.filter((id) =>
+          installed.some((game) => game.id === id),
+        );
+        if (completed.length) {
+          setPendingInstalls((current) =>
+            current.filter((id) => !completed.includes(id)),
+          );
+          setStatus(t("installComplete"));
+        }
+      } catch {
+        // Retry while the launcher is installing the game.
+      } finally {
+        busy = false;
+        if (active) timer = setTimeout(() => void refresh(), 5000);
+      }
+    };
+    void refresh();
+    window.addEventListener("focus", refresh);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [pendingInstalls, t]);
   const checkUpdates = useCallback(
     async (manual = false) => {
       if (!isTauri()) {
@@ -225,6 +287,16 @@ export default function App() {
       ),
     [games, prefs, page, tab, query, categories.catalog],
   );
+  const availableTabs = useMemo(
+    () => TABS.filter((value) =>
+      value === "all" || value === "favorites" || value === "hidden" ||
+      games.some((game) => game.source === value),
+    ),
+    [games],
+  );
+  useEffect(() => {
+    if (!availableTabs.includes(tab)) setTab("all");
+  }, [availableTabs, tab]);
   const categoryChoices = useMemo(
     () =>
       categoryOptions(
@@ -270,6 +342,11 @@ export default function App() {
       },
     }));
   const selected = visible[Math.min(focus, Math.max(0, visible.length - 1))];
+  useEffect(() => {
+    if (!details) return;
+    const current = games.find((game) => game.id === details.id);
+    if (current && current.installed !== details.installed) setDetails(current);
+  }, [games, details]);
   useEffect(() => setFocus(0), [tab, query, page, prefs.filters, prefs.sort]);
   useEffect(() => {
     if (filtersOpen)
@@ -312,6 +389,7 @@ export default function App() {
     if (!document.querySelector("[data-uninstall-busy]")) setDetails(null);
   };
   const play = async (g: Game) => {
+    if (!g.installed) return;
     if (launchBusy.current) return;
     if (demo || !isTauri()) {
       setStatus(t(demo ? "previewLaunch" : "browserPreview"));
@@ -330,6 +408,54 @@ export default function App() {
     } finally {
       launchBusy.current = false;
       setLaunching(false);
+    }
+  };
+  const connectSteamLibrary = async () => {
+    if (steamBusy || !isTauri()) return;
+    setSteamBusy(true);
+    try {
+      const owned = await invoke<Game[]>("connect_steam_library", {
+        key: steamKey.trim(),
+        steamId: steamId.trim(),
+      });
+      setOwnedGames(owned);
+      setSteamConnected(true);
+      setSteamKey("");
+      setStatus(t(owned.length ? "steamLibraryConnected" : "steamNoOwnedGames", { count: String(owned.length) }));
+    } catch (error) {
+      setStatus(t(serviceError(error) as Parameters<typeof t>[0]));
+    } finally {
+      setSteamBusy(false);
+    }
+  };
+  const disconnectSteamLibrary = async () => {
+    if (steamBusy || !isTauri()) return;
+    setSteamBusy(true);
+    try {
+      await invoke("disconnect_steam_library");
+      setSteamConnected(false);
+      setOwnedGames([]);
+      setStatus(t("steamLibraryDisconnected"));
+    } catch (error) {
+      setStatus(t(serviceError(error) as Parameters<typeof t>[0]));
+    } finally {
+      setSteamBusy(false);
+    }
+  };
+  const installGame = async (game: Game) => {
+    if (game.installed) return;
+    if (demo || !isTauri()) {
+      setStatus(t(demo ? "previewInstall" : "browserPreview"));
+      return;
+    }
+    try {
+      await invoke("install_owned_game", { id: game.id });
+      setPendingInstalls((current) =>
+        current.includes(game.id) ? current : [...current, game.id],
+      );
+      setStatus(t("installRequested", { title: game.title }));
+    } catch (error) {
+      setStatus(t(serviceError(error) as Parameters<typeof t>[0]));
     }
   };
   const install = async () => {
@@ -388,21 +514,9 @@ export default function App() {
       return;
     }
     const primary = document.querySelector(".primary-nav");
-    if (
-      !document.querySelector("dialog[open]") &&
-      (a === "menu" ||
-        (primary?.contains(document.activeElement) &&
-          ["up", "down", "left", "right", "a", "b"].includes(a)))
-    ) {
-      if (a === "menu")
-        primary
-          ?.querySelector<HTMLElement>("button[aria-current='page']")
-          ?.focus();
-      else if (a === "b") (document.activeElement as HTMLElement)?.blur();
-      else {
-        navigateControls(a, primary);
-        if (a === "a") (document.activeElement as HTMLElement)?.blur();
-      }
+    if (a === "menu" && !document.querySelector("dialog[open]")) {
+      (primary?.querySelector<HTMLElement>("button[aria-current='page']") ??
+        document.querySelector<HTMLElement>(".system-bar button[aria-current='page']"))?.focus();
       return;
     }
     if (document.querySelector(".scene[inert]")) return;
@@ -415,84 +529,67 @@ export default function App() {
     ) {
       if (a === "b") setFiltersOpen(false);
       else if (a === "y") setPrefs((p) => ({ ...p, filters: defaultFilters }));
-      else navigateControls(a, document.querySelector("[data-filter-panel]"));
-      return;
-    }
-    if (page !== "home" && page !== "library" && !settings && !details) {
-      if (a === "home") setPage("home");
-      else if (a === "settings") setSettings(true);
-      else featureInput.current?.(a);
+      else navigateSpatial(a, document.querySelector("[data-filter-panel]"));
       return;
     }
     if (a === "b") {
       if (details) closeDetails();
       else if (settings) setSettings(false);
-      else if (page === "library") setPage("home");
+      else if (page === "library" || page === "settings") setPage("home");
+      else if (page !== "home") featureInput.current?.(a);
       return;
     }
     if (details || settings) {
-      const dialog = document.querySelector("dialog[open]");
-      const controls = Array.from(
-        dialog?.querySelectorAll<HTMLElement>(
-          "button:not(:disabled), select, input",
-        ) ?? [],
-      );
-      const i = controls.indexOf(document.activeElement as HTMLElement);
-      if (["left", "up", "right", "down"].includes(a))
-        controls[
-          (i + (["left", "up"].includes(a) ? -1 : 1) + controls.length) %
-            controls.length
-        ]?.focus();
-      if (a === "a") {
-        const active = document.activeElement;
-        if (active instanceof HTMLButtonElement) active.click();
-      }
-      if (a === "x" && details) toggleFavorite(details);
-      if (a === "y" && !settings && details) toggleHidden(details);
-      if (a === "lb" || a === "rb") {
-        const active = document.activeElement;
-        if (active instanceof HTMLSelectElement) {
-          active.selectedIndex =
-            (active.selectedIndex +
-              (a === "lb" ? -1 : 1) +
-              active.options.length) %
-            active.options.length;
-          active.dispatchEvent(new Event("change", { bubbles: true }));
+      const actions = document.querySelector("dialog[open] .detail-actions");
+      const buttons = [...(actions?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? [])];
+      const position = buttons.indexOf(document.activeElement as HTMLButtonElement);
+      if (details && position >= 0 && ["up", "down", "left", "right"].includes(a)) {
+        const next = position + (["up", "left"].includes(a) ? -1 : 1);
+        if (buttons[next]) {
+          buttons[next].focus();
+          return;
         }
       }
+      navigateSpatial(a, document.querySelector("dialog[open]"));
+      if (a === "x" && details) toggleFavorite(details);
+      if (a === "y" && details) toggleHidden(details);
       return;
     }
-    const cols =
-      page === "home"
-        ? 1
-        : grid.current
-          ? getComputedStyle(grid.current).gridTemplateColumns.split(" ").length
-          : 1;
-    const move = (delta: number) => {
-      (document.activeElement as HTMLElement)?.blur();
-      setFocus((f) =>
-        Math.min(Math.max(f + delta, 0), Math.max(visible.length - 1, 0)),
-      );
-    };
-    if (a === "left") move(-1);
-    if (a === "right") move(1);
-    if (a === "up") move(-cols);
-    if (a === "down") move(cols);
-    if (a === "lb" || a === "rb") {
-      setPage("library");
-      setTab(
-        (s) =>
-          TABS[
-            (TABS.indexOf(s) + (a === "lb" ? -1 : 1) + TABS.length) %
-              TABS.length
-          ],
-      );
+    const featureDialog = document.querySelector("dialog[open]");
+    if (featureDialog) {
+      if (!["up", "down", "left", "right", "a", "lb", "rb"].includes(a) ||
+          !navigateSpatial(a, featureDialog)) featureInput.current?.(a);
+      return;
     }
-    if (a === "a" && selected) setDetails(selected);
+    if (a === "settings") {
+      setPage("settings");
+      return;
+    }
+    if (a === "home") {
+      setPage("home");
+      return;
+    }
+    if (a === "lb" || a === "rb") {
+      if (navigateSpatial(a, document.querySelector("main"))) return;
+      if (page === "home" || page === "library") {
+        setPage("library");
+        setTab((s) => availableTabs[(Math.max(0, availableTabs.indexOf(s)) + (a === "lb" ? -1 : 1) + availableTabs.length) % availableTabs.length]);
+      } else featureInput.current?.(a);
+      return;
+    }
+    if (["up", "down", "left", "right", "a"].includes(a)) {
+      const initial =
+        (page === "home" || page === "library"
+          ? grid.current?.children[focus]
+          : document.querySelector("#content button")) as HTMLElement | null;
+      if (navigateSpatial(a, document.querySelector("main"), initial)) return;
+    }
+    if (page !== "home" && page !== "library" && !settings && !details) {
+      featureInput.current?.(a);
+      return;
+    }
     if (a === "x" && selected) toggleFavorite(selected);
     if (a === "y") void install();
-    if (a === "settings") setSettings(true);
-    if (a === "home") setPage("home");
   });
   return (
     <main className={`page-${page} density-${prefs.density}`}>
@@ -531,6 +628,19 @@ export default function App() {
             );
           })}
         </nav>
+        <input
+          className="header-search"
+          type="search"
+          value={query}
+          onFocus={() => setPage("library")}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setPage("library");
+            setTab("all");
+          }}
+          placeholder={t("searchGames")}
+          aria-label={t("searchGames")}
+        />
         <div className="system-bar">
           <TopBatteries t={t} data={power.data} onOpen={() => setPage("hud")} />
           <button
@@ -547,8 +657,9 @@ export default function App() {
             })}
           </time>
           <button
-            onClick={() => setSettings(true)}
+            onClick={() => setPage("settings")}
             aria-label={t("settings")}
+            aria-current={page === "settings" ? "page" : undefined}
             title={t("settings")}
           >
             <GearSixIcon />
@@ -561,7 +672,7 @@ export default function App() {
             <section className="library-toolbar">
               <nav className="source-tabs" aria-label={t("sources")}>
                 <kbd>LB</kbd>
-                {TABS.map((s) => (
+                {availableTabs.map((s) => (
                   <button
                     key={s}
                     aria-pressed={s === tab}
@@ -816,6 +927,8 @@ export default function App() {
                         ? t("emptyHidden")
                         : activeFilters(prefs.filters) > 0
                           ? t("filterNoMatches")
+                          : page === "home" && games.some((game) => !game.installed)
+                            ? t("homeNoInstalled")
                           : t("noGames")}
                 </p>
                 {page === "library" && activeFilters(prefs.filters) > 0 && (
@@ -905,6 +1018,14 @@ export default function App() {
                             ),
                           })}
                     </h2>
+                    {page === "library" && (
+                      <span className="library-stats">
+                        {t("availabilitySummary", {
+                          installed: String(visible.filter((game) => game.installed).length),
+                          available: String(visible.filter((game) => !game.installed).length),
+                        })}
+                      </span>
+                    )}
                     {page === "home" && (
                       <button onClick={() => setPage("library")}>
                         {t("browseLibrary")} <ArrowRightIcon />
@@ -920,8 +1041,9 @@ export default function App() {
                       <button
                         key={g.id}
                         className="tile"
+                        data-installed={g.installed}
                         aria-current={i === focus}
-                        aria-label={`${g.title} · ${g.source}`}
+                        aria-label={`${g.title} · ${g.source} · ${t(g.installed ? "installed" : "availableToInstall")}`}
                         onFocus={() => setFocus(i)}
                         onMouseEnter={() => setFocus(i)}
                         onClick={() => {
@@ -930,6 +1052,9 @@ export default function App() {
                         }}
                       >
                         <Cover game={g} />
+                        {!g.installed && (
+                          <span className="install-mark">{t("installGame")}</span>
+                        )}
                         {prefs.favorites.includes(g.id) && (
                           <span
                             className="favorite-mark"
@@ -952,13 +1077,6 @@ export default function App() {
               onBack={() => setPage("home")}
             />
           )}
-          {page === "friends" && (
-            <Friends
-              t={t}
-              input={featureInput}
-              onBack={() => setPage("home")}
-            />
-          )}
           {page === "hud" && (
             <Performance
               t={t}
@@ -967,6 +1085,37 @@ export default function App() {
               powerError={power.error}
               onBack={() => setPage("home")}
             />
+          )}
+          {page === "settings" && (
+            <section className="settings-hub" id="content" tabIndex={-1}>
+              <div className="settings-hub-heading">
+                <p className="eyebrow">Sofa</p>
+                <h1>{t("settings")}</h1>
+                <p>{t("settingsHubIntro")}</p>
+              </div>
+              <div className="settings-hub-grid">
+                <button onClick={() => { setSettingsTarget("library"); setSettings(true); }}>
+                  <SquaresFourIcon aria-hidden />
+                  <strong>{t("librarySettings")}</strong>
+                  <span>{t("settingsLibraryDescription")}</span>
+                </button>
+                <button onClick={() => { setSettingsTarget("appearance"); setSettings(true); }}>
+                  <GearSixIcon aria-hidden />
+                  <strong>{t("appearance")}</strong>
+                  <span>{t("settingsAppearanceDescription")}</span>
+                </button>
+                <button onClick={() => setPage("hud")}>
+                  <GaugeIcon aria-hidden />
+                  <strong>{t("hud")}</strong>
+                  <span>{t("settingsPerformanceDescription")}</span>
+                </button>
+                <button onClick={() => { setSettingsTarget("updates"); setSettings(true); }}>
+                  <ArrowRightIcon aria-hidden />
+                  <strong>{t("updates")}</strong>
+                  <span>{t("settingsUpdatesDescription")}</span>
+                </button>
+              </div>
+            </section>
           )}
         </Scene>
       </AnimatePresence>
@@ -1020,7 +1169,7 @@ export default function App() {
             </button>
             <div>
               <p>
-                {details.source.toUpperCase()} · {t("installed")}
+                {details.source.toUpperCase()} · {t(details.installed ? "installed" : "availableToInstall")}
               </p>
               <h1>{details.title}</h1>
             </div>
@@ -1049,15 +1198,15 @@ export default function App() {
                 }))
               }
             />
-            <p className="muted">{t("launchHint")}</p>
+            <p className="muted">{t(details.installed ? "launchHint" : "installHint")}</p>
             <div className="detail-actions">
               <button
                 data-initial-focus
                 className="accent"
-                disabled={launching}
-                onClick={() => void play(details)}
+                disabled={details.installed && launching}
+                onClick={() => void (details.installed ? play(details) : installGame(details))}
               >
-                {t("play")}
+                {t(details.installed ? "play" : "installGame")}
               </button>
               <button onClick={() => toggleFavorite(details)}>
                 {t(
@@ -1074,7 +1223,7 @@ export default function App() {
                 )}
               </button>
             </div>
-            <Uninstall
+            {details.installed && <Uninstall
               key={details.id}
               game={details}
               t={t}
@@ -1086,24 +1235,122 @@ export default function App() {
                   t(completed ? "uninstallComplete" : "uninstallStarted"),
                 );
               }}
-            />
+            />}
           </div>
         </Dialog>
       )}
       {settings && (
-        <Dialog label={t("settings")} onClose={() => setSettings(false)}>
+        <Dialog label={t(settingsTarget === "library" ? "librarySettings" : settingsTarget === "appearance" ? "appearance" : "updates")} onClose={() => setSettings(false)}>
           <div className="settings-head">
-            <h1>{t("settings")}</h1>
+            <h1>{t(settingsTarget === "library" ? "librarySettings" : settingsTarget === "appearance" ? "appearance" : "updates")}</h1>
             <button onClick={() => setSettings(false)} aria-label={t("close")}>
               <XIcon />
             </button>
           </div>
           <div className="settings-body">
-            <h2>{t("appearance")}</h2>
+            {settingsTarget === "library" && <>
+            <section className="library-account">
+              <div>
+                <h3>Steam</h3>
+                <p>{t("steamLibraryDescription")}</p>
+              </div>
+              {steamConnected || demo ? (
+                <div className="library-account-connected">
+                  <span>
+                    {t("steamLibraryConnected", { count: String(ownedGames.length) })}
+                  </span>
+                  <div className="detail-actions">
+                    <button data-initial-focus disabled={loading} onClick={() => void scan()}>
+                      {t("refresh")}
+                    </button>
+                    {!demo && (
+                      <button disabled={steamBusy} onClick={() => void disconnectSteamLibrary()}>
+                        {t("disconnect")}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void connectSteamLibrary();
+                  }}
+                >
+                  <label>
+                    {t("steamId")}
+                    <input
+                      data-initial-focus
+                      required
+                      inputMode="numeric"
+                      maxLength={17}
+                      pattern="[0-9]{17}"
+                      value={steamId}
+                      onChange={(event) => setSteamId(event.target.value)}
+                      autoComplete="off"
+                    />
+                  </label>
+                  <label>
+                    {t("steamKey")}
+                    <input
+                      required
+                      type="password"
+                      minLength={32}
+                      maxLength={32}
+                      value={steamKey}
+                      onChange={(event) => setSteamKey(event.target.value)}
+                      autoComplete="off"
+                    />
+                  </label>
+                  <button
+                    className="accent"
+                    type="submit"
+                    disabled={steamBusy || !isTauri()}
+                  >
+                    {t(steamBusy ? "connecting" : "connectSteam")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void invoke("open_social", { target: "key", id: null })}
+                    disabled={!isTauri()}
+                  >
+                    {t("getKey")}
+                  </button>
+                </form>
+              )}
+              <p className="muted">{t("steamLibraryPrivacy")}</p>
+              <p className="muted">{t("otherSourcesInstalledOnly")}</p>
+            </section>
+            <label>
+              {t("sort")}
+              <select
+                value={prefs.sort}
+                onChange={(e) =>
+                  setPrefs((p) => ({
+                    ...p,
+                    sort: e.target.value as typeof p.sort,
+                  }))
+                }
+              >
+                <option value="recent">{t("recent")}</option>
+                <option value="title">{t("titleAsc")}</option>
+                <option value="titleDesc">{t("titleDesc")}</option>
+              </select>
+            </label>
+            <button
+              onClick={() => {
+                setPage("library");
+                setTab("hidden");
+                setSettings(false);
+              }}
+            >
+              {t("hidden")} ({prefs.hidden.length})
+            </button>
+            </>}
+            {settingsTarget === "appearance" && <>
             <label>
               {t("language")}
               <select
-                data-initial-focus
                 value={lang}
                 onChange={(e) => setLang(e.target.value as Lang)}
               >
@@ -1139,38 +1386,8 @@ export default function App() {
               <PowerIcon />
               {t("powerMenu")}
             </button>
-            <h2>{t("librarySettings")}</h2>
-            <label>
-              {t("sort")}
-              <select
-                value={prefs.sort}
-                onChange={(e) =>
-                  setPrefs((p) => ({
-                    ...p,
-                    sort: e.target.value as typeof p.sort,
-                  }))
-                }
-              >
-                <option value="recent">{t("recent")}</option>
-                <option value="title">{t("titleAsc")}</option>
-                <option value="titleDesc">{t("titleDesc")}</option>
-              </select>
-            </label>
-            <div className="detail-actions">
-              <button disabled={loading} onClick={() => void scan()}>
-                {t("refresh")}
-              </button>
-              <button
-                onClick={() => {
-                  setPage("library");
-                  setTab("hidden");
-                  setSettings(false);
-                }}
-              >
-                {t("hidden")} ({prefs.hidden.length})
-              </button>
-            </div>
-            <h2>{t("updates")}</h2>
+            </>}
+            {settingsTarget === "updates" && <>
             <button
               disabled={checking || updating}
               onClick={() =>
@@ -1181,6 +1398,7 @@ export default function App() {
                 ? t("updateAvailable", { version: update.version })
                 : t("checkUpdates")}
             </button>
+            </>}
             <p className="settings-status" role="status">
               {status}
             </p>

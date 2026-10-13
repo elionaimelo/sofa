@@ -49,6 +49,73 @@ export function navigateControls(a: Action, root: Element | null): boolean {
   }
   return false;
 }
+const focusableSelector =
+  "button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]";
+
+export function navigateSpatial(a: Action, root: Element | null, initial?: HTMLElement | null): boolean {
+  if (!root) return false;
+  const controls = [...root.querySelectorAll<HTMLElement>(focusableSelector)].filter(
+    (element) =>
+      !element.closest("[inert], [hidden]") &&
+      getComputedStyle(element).visibility !== "hidden" &&
+      element.getClientRects().length > 0,
+  );
+  const current = document.activeElement as HTMLElement;
+  if (a === "a") {
+    if (controls.includes(current)) {
+      current.click();
+      return true;
+    }
+    if (initial && controls.includes(initial)) {
+      initial.focus();
+      initial.scrollIntoView({ block: "nearest", inline: "nearest" });
+      return true;
+    }
+    return false;
+  }
+  if ((a === "lb" || a === "rb") && current instanceof HTMLSelectElement && controls.includes(current)) {
+    current.selectedIndex =
+      (current.selectedIndex + (a === "lb" ? -1 : 1) + current.options.length) % current.options.length;
+    current.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  }
+  if (!["up", "down", "left", "right"].includes(a) || !controls.length) return false;
+  if (!controls.includes(current)) {
+    const target = initial && controls.includes(initial) ? initial : controls[0];
+    target.focus();
+    target.scrollIntoView({ block: "nearest", inline: "nearest" });
+    return true;
+  }
+  const from = current.getBoundingClientRect();
+  const cx = from.left + from.width / 2;
+  const cy = from.top + from.height / 2;
+  const vertical = a === "up" || a === "down";
+  const direction = a === "up" || a === "left" ? -1 : 1;
+  let best: HTMLElement | null = null;
+  let bestScore = Infinity;
+  for (const candidate of controls) {
+    if (candidate === current) continue;
+    const rect = candidate.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const primary = (vertical ? y - cy : x - cx) * direction;
+    if (primary <= 1) continue;
+    const secondary = Math.abs(vertical ? x - cx : y - cy);
+    const overlap = vertical
+      ? Math.min(from.right, rect.right) > Math.max(from.left, rect.left)
+      : Math.min(from.bottom, rect.bottom) > Math.max(from.top, rect.top);
+    const score = primary + secondary * (overlap ? 0.35 : 2.5);
+    if (score < bestScore) {
+      best = candidate;
+      bestScore = score;
+    }
+  }
+  if (best) {
+    best.focus();
+    best.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+  return true;
+}
 export const serviceError = (error: unknown): string => {
   const key = String(error);
   return [
@@ -66,9 +133,11 @@ export const serviceError = (error: unknown): string => {
     "batteryUnavailable",
     "powerFailed",
     "powerUnavailable",
+    "powerControlUnavailable",
     "hibernateUnavailable",
     "confirmationRequired",
     "affiliateNotConfigured",
+    "installUnavailable",
   ].includes(key)
     ? key
     : "serviceUnavailable";

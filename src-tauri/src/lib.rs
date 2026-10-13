@@ -9,6 +9,8 @@ mod hud;
 mod power;
 mod publisher;
 mod publisher_config;
+mod accounts;
+mod ally;
 
 use tauri::Manager;
 
@@ -41,6 +43,7 @@ pub fn run() {
         .manage(social::SocialSession::default())
         .manage(hud::Telemetry::default())
         .manage(publisher::Publisher::default())
+        .manage(accounts::SteamLibrarySession::default())
         .setup(|app| {
             // Launched by the Xbox full screen experience (see packaging/AppxManifest.xml).
             if std::env::args().any(|a| a == "--fse") {
@@ -53,7 +56,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![scan_library, launch, uninstall::uninstall_game, categories::cached_categories, categories::game_categories, store::store_deals, store::store_shops, store::store_game, store::open_deal, social::connect_friends, social::refresh_friends, social::disconnect_friends, social::open_social, hud::system_metrics, hud::open_hud, power::power_status, power::perform_power, publisher::publisher_status, publisher::partner_offers, publisher::open_partner_offer])
+        .invoke_handler(tauri::generate_handler![scan_library, launch, uninstall::uninstall_game, categories::cached_categories, categories::game_categories, store::store_deals, store::store_shops, store::store_game, store::open_deal, social::connect_friends, social::refresh_friends, social::disconnect_friends, social::open_social, hud::system_metrics, hud::open_hud, power::power_status, power::perform_power, ally::ally_status, ally::set_ally_profile, publisher::publisher_status, publisher::partner_offers, publisher::open_partner_offer, accounts::connect_steam_library, accounts::refresh_steam_library, accounts::disconnect_steam_library, accounts::install_owned_game])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

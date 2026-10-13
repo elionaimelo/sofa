@@ -61,6 +61,7 @@ export function useInput(onAction: (action: Action) => void) {
       if (target instanceof HTMLButtonElement && e.key === "Enter") return;
       const a = keys[e.key];
       if (a && (!e.repeat || ["up", "down", "left", "right"].includes(a))) {
+        document.documentElement.classList.remove("gamepad-input");
         e.preventDefault();
         cb.current(a);
       }
@@ -69,6 +70,11 @@ export function useInput(onAction: (action: Action) => void) {
     const last = new Map<Action, number>();
     let raf = 0;
     const poll = () => {
+      if (!document.hasFocus()) {
+        last.clear();
+        raf = requestAnimationFrame(poll);
+        return;
+      }
       const now = performance.now(),
         held = new Set<Action>();
       for (const pad of navigator.getGamepads?.() ?? []) {
@@ -85,6 +91,7 @@ export function useInput(onAction: (action: Action) => void) {
         const repeats = ["up", "down", "left", "right"].includes(a);
         if (!last.has(a) || (repeats && now - last.get(a)! > 180)) {
           last.set(a, now);
+          document.documentElement.classList.add("gamepad-input");
           cb.current(a);
         }
       }

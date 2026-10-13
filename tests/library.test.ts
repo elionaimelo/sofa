@@ -5,6 +5,7 @@ import {
   cleanCategories,
   defaults,
   filterGames,
+  mergeLibrary,
   parsePreferences,
   type Game,
 } from "../src/library.ts";
@@ -13,12 +14,34 @@ const games: Game[] = [
     id: "steam:1",
     title: "Portal",
     source: "steam",
+    installed: true,
     launch: "steam://rungameid/1",
     cover: null,
   },
-  { id: "epic:2", title: "Hades", source: "epic", launch: "", cover: null },
-  { id: "gog:3", title: "Cyberpunk", source: "gog", launch: "", cover: null },
+  { id: "epic:2", title: "Hades", source: "epic", launch: "", cover: null, installed: true },
+  { id: "gog:3", title: "Cyberpunk", source: "gog", launch: "", cover: null, installed: true },
 ];
+test("account games merge with local installations without duplicate cards", () => {
+  const owned: Game[] = [
+    { ...games[0], installed: false },
+    {
+      id: "steam:99",
+      title: "Uninstalled",
+      source: "steam",
+      launch: "steam://rungameid/99",
+      cover: null,
+      installed: false,
+    },
+  ];
+  const merged = mergeLibrary([games[0]], owned);
+  assert.equal(merged.length, 2);
+  assert.equal(merged.find((game) => game.id === games[0].id)?.installed, true);
+  assert.equal(merged.find((game) => game.id === "steam:99")?.installed, false);
+  assert.deepEqual(
+    filterGames(merged, defaults, "all", "", true).map((game) => game.id),
+    [games[0].id],
+  );
+});
 test("corrupt settings recover and migrate valid legacy history", () => {
   assert.deepEqual(
     parsePreferences("{broken", '{"steam:1":123,"bad":"yesterday"}'),

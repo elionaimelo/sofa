@@ -4,7 +4,22 @@ export type Game = {
   source: "steam" | "epic" | "gog";
   launch: string;
   cover: string | null;
+  installed: boolean;
 };
+export function mergeLibrary(installed: Game[], owned: Game[]): Game[] {
+  const merged = new Map<string, Game>();
+  for (const game of owned) merged.set(game.id, { ...game, installed: false });
+  for (const game of installed) {
+    const account = merged.get(game.id);
+    merged.set(game.id, {
+      ...account,
+      ...game,
+      cover: game.cover ?? account?.cover ?? null,
+      installed: true,
+    });
+  }
+  return [...merged.values()].sort((a, b) => a.title.localeCompare(b.title));
+}
 export type LibraryFilters = {
   categories: string[];
   favoritesOnly: boolean;
@@ -109,6 +124,7 @@ export function filterGames(
   const f = home ? defaultFilters : p.filters;
   return games
     .filter((g) => {
+      if (home && !g.installed) return false;
       if (
         (tab === "hidden"
           ? !p.hidden.includes(g.id)

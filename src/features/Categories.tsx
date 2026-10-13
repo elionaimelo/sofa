@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { XIcon, PlusIcon, CheckIcon } from "@phosphor-icons/react";
 import {
@@ -143,8 +143,47 @@ export function CategoryEditor({
   onChange: (labels: string[]) => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [expanded, setExpanded] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(0);
+  const summary = useRef<HTMLDivElement>(null);
+  const measurement = useRef<HTMLDivElement>(null);
+  const moreMeasurement = useRef<HTMLSpanElement>(null);
   const manual = prefs.categories[game.id] ?? [];
   const all = gameCategories(game.id, prefs, catalog);
+  const names = all.map((label) => categoryLabel(label, lang));
+  useLayoutEffect(() => {
+    const row = summary.current;
+    const measure = measurement.current;
+    if (!row || !measure) return;
+    const fit = () => {
+      const widths = [...measure.children].map((item) => item.getBoundingClientRect().width);
+      const available = row.clientWidth;
+      const buttonWidth = Math.max(
+        ...[...(moreMeasurement.current?.children ?? [])].map(
+          (item) => item.getBoundingClientRect().width,
+        ),
+        0,
+      );
+      const fullLimit = available - buttonWidth - 12;
+      if (widths.reduce((sum, width) => sum + width, 0) <= fullLimit) {
+        setVisibleCount(all.length);
+        return;
+      }
+      const limit = fullLimit - 26;
+      let used = 0;
+      let count = 0;
+      for (const width of widths) {
+        if (used + width > limit) break;
+        used += width;
+        count++;
+      }
+      setVisibleCount(count);
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [all.length, names.join("\0"), lang]);
   const add = () => {
     const next = cleanCategories([...manual, draft]);
     if (next.length > manual.length) {
@@ -155,58 +194,106 @@ export function CategoryEditor({
   return (
     <section className="category-editor">
       <h2>{t("categories")}</h2>
-      <div className="category-chips">
-        {all.map((label) =>
-          manual.some((m) => categoryKey(m) === categoryKey(label)) ? (
-            <button
-              key={categoryKey(label)}
-              onClick={() =>
-                onChange(
-                  manual.filter((m) => categoryKey(m) !== categoryKey(label)),
-                )
-              }
-              aria-label={t("removeCategory", {
-                category: categoryLabel(label, lang),
-              })}
-            >
-              {categoryLabel(label, lang)}
-              <XIcon />
-            </button>
-          ) : (
-            <span key={categoryKey(label)}>
-              {categoryLabel(label, lang)}
-              <CheckIcon aria-hidden />
-            </span>
-          ),
+      <div className="category-summary-line" ref={summary}>
+        {names.slice(0, visibleCount).map((name, i) => (
+          <span className="category-summary-item" key={categoryKey(all[i])}>
+            {i > 0 ? ", " : ""}
+            {name}
+          </span>
+        ))}
+        {all.length > visibleCount && (
+          <span className="category-summary-ellipsis">…</span>
         )}
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls="category-editor-details"
+          onClick={() => setExpanded((open) => !open)}
+        >
+          {expanded
+            ? t("showLessCategories")
+            : all.length > visibleCount
+              ? t("moreCategories", { count: String(all.length - visibleCount) })
+              : t("editCategories")}
+        </button>
       </div>
-      <p className="muted">{t("categoriesSource")}</p>
-      <form
-        className="category-add"
-        onSubmit={(e) => {
-          e.preventDefault();
-          add();
-        }}
+      <div
+        className="category-summary-measure"
+        ref={measurement}
+        aria-hidden="true"
       >
-        <label htmlFor="new-category">{t("addCategory")}</label>
-        <div>
-          <input
-            id="new-category"
-            value={draft}
-            maxLength={60}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder={t("categoryPlaceholder")}
-            autoComplete="off"
-          />
-          <button
-            type="submit"
-            disabled={!draft.trim() || manual.length >= 40}
-            aria-label={t("addCategory")}
+        {names.map((name, i) => (
+          <span key={categoryKey(all[i])}>
+            {i > 0 ? ", " : ""}
+            {name}
+          </span>
+        ))}
+      </div>
+      <span
+        className="category-more-measure"
+        ref={moreMeasurement}
+        aria-hidden="true"
+      >
+        <span>{t("moreCategories", { count: String(all.length) })}</span>
+        <span>{t("editCategories")}</span>
+        <span>{t("showLessCategories")}</span>
+      </span>
+      {expanded && (
+        <div id="category-editor-details">
+          <div className="category-chips">
+            {all.map((label) =>
+              manual.some((m) => categoryKey(m) === categoryKey(label)) ? (
+                <button
+                  key={categoryKey(label)}
+                  onClick={() =>
+                    onChange(
+                      manual.filter((m) => categoryKey(m) !== categoryKey(label)),
+                    )
+                  }
+                  aria-label={t("removeCategory", {
+                    category: categoryLabel(label, lang),
+                  })}
+                >
+                  {categoryLabel(label, lang)}
+                  <XIcon />
+                </button>
+              ) : (
+                <span key={categoryKey(label)}>
+                  {categoryLabel(label, lang)}
+                  <CheckIcon aria-hidden />
+                </span>
+              ),
+            )}
+          </div>
+          <p className="muted">{t("categoriesSource")}</p>
+          <form
+            className="category-add"
+            onSubmit={(e) => {
+              e.preventDefault();
+              add();
+            }}
           >
-            <PlusIcon />
-          </button>
+            <label htmlFor="new-category">{t("addCategory")}</label>
+            <div>
+              <input
+                id="new-category"
+                value={draft}
+                maxLength={60}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder={t("categoryPlaceholder")}
+                autoComplete="off"
+              />
+              <button
+                type="submit"
+                disabled={!draft.trim() || manual.length >= 40}
+                aria-label={t("addCategory")}
+              >
+                <PlusIcon />
+              </button>
+            </div>
+          </form>
         </div>
-      </form>
+      )}
     </section>
   );
 }
