@@ -168,6 +168,9 @@ const en = {
   on: "On",
   off: "Off",
   hudNowPlaying: "Playing now",
+  hudSaveForGame: "Save for this game",
+  hudGameSettingsSaved:
+    "Saved: Sofa applies these settings when this game starts.",
   hudSession: "Session {session} · total {total}",
   hudNoGame: "No Steam game running. Launch one from Sofa to see it here.",
   settingUnavailable: "This setting is not available on this device.",
@@ -449,6 +452,9 @@ const dicts = {
     on: "Ligado",
     off: "Desligado",
     hudNowPlaying: "Jogando agora",
+    hudSaveForGame: "Salvar para este jogo",
+    hudGameSettingsSaved:
+      "Salvo: o Sofa aplica estes ajustes quando este jogo abrir.",
     hudSession: "Sessão {session} · total {total}",
     hudNoGame: "Nenhum jogo Steam aberto. Abra um pelo Sofa para vê-lo aqui.",
     settingUnavailable: "Este ajuste não está disponível neste dispositivo.",
@@ -727,6 +733,9 @@ const dicts = {
     on: "Activado",
     off: "Desactivado",
     hudNowPlaying: "Jugando ahora",
+    hudSaveForGame: "Guardar para este juego",
+    hudGameSettingsSaved:
+      "Guardado: Sofa aplica estos ajustes al abrir este juego.",
     hudSession: "Sesión {session} · total {total}",
     hudNoGame:
       "Ningún juego de Steam abierto. Abre uno desde Sofa para verlo aquí.",

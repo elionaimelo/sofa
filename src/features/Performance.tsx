@@ -3,6 +3,7 @@ import {
   ArrowsOutIcon,
   CaretDownIcon,
   CpuIcon,
+  FloppyDiskIcon,
   GameControllerIcon,
   LightningIcon,
   MemoryIcon,
@@ -49,9 +50,11 @@ const profileIcons = {
 function AllyProfiles({
   t,
   onMessage,
+  onApplied,
 }: {
   t: Translate;
   onMessage: (m: string) => void;
+  onApplied?: (profile: AllyProfile) => void;
 }) {
   // The device model doesn't change while Sofa runs.
   const status = useQuery({
@@ -66,6 +69,7 @@ function AllyProfiles({
       desktop("set_ally_profile", { profile }),
     onSuccess: (_, profile) => {
       setActive(profile);
+      onApplied?.(profile);
       onMessage(t("allyProfileSent", { profile: t(`ally_${profile}`) }));
     },
     onError: (error) => onMessage(t(serviceError(error))),
@@ -154,6 +158,26 @@ export function Hud() {
     refetchInterval: 5000,
   }).data;
   const game = session?.game;
+  const queryClient = useQueryClient();
+  // Last profile picked in this HUD; what "save for this game" stores.
+  const [profile, setProfile] = useState<AllyProfile | null>(null);
+  const saved = useQuery({
+    ...commandQuery<{
+      profile?: AllyProfile;
+      mode?: Mode;
+      brightness?: number;
+    } | null>("game_settings", { id: game?.id }),
+    enabled: !!game,
+  });
+  const saveForGame = useMutation({
+    mutationFn: (settings: object | null) =>
+      desktop("set_game_settings", { id: game?.id, settings }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["game_settings"] });
+      setMessage(t("hudGameSettingsSaved"));
+    },
+    onError: (error) => setMessage(t(serviceError(error))),
+  });
   const clock = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -161,7 +185,6 @@ export function Hud() {
   };
   const power = usePower();
   const display = useQuery(commandQuery<DisplayStatus>("display_status")).data;
-  const queryClient = useQueryClient();
   const [open, setOpen] = useState<
     "resolution" | "refresh" | "brightness" | null
   >(null);
@@ -274,7 +297,7 @@ export function Hud() {
           </>
         )}
       </section>
-      <AllyProfiles t={t} onMessage={setMessage} />
+      <AllyProfiles t={t} onMessage={setMessage} onApplied={setProfile} />
       <div className="hud-tiles">
         <Tile
           icon={ArrowsOutIcon}
@@ -315,6 +338,27 @@ export function Hud() {
           onClick={() => void run("set_cpu_boost", { on: !display?.cpu_boost })}
         />
         {open === "brightness" && <Options options={options} disabled={busy} />}
+        {game && (
+          <Tile
+            icon={FloppyDiskIcon}
+            label={t("hudSaveForGame")}
+            value={t(saved.data ? "on" : "off")}
+            note={game.title}
+            pressed={!!saved.data}
+            disabled={busy || saveForGame.isPending || saved.isPending}
+            onClick={() =>
+              saveForGame.mutate(
+                saved.data
+                  ? null
+                  : {
+                      profile: profile ?? undefined,
+                      mode: display?.current ?? undefined,
+                      brightness: display?.brightness ?? undefined,
+                    },
+              )
+            }
+          />
+        )}
         <Tile
           icon={CpuIcon}
           label={t("cpuUsage")}

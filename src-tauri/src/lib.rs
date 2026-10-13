@@ -15,6 +15,7 @@ mod xbox_mode;
 mod hud_server;
 mod session;
 mod log;
+mod game_settings;
 
 use tauri::Manager;
 
@@ -59,8 +60,9 @@ async fn scan_library() -> Vec<library::Game> {
 /// Goes through the OS opener, so the frontend opener scope needn't allow custom schemes.
 // ponytail: rescans per launch (ms on a normal library); cache in app state if it shows up.
 #[tauri::command]
-async fn launch(id: String) -> Result<(), String> {
+async fn launch(id: String, app: tauri::AppHandle) -> Result<(), String> {
     let game = library::scan().into_iter().find(|g| g.id == id).ok_or("unknown game")?;
+    game_settings::apply(&app, &id).await;
     let target = game.launch;
     let r = if target.contains("://") {
         tauri_plugin_opener::open_url(&target, None::<&str>)
@@ -107,7 +109,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![scan_library, launch, uninstall::uninstall_game, categories::cached_categories, categories::game_categories, store::store_deals, store::store_shops, store::store_game, store::open_deal, hud::system_metrics, hud::open_hud, session::current_session, session::playtimes, log::open_log, power::power_status, power::perform_power, ally::ally_status, ally::set_ally_profile, publisher::publisher_status, publisher::partner_offers, publisher::open_partner_offer, accounts::connect_steam_library, accounts::disconnect_steam_library, accounts::install_owned_game, display::display_status, display::set_display_mode, display::set_brightness, display::set_cpu_boost, xbox_mode::xbox_mode_status, xbox_mode::set_xbox_mode_startup, xbox_mode::enter_xbox_mode])
+        .invoke_handler(tauri::generate_handler![scan_library, launch, uninstall::uninstall_game, categories::cached_categories, categories::game_categories, store::store_deals, store::store_shops, store::store_game, store::open_deal, hud::system_metrics, hud::open_hud, session::current_session, session::playtimes, log::open_log, game_settings::game_settings, game_settings::set_game_settings, power::power_status, power::perform_power, ally::ally_status, ally::set_ally_profile, publisher::publisher_status, publisher::partner_offers, publisher::open_partner_offer, accounts::connect_steam_library, accounts::disconnect_steam_library, accounts::install_owned_game, display::display_status, display::set_display_mode, display::set_brightness, display::set_cpu_boost, xbox_mode::xbox_mode_status, xbox_mode::set_xbox_mode_startup, xbox_mode::enter_xbox_mode])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

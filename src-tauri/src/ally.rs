@@ -5,7 +5,7 @@ pub struct AllyStatus {
     supported: bool,
 }
 
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AllyProfile {
     Silent,
