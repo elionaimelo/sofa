@@ -42,6 +42,12 @@ jobs:
           [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:IDENTITY_PFX_BASE64))
           & "$bin\signtool.exe" sign /fd SHA256 /f $pfx /p $env:IDENTITY_PFX_PASSWORD "$src/Sofa.Identity.msix"
           Remove-Item $pfx
+      # Create the release up front so tauri-action only has to upload assets.
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view ${{ github.ref_name }} 2>$null || gh release create ${{ github.ref_name }} --title "Sofa ${{ github.ref_name }}" --notes "See the commits for changes."
       # Builds the NSIS installer, signs the updater artifact and publishes latest.json,
       # which the app polls at releases/latest/download/latest.json.
       - uses: tauri-apps/tauri-action@v1
