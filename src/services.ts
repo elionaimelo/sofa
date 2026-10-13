@@ -138,6 +138,9 @@ export const serviceError = (error: unknown): string => {
     "confirmationRequired",
     "affiliateNotConfigured",
     "installUnavailable",
+    "steamLoginCancelled",
+    "steamSessionExpired",
+    "settingUnavailable",
   ].includes(key)
     ? key
     : "serviceUnavailable";

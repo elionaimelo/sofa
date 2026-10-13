@@ -25,7 +25,7 @@ impl AllyProfile {
 }
 
 #[cfg(windows)]
-fn powershell(script: &str) -> Result<String, String> {
+pub(crate) fn powershell(script: &str) -> Result<String, String> {
     use std::os::windows::process::CommandExt;
     use std::process::Stdio;
     use std::time::{Duration, Instant};

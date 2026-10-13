@@ -1,6 +1,7 @@
 use crate::{library, network};
 use serde::Deserialize;
-use std::sync::Mutex;
+use std::{sync::Mutex, time::Duration};
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[derive(Default)]
 pub struct SteamLibrarySession(Mutex<Session>);
@@ -12,7 +13,8 @@ struct Session {
 }
 
 struct SteamAccount {
-    key: String,
+    // ponytail: Steam's web session lasts about a day; persist a refresh token if reconnecting gets annoying.
+    cookie: String,
     steam_id: String,
     games: Vec<library::Game>,
 }
@@ -34,19 +36,59 @@ struct OwnedApp {
     name: Option<String>,
 }
 
-fn valid_credentials(key: &str, steam_id: &str) -> bool {
-    key.len() == 32
-        && key.bytes().all(|b| b.is_ascii_hexdigit())
-        && steam_id.len() == 17
-        && steam_id.bytes().all(|b| b.is_ascii_digit())
+// steamLoginSecure is "<SteamID64>%7C%7C<token>".
+fn steam_id_from_cookie(cookie: &str) -> Option<String> {
+    let id = cookie.split(['%', '|']).next()?;
+    (id.len() == 17 && id.bytes().all(|b| b.is_ascii_digit())).then(|| id.to_owned())
 }
 
-async fn fetch_owned(key: &str, steam_id: &str) -> Result<Vec<library::Game>, String> {
+// Steam's own login page in a private window: Sofa never sees the password, only the session cookie.
+async fn sign_in(app: &tauri::AppHandle) -> Result<String, String> {
+    let store: tauri::Url = "https://store.steampowered.com/".parse().unwrap();
+    let mut builder = WebviewWindowBuilder::new(
+        app,
+        "steam-login",
+        WebviewUrl::External("https://store.steampowered.com/login/".parse().unwrap()),
+    )
+    .title("Steam")
+    .inner_size(520.0, 760.0)
+    .center()
+    .incognito(true);
+    if let Some(main) = app.get_webview_window("main") {
+        builder = builder.parent(&main).map_err(|_| "openFailed")?;
+    }
+    let window = builder.build().map_err(|_| "openFailed")?;
+    loop {
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        if app.get_webview_window("steam-login").is_none() {
+            return Err("steamLoginCancelled".into());
+        }
+        // Fails while the window is closing; the next tick reports the cancel.
+        let Ok(cookies) = window.cookies_for_url(store.clone()) else { continue };
+        if let Some(cookie) = cookies.iter().find(|c| c.name() == "steamLoginSecure") {
+            let value = cookie.value().to_owned();
+            let _ = window.close();
+            return Ok(value);
+        }
+    }
+}
+
+async fn fetch_owned(cookie: &str, steam_id: &str) -> Result<Vec<library::Game>, String> {
+    let client = network::client()?;
+    let config: serde_json::Value = network::json(
+        client
+            .get("https://store.steampowered.com/pointssummary/ajaxgetasyncconfig")
+            .header("cookie", format!("steamLoginSecure={cookie}")),
+    )
+    .await?;
+    let token = config["data"]["webapi_token"]
+        .as_str()
+        .ok_or("steamSessionExpired")?;
     let response: OwnedResponse = network::json(
-        network::client()?
-            .get("https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/")
-            .header("x-webapi-key", key)
+        client
+            .get("https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/")
             .query(&[
+                ("access_token", token),
                 ("steamid", steam_id),
                 ("include_appinfo", "1"),
                 ("include_played_free_games", "1"),
@@ -78,26 +120,24 @@ async fn fetch_owned(key: &str, steam_id: &str) -> Result<Vec<library::Game>, St
 
 #[tauri::command]
 pub async fn connect_steam_library(
-    key: String,
-    steam_id: String,
+    app: tauri::AppHandle,
     session: tauri::State<'_, SteamLibrarySession>,
 ) -> Result<Vec<library::Game>, String> {
-    if !valid_credentials(&key, &steam_id) {
-        return Err("invalidSteamAccount".into());
-    }
+    let cookie = sign_in(&app).await?;
+    let steam_id = steam_id_from_cookie(&cookie).ok_or("invalidResponse")?;
     let generation = {
         let mut session = session.0.lock().map_err(|_| "serviceUnavailable")?;
         session.generation = session.generation.wrapping_add(1);
         session.account = None;
         session.generation
     };
-    let games = fetch_owned(&key, &steam_id).await?;
+    let games = fetch_owned(&cookie, &steam_id).await?;
     let mut session = session.0.lock().map_err(|_| "serviceUnavailable")?;
     if session.generation != generation {
         return Err("notConnected".into());
     }
     session.account = Some(SteamAccount {
-        key,
+        cookie,
         steam_id,
         games: games.clone(),
     });
@@ -108,12 +148,12 @@ pub async fn connect_steam_library(
 pub async fn refresh_steam_library(
     session: tauri::State<'_, SteamLibrarySession>,
 ) -> Result<Vec<library::Game>, String> {
-    let (generation, key, steam_id) = {
+    let (generation, cookie, steam_id) = {
         let session = session.0.lock().map_err(|_| "serviceUnavailable")?;
         let account = session.account.as_ref().ok_or("notConnected")?;
-        (session.generation, account.key.clone(), account.steam_id.clone())
+        (session.generation, account.cookie.clone(), account.steam_id.clone())
     };
-    let games = fetch_owned(&key, &steam_id).await?;
+    let games = fetch_owned(&cookie, &steam_id).await?;
     let mut session = session.0.lock().map_err(|_| "serviceUnavailable")?;
     if session.generation != generation {
         return Err("notConnected".into());
@@ -157,9 +197,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn validates_user_credentials() {
-        assert!(valid_credentials("0123456789abcdef0123456789abcdef", "76561198000000000"));
-        assert!(!valid_credentials("bad", "76561198000000000"));
-        assert!(!valid_credentials("0123456789abcdef0123456789abcdef", "not-an-id"));
+    fn reads_steam_id_from_login_cookie() {
+        assert_eq!(steam_id_from_cookie("76561198000000000%7C%7Ctoken").as_deref(), Some("76561198000000000"));
+        assert_eq!(steam_id_from_cookie("76561198000000000||token").as_deref(), Some("76561198000000000"));
+        assert_eq!(steam_id_from_cookie("bad%7C%7Ctoken"), None);
+        assert_eq!(steam_id_from_cookie(""), None);
     }
 }

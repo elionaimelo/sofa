@@ -34,7 +34,6 @@ import {
   ArrowRightIcon,
 } from "@phosphor-icons/react";
 import { Store } from "./features/Store";
-import { Performance } from "./features/Performance";
 import { TopBatteries, PowerMenu, usePower } from "./features/Power";
 import { demo, navigateControls, navigateSpatial, serviceError, type InputRef } from "./services";
 import {
@@ -43,12 +42,11 @@ import {
   useCategories,
 } from "./features/Categories";
 import { Uninstall } from "./features/Uninstall";
-const PAGES = ["home", "library", "store", "hud"] as const;
+const PAGES = ["home", "library", "store"] as const;
 const pageIcons = {
   home: HouseIcon,
   library: SquaresFourIcon,
   store: StorefrontIcon,
-  hud: GaugeIcon,
 };
 const TABS = ["all", "favorites", "steam", "epic", "gog", "hidden"] as const;
 const preferencesKey = demo ? "sofa.demo.preferences" : "sofa.preferences";
@@ -103,8 +101,6 @@ export default function App() {
   );
   const [loading, setLoading] = useState(true);
   const [scanError, setScanError] = useState("");
-  const [steamId, setSteamId] = useState("");
-  const [steamKey, setSteamKey] = useState("");
   const [steamConnected, setSteamConnected] = useState(false);
   const [steamBusy, setSteamBusy] = useState(false);
   const [page, setPage] = useState<(typeof PAGES)[number] | "settings">("home");
@@ -160,6 +156,11 @@ export default function App() {
         try {
           setOwnedGames(await invoke<Game[]>("refresh_steam_library"));
         } catch (error) {
+          // Expired web session: show the connect button again instead of a dead "connected" state.
+          if (serviceError(error) === "steamSessionExpired") {
+            setSteamConnected(false);
+            setOwnedGames([]);
+          }
           setStatus(t(serviceError(error) as Parameters<typeof t>[0]));
         }
       }
@@ -265,6 +266,9 @@ export default function App() {
   }, [scan]);
   useEffect(() => {
     void checkUpdates();
+    // Sofa can stay open for days as the home app; keep looking for new releases.
+    const id = setInterval(() => void checkUpdates(), 6 * 3600000);
+    return () => clearInterval(id);
   }, [checkUpdates]);
   useEffect(() => saveLang(lang), [lang]);
   useEffect(() => {
@@ -414,13 +418,9 @@ export default function App() {
     if (steamBusy || !isTauri()) return;
     setSteamBusy(true);
     try {
-      const owned = await invoke<Game[]>("connect_steam_library", {
-        key: steamKey.trim(),
-        steamId: steamId.trim(),
-      });
+      const owned = await invoke<Game[]>("connect_steam_library");
       setOwnedGames(owned);
       setSteamConnected(true);
-      setSteamKey("");
       setStatus(t(owned.length ? "steamLibraryConnected" : "steamNoOwnedGames", { count: String(owned.length) }));
     } catch (error) {
       setStatus(t(serviceError(error) as Parameters<typeof t>[0]));
@@ -441,6 +441,10 @@ export default function App() {
     } finally {
       setSteamBusy(false);
     }
+  };
+  const openHud = () => {
+    if (!isTauri()) return setStatus(t("browserPreview"));
+    invoke("open_hud").catch((e) => setStatus(t(serviceError(e) as Parameters<typeof t>[0])));
   };
   const installGame = async (game: Game) => {
     if (game.installed) return;
@@ -642,7 +646,7 @@ export default function App() {
           aria-label={t("searchGames")}
         />
         <div className="system-bar">
-          <TopBatteries t={t} data={power.data} onOpen={() => setPage("hud")} />
+          <TopBatteries t={t} data={power.data} onOpen={openHud} />
           <button
             onClick={() => setPowerMenu(true)}
             aria-label={t("powerMenu")}
@@ -657,8 +661,13 @@ export default function App() {
             })}
           </time>
           <button
+            className={update ? "has-update" : undefined}
             onClick={() => setPage("settings")}
-            aria-label={t("settings")}
+            aria-label={
+              update
+                ? `${t("settings")} · ${t("updateAvailable", { version: update.version })}`
+                : t("settings")
+            }
             aria-current={page === "settings" ? "page" : undefined}
             title={t("settings")}
           >
@@ -1077,15 +1086,6 @@ export default function App() {
               onBack={() => setPage("home")}
             />
           )}
-          {page === "hud" && (
-            <Performance
-              t={t}
-              input={featureInput}
-              power={power.data}
-              powerError={power.error}
-              onBack={() => setPage("home")}
-            />
-          )}
           {page === "settings" && (
             <section className="settings-hub" id="content" tabIndex={-1}>
               <div className="settings-hub-heading">
@@ -1104,15 +1104,19 @@ export default function App() {
                   <strong>{t("appearance")}</strong>
                   <span>{t("settingsAppearanceDescription")}</span>
                 </button>
-                <button onClick={() => setPage("hud")}>
+                <button onClick={openHud}>
                   <GaugeIcon aria-hidden />
                   <strong>{t("hud")}</strong>
                   <span>{t("settingsPerformanceDescription")}</span>
                 </button>
-                <button onClick={() => { setSettingsTarget("updates"); setSettings(true); }}>
+                <button className={update ? "has-update" : undefined} onClick={() => { setSettingsTarget("updates"); setSettings(true); }}>
                   <ArrowRightIcon aria-hidden />
                   <strong>{t("updates")}</strong>
-                  <span>{t("settingsUpdatesDescription")}</span>
+                  <span>
+                    {update
+                      ? t("updateAvailable", { version: update.version })
+                      : t("settingsUpdatesDescription")}
+                  </span>
                 </button>
               </div>
             </section>
@@ -1271,52 +1275,14 @@ export default function App() {
                   </div>
                 </div>
               ) : (
-                <form
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void connectSteamLibrary();
-                  }}
+                <button
+                  data-initial-focus
+                  className="accent"
+                  disabled={steamBusy || !isTauri()}
+                  onClick={() => void connectSteamLibrary()}
                 >
-                  <label>
-                    {t("steamId")}
-                    <input
-                      data-initial-focus
-                      required
-                      inputMode="numeric"
-                      maxLength={17}
-                      pattern="[0-9]{17}"
-                      value={steamId}
-                      onChange={(event) => setSteamId(event.target.value)}
-                      autoComplete="off"
-                    />
-                  </label>
-                  <label>
-                    {t("steamKey")}
-                    <input
-                      required
-                      type="password"
-                      minLength={32}
-                      maxLength={32}
-                      value={steamKey}
-                      onChange={(event) => setSteamKey(event.target.value)}
-                      autoComplete="off"
-                    />
-                  </label>
-                  <button
-                    className="accent"
-                    type="submit"
-                    disabled={steamBusy || !isTauri()}
-                  >
-                    {t(steamBusy ? "connecting" : "connectSteam")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void invoke("open_social", { target: "key", id: null })}
-                    disabled={!isTauri()}
-                  >
-                    {t("getKey")}
-                  </button>
-                </form>
+                  {t(steamBusy ? "connecting" : "connectSteam")}
+                </button>
               )}
               <p className="muted">{t("steamLibraryPrivacy")}</p>
               <p className="muted">{t("otherSourcesInstalledOnly")}</p>

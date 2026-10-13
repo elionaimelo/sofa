@@ -48,24 +48,62 @@ fn read_metrics(state: &Telemetry) -> Result<Metrics, String> {
 pub async fn system_metrics(state: tauri::State<'_, Telemetry>) -> Result<Metrics, String> {
     read_metrics(&state)
 }
-#[tauri::command]
-pub async fn open_hud(app: tauri::AppHandle) -> Result<(), String> {
+fn show_hud(app: &tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("hud") {
         window.show().map_err(|_| "openFailed")?;
         window.set_focus().map_err(|_| "openFailed")?;
         return Ok(());
     }
-    WebviewWindowBuilder::new(&app, "hud", WebviewUrl::App("index.html?hud=1".into()))
+    WebviewWindowBuilder::new(app, "hud", WebviewUrl::App("index.html?hud=1".into()))
         .title("Sofa HUD")
-        .inner_size(430.0, 350.0)
+        .inner_size(460.0, 640.0)
         .position(24.0, 24.0)
         .decorations(false)
         .resizable(false)
         .always_on_top(true)
         .skip_taskbar(true)
         .build()
+        .map_err(|_| "openFailed")?
+        .set_focus()
         .map_err(|_| "openFailed")?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn open_hud(app: tauri::AppHandle) -> Result<(), String> {
+    show_hud(&app)
+}
+
+/// Holding View + Menu on any XInput pad toggles the HUD, even while a game has focus.
+/// Game Bar owns the Xbox/Command Center buttons; Sofa can't claim them without a UWP widget.
+#[cfg(windows)]
+pub fn watch_controller(app: tauri::AppHandle) {
+    use windows_sys::Win32::UI::Input::XboxController::*;
+    std::thread::spawn(move || {
+        let mut connected = [true; 4];
+        let mut was_held = false;
+        for tick in 0u32.. {
+            std::thread::sleep(Duration::from_millis(50));
+            let mut held = false;
+            for (index, live) in connected.iter_mut().enumerate() {
+                // Polling empty slots is slow in XInput; probe them every 2 s only.
+                if !*live && tick % 40 != 0 {
+                    continue;
+                }
+                let mut state = XINPUT_STATE::default();
+                *live = unsafe { XInputGetState(index as u32, &mut state) } == 0;
+                let chord = XINPUT_GAMEPAD_BACK | XINPUT_GAMEPAD_START;
+                held |= *live && state.Gamepad.wButtons & chord == chord;
+            }
+            if held && !was_held {
+                match app.get_webview_window("hud") {
+                    Some(window) => drop(window.close()),
+                    None => drop(show_hud(&app)),
+                }
+            }
+            was_held = held;
+        }
+    });
 }
 
 #[cfg(test)]

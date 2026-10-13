@@ -420,6 +420,23 @@ footer [role="status"] {
   gap: 7px;
   white-space: nowrap;
 }
+.has-update {
+  position: relative;
+}
+.has-update::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.settings-hub-grid .has-update::after {
+  top: 18px;
+  right: 18px;
+}
 .update {
   padding: 7px 12px;
   border-color: var(--accent);
@@ -1187,97 +1204,12 @@ select:focus-visible {
   flex-direction: column;
   gap: 22px;
 }
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
-  max-width: 960px;
-  margin-left: 0;
-  margin-top: 36px;
-}
-.metric-grid article {
-  background: #262c37;
-  padding: 32px;
-  border-radius: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  box-shadow: inset 0 1px rgb(255 255 255 / 0.08);
-}
-.metric-grid article > svg {
-  color: #b9c4d7;
-}
-.metric-grid article > span {
-  color: var(--muted);
-  font-size: 15px;
-}
-.metric-grid strong {
-  font-size: clamp(44px, 6vw, 72px);
-  font-weight: 550;
-  letter-spacing: -0.04em;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.05;
-}
-.metric-grid small {
-  font-size: 20px;
-  font-weight: 400;
-  letter-spacing: 0;
-}
-.metric-grid p {
-  color: var(--muted);
-  font-size: 13px;
-}
 .floating-hud {
-  padding: 12px 16px;
-  background: #1d222b;
+  padding: 14px 16px 18px;
+  background: #1b2029;
   height: 100%;
-  gap: 10px;
-}
-.ally-profiles {
-  display: grid;
   gap: 14px;
-  padding: 18px;
-  border: 1px solid rgb(255 255 255 / 0.12);
-  border-radius: 16px;
-  background: rgb(255 255 255 / 0.055);
-}
-.ally-profiles-heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-.ally-profiles-heading h2 {
-  font-size: 20px;
-}
-.ally-profiles-heading span {
-  color: var(--muted);
-  font-size: 13px;
-}
-.ally-profile-options {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-.ally-profile-options button {
-  display: flex;
-  min-width: 0;
-  min-height: 86px;
-  flex-direction: column;
-  justify-content: center;
-  gap: 6px;
-  padding: 12px;
-  text-align: left;
-}
-.ally-profile-options strong {
-  font-size: 16px;
-}
-.ally-profile-options small {
-  color: var(--muted);
-  font-size: 13px;
-}
-.ally-profiles > p {
-  font-size: 14px;
+  overflow-y: auto;
 }
 .floating-hud::before {
   display: none;
@@ -1285,58 +1217,145 @@ select:focus-visible {
 .floating-hud header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  font-size: 14px;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 600;
 }
 .floating-hud header button {
+  margin-left: auto;
   padding: 4px;
-  min-height: 26px;
+  min-height: 30px;
   border: 0;
   background: none;
 }
-.floating-hud .metric-grid {
-  margin: 0;
-  gap: 12px;
+.hud-pill {
+  padding: 2px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: rgb(237 22 76 / 0.22);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
-.floating-hud .metric-grid article {
-  padding: 14px;
-  border-radius: 10px;
-  gap: 6px;
+.floating-hud h2 {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
-.floating-hud .metric-grid article > svg {
-  display: none;
+.ally-profile-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
-.floating-hud .metric-grid strong {
-  font-size: 29px;
+.ally-profile-options button {
+  flex-direction: column;
+  gap: 4px;
+  min-height: 82px;
+  padding: 10px 6px;
+  border-radius: 14px;
 }
-.floating-hud .metric-grid span {
+.ally-profile-options strong {
+  font-size: 14px;
+}
+.ally-profile-options small {
+  color: var(--muted);
   font-size: 12px;
 }
-.floating-hud .metric-grid p {
-  font-size: 10px;
+.ally-profiles > p {
+  margin-top: 8px;
+  font-size: 12px;
 }
-.floating-hud .metric-grid small {
-  font-size: 13px;
-}
-.floating-hud > p {
-  font-size: 11px;
-}
-.floating-hud .ally-profiles {
-  padding: 12px;
+.hud-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
-.floating-hud .ally-profiles-heading h2 {
-  font-size: 15px;
+.hud-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 6px;
+  min-height: 108px;
+  padding: 14px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.06);
+  text-align: left;
 }
-.floating-hud .ally-profile-options button {
-  min-height: 72px;
-  padding: 8px;
+.hud-tile-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  font-size: 14px;
+  font-weight: 600;
 }
-.floating-hud .ally-profile-options strong {
+.hud-caret,
+.hud-dot {
+  margin-left: auto;
+}
+.hud-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.85);
+}
+.hud-tile[aria-expanded="true"] .hud-caret {
+  transform: rotate(180deg);
+}
+.hud-tile strong {
+  font-size: 26px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.hud-tile small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.hud-tile[aria-pressed="true"],
+.ally-profile-options button[aria-pressed="true"],
+.hud-options button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: rgb(237 22 76 / 0.28);
+}
+.hud-options {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgb(0 0 0 / 0.25);
+}
+.hud-options button {
+  min-height: 40px;
+  padding: 6px 12px;
+  border-radius: 999px;
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
-.floating-hud .ally-profile-options small {
-  font-size: 11px;
+.floating-hud > p {
+  font-size: 12px;
+}
+.floating-hud .battery-section {
+  margin-top: 0;
+}
+.floating-hud .battery-section > h2 {
+  margin: 6px 0 8px;
+}
+.floating-hud .battery-card {
+  padding: 16px;
+}
+.floating-hud .battery-card dl {
+  gap: 12px;
+  margin: 14px 0 8px;
+}
+.floating-hud .battery-card dd {
+  font-size: 18px;
 }
 .settings-hub {
   flex: 1;
@@ -1587,12 +1606,6 @@ select:focus-visible {
   .compare-summary {
     align-items: flex-start;
     flex-direction: column;
-  }
-  .metric-grid {
-    gap: 14px;
-  }
-  .metric-grid article {
-    padding: 22px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2380,23 +2393,8 @@ footer kbd {
   color: var(--muted);
   font-size: 16px;
 }
-.library-account form {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-.library-account form label {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 7px;
-  font-size: 16px;
-}
-.library-account form input {
-  width: 100%;
-}
-.library-account form button {
-  justify-self: start;
+.library-account > button {
+  align-self: flex-start;
 }
 .library-account-connected {
   display: flex;
@@ -2447,8 +2445,6 @@ footer kbd {
 }
 .compare-summary,
 .account-connect label,
-.metric-grid article > span,
-.metric-grid p,
 .battery-heading p,
 .battery-card dt,
 .controller-batteries p,
@@ -2469,11 +2465,6 @@ footer kbd {
   .primary-nav button {
     width: 50px;
     flex-basis: 50px;
-  }
-}
-@media (max-width: 650px) {
-  .library-account form {
-    grid-template-columns: 1fr;
   }
 }
 @media (max-height: 600px) {
@@ -2521,35 +2512,6 @@ footer kbd {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-}
-.performance-page .metric-grid {
-  max-width: none;
-  margin-top: 18px;
-  gap: 12px;
-}
-.performance-page .metric-grid article {
-  display: grid;
-  grid-template-columns: 28px 1fr auto;
-  align-items: center;
-  min-height: 82px;
-  gap: 5px 10px;
-  padding: 14px 18px;
-  border-radius: 12px;
-}
-.performance-page .metric-grid article > svg {
-  grid-row: 1 / 3;
-}
-.performance-page .metric-grid strong {
-  grid-column: 3;
-  grid-row: 1 / 3;
-  font-size: 28px;
-}
-.performance-page .metric-grid small {
-  font-size: 14px;
-}
-.performance-page .metric-grid p {
-  grid-column: 2;
-  font-size: 12px;
 }
 .scene .preview-label {
   position: fixed;

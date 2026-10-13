@@ -68,6 +68,12 @@ export function useInput(onAction: (action: Action) => void) {
     };
     window.addEventListener("keydown", onKey);
     const last = new Map<Action, number>();
+    const deferred: Action[] = ["menu", "settings"];
+    let chord = false;
+    const fire = (a: Action) => {
+      document.documentElement.classList.add("gamepad-input");
+      cb.current(a);
+    };
     let raf = 0;
     const poll = () => {
       if (!document.hasFocus()) {
@@ -86,13 +92,20 @@ export function useInput(onAction: (action: Action) => void) {
         if (x < -0.5) held.add("left");
         if (x > 0.5) held.add("right");
       }
-      for (const a of last.keys()) if (!held.has(a)) last.delete(a);
+      // View + Menu together toggles the native HUD; those two fire on release
+      // so the chord doesn't also open the menu or settings here.
+      if (held.has("menu") && held.has("settings")) chord = true;
+      for (const a of last.keys())
+        if (!held.has(a)) {
+          last.delete(a);
+          if (deferred.includes(a) && !chord) fire(a);
+        }
+      if (!held.has("menu") && !held.has("settings")) chord = false;
       for (const a of held) {
         const repeats = ["up", "down", "left", "right"].includes(a);
         if (!last.has(a) || (repeats && now - last.get(a)! > 180)) {
           last.set(a, now);
-          document.documentElement.classList.add("gamepad-input");
-          cb.current(a);
+          if (!deferred.includes(a)) fire(a);
         }
       }
       raf = requestAnimationFrame(poll);
