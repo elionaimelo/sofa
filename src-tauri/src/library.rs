@@ -16,6 +16,10 @@ pub fn scan() -> Vec<Game> {
     let mut games = steam();
     games.extend(epic());
     games.extend(gog());
+    // The same Steam library can be listed twice with different spellings
+    // (registry `c:/program files (x86)/steam` vs vdf `C:\Program Files (x86)\Steam`).
+    games.sort_by(|a, b| a.id.cmp(&b.id));
+    games.dedup_by(|a, b| a.id == b.id);
     games.sort_by_key(|g| g.title.to_lowercase());
     games
 }
@@ -179,6 +183,17 @@ mod tests {
         let vdf = "\"libraryfolders\"\n{\n\t\"0\"\n\t{\n\t\t\"path\"\t\t\"D:\\\\SteamLibrary\"\n\t}\n}";
         let paths: Vec<_> = vdf_pairs(vdf).filter(|(k, _)| *k == "path").map(|(_, v)| v).collect();
         assert_eq!(paths, vec![r"D:\SteamLibrary".to_string()]);
+    }
+
+    #[test]
+    fn dedupes_same_game_from_two_library_paths() {
+        let mut games: Vec<Game> = ["steam:1", "steam:1", "epic:a"]
+            .iter()
+            .map(|id| Game { id: id.to_string(), title: "x".into(), source: "steam", launch: String::new(), cover: None })
+            .collect();
+        games.sort_by(|a, b| a.id.cmp(&b.id));
+        games.dedup_by(|a, b| a.id == b.id);
+        assert_eq!(games.iter().map(|g| g.id.as_str()).collect::<Vec<_>>(), ["epic:a", "steam:1"]);
     }
 
     #[test]
