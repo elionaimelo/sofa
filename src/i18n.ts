@@ -151,7 +151,8 @@ const en = {
   settingsHubIntro: "Choose what you want to adjust.",
   settingsLibraryDescription: "Accounts, owned games and organization",
   settingsAppearanceDescription: "Language, layout and fullscreen",
-  settingsPerformanceDescription: "Floating HUD · hold View + Menu on the controller",
+  settingsPerformanceDescription:
+    "Floating HUD · hold View + Menu on the controller",
   settingsUpdatesDescription: "Check for a new Sofa version",
   ally_silent: "Silent",
   ally_balanced: "Balanced",
@@ -169,8 +170,10 @@ const en = {
   hudNowPlaying: "Playing now",
   hudNoGame: "No Steam game running. Launch one from Sofa to see it here.",
   settingUnavailable: "This setting is not available on this device.",
-  allyUnavailable: "Power profiles are available on the original ROG Ally with the ASUS system driver.",
-  powerControlUnavailable: "The ASUS power control did not respond. Check the device driver and try again.",
+  allyUnavailable:
+    "Power profiles are available on the original ROG Ally with the ASUS system driver.",
+  powerControlUnavailable:
+    "The ASUS power control did not respond. Check the device driver and try again.",
   sampling: "Sampling…",
   ofMemory: "of {total} GB",
   skipContent: "Skip to content",
@@ -195,7 +198,8 @@ const en = {
   compact: "Compact",
   fullscreen: "Toggle fullscreen",
   xboxModeStartup: "Start in Xbox mode at sign-in",
-  xboxModeStartupNote: "Makes Sofa the Xbox mode home app and turns on Windows’ “Enter Xbox mode on startup”.",
+  xboxModeStartupNote:
+    "Makes Sofa the Xbox mode home app and turns on Windows’ “Enter Xbox mode on startup”.",
   enterXboxMode: "Enter Xbox mode now",
   restartRequired: "Restart Windows to finish switching to Xbox mode.",
   scanFailed: "Could not read libraries: {error}",
@@ -209,14 +213,18 @@ const en = {
   installComplete: "Installation complete. The game is ready to play.",
   installUnavailable: "This game cannot be installed from Sofa yet.",
   previewInstall: "Installation is unavailable in the demo library.",
-  steamLibraryDescription: "Show games owned on your Steam account, including those not installed on this device.",
+  steamLibraryDescription:
+    "Show games owned on your Steam account, including those not installed on this device.",
   steamLibraryConnected: "{count} Steam games available",
   steamLibraryDisconnected: "Steam library disconnected.",
-  steamNoOwnedGames: "Steam returned no owned games. Check your game-details privacy settings.",
-  steamLibraryPrivacy: "You sign in on Steam's own page; Sofa never sees your password. The session stays saved on this device until you disconnect.",
+  steamNoOwnedGames:
+    "Steam returned no owned games. Check your game-details privacy settings.",
+  steamLibraryPrivacy:
+    "You sign in on Steam's own page; Sofa never sees your password. The session stays saved on this device until you disconnect.",
   steamLoginCancelled: "Steam sign-in was cancelled.",
   steamSessionExpired: "Your Steam session expired. Connect again.",
-  otherSourcesInstalledOnly: "Epic and GOG currently show installed games only.",
+  otherSourcesInstalledOnly:
+    "Epic and GOG currently show installed games only.",
   neverPlayed: "Not played in Sofa yet",
   lastPlayed: "Last played: {date}",
   gamesCount: "{count} games",
@@ -241,8 +249,10 @@ const en = {
   searchGames: "Search games",
   scanning: "Scanning libraries…",
   noMatches: "No matches.",
-  noGames: "No games found. Connect Steam in Settings or install a game from Steam, Epic or GOG.",
-  homeNoInstalled: "No games installed yet. Browse your library to install one.",
+  noGames:
+    "No games found. Connect Steam in Settings or install a game from Steam, Epic or GOG.",
+  homeNoInstalled:
+    "No games installed yet. Browse your library to install one.",
   launching: "Launching {title}…",
   launchFailed: "Couldn't launch {title}: {error}",
   play: "Play",
@@ -418,7 +428,8 @@ const dicts = {
     settingsHubIntro: "Escolha o que deseja ajustar.",
     settingsLibraryDescription: "Contas, jogos da biblioteca e organização",
     settingsAppearanceDescription: "Idioma, layout e tela cheia",
-    settingsPerformanceDescription: "HUD flutuante · segure View + Menu no controle",
+    settingsPerformanceDescription:
+      "HUD flutuante · segure View + Menu no controle",
     settingsUpdatesDescription: "Verificar novas versões do Sofa",
     ally_silent: "Silencioso",
     ally_balanced: "Equilibrado",
@@ -436,8 +447,10 @@ const dicts = {
     hudNowPlaying: "Jogando agora",
     hudNoGame: "Nenhum jogo Steam aberto. Abra um pelo Sofa para vê-lo aqui.",
     settingUnavailable: "Este ajuste não está disponível neste dispositivo.",
-    allyUnavailable: "Os perfis de potência estão disponíveis no ROG Ally original com o driver ASUS instalado.",
-    powerControlUnavailable: "O controle de potência ASUS não respondeu. Confira o driver e tente novamente.",
+    allyUnavailable:
+      "Os perfis de potência estão disponíveis no ROG Ally original com o driver ASUS instalado.",
+    powerControlUnavailable:
+      "O controle de potência ASUS não respondeu. Confira o driver e tente novamente.",
     sampling: "Medindo…",
     ofMemory: "de {total} GB",
     skipContent: "Ir para o conteúdo",
@@ -462,28 +475,36 @@ const dicts = {
     compact: "Compacto",
     fullscreen: "Alternar tela cheia",
     xboxModeStartup: "Abrir no modo Xbox ao entrar no Windows",
-    xboxModeStartupNote: "Define o Sofa como app inicial do modo Xbox e liga a opção do Windows de entrar no modo Xbox ao iniciar.",
+    xboxModeStartupNote:
+      "Define o Sofa como app inicial do modo Xbox e liga a opção do Windows de entrar no modo Xbox ao iniciar.",
     enterXboxMode: "Entrar no modo Xbox agora",
-    restartRequired: "Reinicie o Windows para concluir a troca para o modo Xbox.",
+    restartRequired:
+      "Reinicie o Windows para concluir a troca para o modo Xbox.",
     scanFailed: "Não foi possível ler as bibliotecas: {error}",
     retry: "Tentar novamente",
     installed: "Instalado",
     availableToInstall: "Disponível para instalar",
-    availabilitySummary: "{installed} instalados · {available} disponíveis para instalar",
+    availabilitySummary:
+      "{installed} instalados · {available} disponíveis para instalar",
     installGame: "Instalar",
     installHint: "Instale este jogo pelo launcher para poder jogar.",
     installRequested: "Instalação de {title} solicitada. Conclua na Steam.",
     installComplete: "Instalação concluída. O jogo está pronto para jogar.",
     installUnavailable: "Ainda não é possível instalar este jogo pelo Sofa.",
-    previewInstall: "A instalação não está disponível na biblioteca de demonstração.",
-    steamLibraryDescription: "Mostre os jogos da sua conta Steam, inclusive os que ainda não estão instalados neste dispositivo.",
+    previewInstall:
+      "A instalação não está disponível na biblioteca de demonstração.",
+    steamLibraryDescription:
+      "Mostre os jogos da sua conta Steam, inclusive os que ainda não estão instalados neste dispositivo.",
     steamLibraryConnected: "{count} jogos da Steam disponíveis",
     steamLibraryDisconnected: "Biblioteca Steam desconectada.",
-    steamNoOwnedGames: "A Steam não retornou jogos da conta. Verifique a privacidade dos detalhes dos jogos.",
-    steamLibraryPrivacy: "O login é feito na página oficial da Steam; o Sofa nunca vê sua senha. A sessão fica salva neste dispositivo até você desconectar.",
+    steamNoOwnedGames:
+      "A Steam não retornou jogos da conta. Verifique a privacidade dos detalhes dos jogos.",
+    steamLibraryPrivacy:
+      "O login é feito na página oficial da Steam; o Sofa nunca vê sua senha. A sessão fica salva neste dispositivo até você desconectar.",
     steamLoginCancelled: "Login na Steam cancelado.",
     steamSessionExpired: "Sua sessão da Steam expirou. Conecte novamente.",
-    otherSourcesInstalledOnly: "Epic e GOG mostram apenas jogos instalados por enquanto.",
+    otherSourcesInstalledOnly:
+      "Epic e GOG mostram apenas jogos instalados por enquanto.",
     neverPlayed: "Ainda não jogado pelo Sofa",
     lastPlayed: "Última vez jogado: {date}",
     gamesCount: "{count} jogos",
@@ -509,8 +530,10 @@ const dicts = {
     searchGames: "Buscar jogos",
     scanning: "Procurando bibliotecas…",
     noMatches: "Nada encontrado.",
-    noGames: "Nenhum jogo encontrado. Conecte a Steam nas Configurações ou instale um jogo da Steam, Epic ou GOG.",
-    homeNoInstalled: "Nenhum jogo instalado ainda. Abra a biblioteca para instalar um.",
+    noGames:
+      "Nenhum jogo encontrado. Conecte a Steam nas Configurações ou instale um jogo da Steam, Epic ou GOG.",
+    homeNoInstalled:
+      "Nenhum jogo instalado ainda. Abra a biblioteca para instalar um.",
     launching: "Abrindo {title}…",
     launchFailed: "Não foi possível abrir {title}: {error}",
     play: "Jogar",
@@ -679,7 +702,8 @@ const dicts = {
     settingsHubIntro: "Elige qué quieres ajustar.",
     settingsLibraryDescription: "Cuentas, juegos y organización",
     settingsAppearanceDescription: "Idioma, diseño y pantalla completa",
-    settingsPerformanceDescription: "HUD flotante · mantén View + Menu en el mando",
+    settingsPerformanceDescription:
+      "HUD flotante · mantén View + Menu en el mando",
     settingsUpdatesDescription: "Buscar nuevas versiones de Sofa",
     ally_silent: "Silencioso",
     ally_balanced: "Equilibrado",
@@ -695,10 +719,13 @@ const dicts = {
     on: "Activado",
     off: "Desactivado",
     hudNowPlaying: "Jugando ahora",
-    hudNoGame: "Ningún juego de Steam abierto. Abre uno desde Sofa para verlo aquí.",
+    hudNoGame:
+      "Ningún juego de Steam abierto. Abre uno desde Sofa para verlo aquí.",
     settingUnavailable: "Este ajuste no está disponible en este dispositivo.",
-    allyUnavailable: "Los perfiles de potencia están disponibles en el ROG Ally original con el controlador ASUS instalado.",
-    powerControlUnavailable: "El control de potencia ASUS no respondió. Comprueba el controlador e inténtalo de nuevo.",
+    allyUnavailable:
+      "Los perfiles de potencia están disponibles en el ROG Ally original con el controlador ASUS instalado.",
+    powerControlUnavailable:
+      "El control de potencia ASUS no respondió. Comprueba el controlador e inténtalo de nuevo.",
     sampling: "Midiendo…",
     ofMemory: "de {total} GB",
     skipContent: "Saltar al contenido",
@@ -723,28 +750,36 @@ const dicts = {
     compact: "Compacto",
     fullscreen: "Alternar pantalla completa",
     xboxModeStartup: "Abrir en modo Xbox al iniciar sesión",
-    xboxModeStartupNote: "Define Sofa como app de inicio del modo Xbox y activa la opción de Windows de entrar en modo Xbox al iniciar.",
+    xboxModeStartupNote:
+      "Define Sofa como app de inicio del modo Xbox y activa la opción de Windows de entrar en modo Xbox al iniciar.",
     enterXboxMode: "Entrar en modo Xbox ahora",
     restartRequired: "Reinicia Windows para terminar el cambio al modo Xbox.",
     scanFailed: "No se pudieron leer las bibliotecas: {error}",
     retry: "Reintentar",
     installed: "Instalado",
     availableToInstall: "Disponible para instalar",
-    availabilitySummary: "{installed} instalados · {available} disponibles para instalar",
+    availabilitySummary:
+      "{installed} instalados · {available} disponibles para instalar",
     installGame: "Instalar",
     installHint: "Instala este juego desde su launcher para poder jugar.",
-    installRequested: "Se solicitó instalar {title}. Completa la instalación en Steam.",
+    installRequested:
+      "Se solicitó instalar {title}. Completa la instalación en Steam.",
     installComplete: "Instalación terminada. El juego está listo para jugar.",
     installUnavailable: "Todavía no se puede instalar este juego desde Sofa.",
-    previewInstall: "La instalación no está disponible en la biblioteca de demostración.",
-    steamLibraryDescription: "Muestra los juegos de tu cuenta Steam, incluso los que aún no están instalados en este dispositivo.",
+    previewInstall:
+      "La instalación no está disponible en la biblioteca de demostración.",
+    steamLibraryDescription:
+      "Muestra los juegos de tu cuenta Steam, incluso los que aún no están instalados en este dispositivo.",
     steamLibraryConnected: "{count} juegos de Steam disponibles",
     steamLibraryDisconnected: "Biblioteca Steam desconectada.",
-    steamNoOwnedGames: "Steam no devolvió juegos de la cuenta. Revisa la privacidad de los detalles de los juegos.",
-    steamLibraryPrivacy: "Inicias sesión en la página oficial de Steam; Sofa nunca ve tu contraseña. La sesión queda guardada en este dispositivo hasta que te desconectes.",
+    steamNoOwnedGames:
+      "Steam no devolvió juegos de la cuenta. Revisa la privacidad de los detalles de los juegos.",
+    steamLibraryPrivacy:
+      "Inicias sesión en la página oficial de Steam; Sofa nunca ve tu contraseña. La sesión queda guardada en este dispositivo hasta que te desconectes.",
     steamLoginCancelled: "Inicio de sesión en Steam cancelado.",
     steamSessionExpired: "Tu sesión de Steam expiró. Conéctate de nuevo.",
-    otherSourcesInstalledOnly: "Epic y GOG solo muestran juegos instalados por ahora.",
+    otherSourcesInstalledOnly:
+      "Epic y GOG solo muestran juegos instalados por ahora.",
     neverPlayed: "Aún no jugado en Sofa",
     lastPlayed: "Última vez jugado: {date}",
     gamesCount: "{count} juegos",
@@ -770,8 +805,10 @@ const dicts = {
     searchGames: "Buscar juegos",
     scanning: "Buscando bibliotecas…",
     noMatches: "Sin resultados.",
-    noGames: "No se encontraron juegos. Conecta Steam en Configuración o instala un juego de Steam, Epic o GOG.",
-    homeNoInstalled: "Aún no hay juegos instalados. Abre la biblioteca para instalar uno.",
+    noGames:
+      "No se encontraron juegos. Conecta Steam en Configuración o instala un juego de Steam, Epic o GOG.",
+    homeNoInstalled:
+      "Aún no hay juegos instalados. Abre la biblioteca para instalar uno.",
     launching: "Iniciando {title}…",
     launchFailed: "No se pudo iniciar {title}: {error}",
     play: "Jugar",

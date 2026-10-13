@@ -1,6 +1,6 @@
+import { queryOptions } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { MutableRefObject } from "react";
-import { queryOptions } from "@tanstack/react-query";
 import { useEffect } from "react";
 import type { Translate } from "./i18n";
 import type { Action } from "./useInput";
@@ -55,9 +55,15 @@ export function navigateControls(a: Action, root: Element | null): boolean {
 const focusableSelector =
   "button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]";
 
-export function navigateSpatial(a: Action, root: Element | null, initial?: HTMLElement | null): boolean {
+export function navigateSpatial(
+  a: Action,
+  root: Element | null,
+  initial?: HTMLElement | null,
+): boolean {
   if (!root) return false;
-  const controls = [...root.querySelectorAll<HTMLElement>(focusableSelector)].filter(
+  const controls = [
+    ...root.querySelectorAll<HTMLElement>(focusableSelector),
+  ].filter(
     (element) =>
       !element.closest("[inert], [hidden]") &&
       getComputedStyle(element).visibility !== "hidden" &&
@@ -76,15 +82,22 @@ export function navigateSpatial(a: Action, root: Element | null, initial?: HTMLE
     }
     return false;
   }
-  if ((a === "lb" || a === "rb") && current instanceof HTMLSelectElement && controls.includes(current)) {
+  if (
+    (a === "lb" || a === "rb") &&
+    current instanceof HTMLSelectElement &&
+    controls.includes(current)
+  ) {
     current.selectedIndex =
-      (current.selectedIndex + (a === "lb" ? -1 : 1) + current.options.length) % current.options.length;
+      (current.selectedIndex + (a === "lb" ? -1 : 1) + current.options.length) %
+      current.options.length;
     current.dispatchEvent(new Event("change", { bubbles: true }));
     return true;
   }
-  if (!["up", "down", "left", "right"].includes(a) || !controls.length) return false;
+  if (!["up", "down", "left", "right"].includes(a) || !controls.length)
+    return false;
   if (!controls.includes(current)) {
-    const target = initial && controls.includes(initial) ? initial : controls[0];
+    const target =
+      initial && controls.includes(initial) ? initial : controls[0];
     target.focus();
     target.scrollIntoView({ block: "nearest", inline: "nearest" });
     return true;
@@ -144,12 +157,20 @@ const serviceErrors: MessageKey[] = [
   "restartRequired",
 ];
 /** Message key for a backend error; anything else (URLs, OS text) becomes serviceUnavailable. */
-export const serviceError = (error: unknown, known: MessageKey[] = []): MessageKey => {
+export const serviceError = (
+  error: unknown,
+  known: MessageKey[] = [],
+): MessageKey => {
   const key = String(error) as MessageKey;
-  return serviceErrors.includes(key) || known.includes(key) ? key : "serviceUnavailable";
+  return serviceErrors.includes(key) || known.includes(key)
+    ? key
+    : "serviceUnavailable";
 };
 /** Query for a backend command, cached under the command and its arguments. */
-export const commandQuery = <T>(command: string, args?: Record<string, unknown>) =>
+export const commandQuery = <T>(
+  command: string,
+  args?: Record<string, unknown>,
+) =>
   queryOptions({
     queryKey: [command, args ?? null],
     queryFn: () => desktop<T>(command, args),

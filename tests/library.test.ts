@@ -1,14 +1,15 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
+import { test } from "node:test";
 import {
   categoryOptions,
   cleanCategories,
   defaults,
   filterGames,
+  type Game,
   mergeLibrary,
   parsePreferences,
-  type Game,
 } from "../src/library.ts";
+
 const games: Game[] = [
   {
     id: "steam:1",
@@ -18,8 +19,22 @@ const games: Game[] = [
     launch: "steam://rungameid/1",
     cover: null,
   },
-  { id: "epic:2", title: "Hades", source: "epic", launch: "", cover: null, installed: true },
-  { id: "gog:3", title: "Cyberpunk", source: "gog", launch: "", cover: null, installed: true },
+  {
+    id: "epic:2",
+    title: "Hades",
+    source: "epic",
+    launch: "",
+    cover: null,
+    installed: true,
+  },
+  {
+    id: "gog:3",
+    title: "Cyberpunk",
+    source: "gog",
+    launch: "",
+    cover: null,
+    installed: true,
+  },
 ];
 test("account games merge with local installations without duplicate cards", () => {
   const owned: Game[] = [

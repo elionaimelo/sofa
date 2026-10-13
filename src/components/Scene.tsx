@@ -1,11 +1,11 @@
-import type { ReactNode } from "react";
 import {
-  LazyMotion,
   domAnimation,
+  LazyMotion,
   m,
   useIsPresent,
   useReducedMotion,
 } from "motion/react";
+import type { ReactNode } from "react";
 export function Scene({ children }: { children: ReactNode }) {
   const present = useIsPresent();
   const reduced = useReducedMotion();

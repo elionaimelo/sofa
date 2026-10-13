@@ -1,33 +1,34 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  HeartIcon,
-  ArrowUpRightIcon,
-  MagnifyingGlassIcon,
   ArrowClockwiseIcon,
+  ArrowUpRightIcon,
+  HeartIcon,
+  MagnifyingGlassIcon,
   XIcon,
 } from "@phosphor-icons/react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog } from "../components/Dialog";
-import type { Translate, Lang } from "../i18n";
+import type { Lang, Translate } from "../i18n";
 import {
+  commandQuery,
+  type Deal,
+  dealArt,
   demo,
   demoDeals,
-  dealArt,
   desktop,
-  navigateControls,
-  parseWishlist,
-  commandQuery,
-  queryError,
-  serviceError,
+  type InputRef,
   type MessageKey,
-  usd,
-  useFeatureInput,
-  type Deal,
+  navigateControls,
+  type PartnerOffer,
+  parseWishlist,
+  queryError,
   type Shop,
   type StoreGame,
-  type InputRef,
-  type PartnerOffer,
+  serviceError,
+  usd,
+  useFeatureInput,
 } from "../services";
+
 const demoShops: Shop[] = [
   { storeID: "1", storeName: "Steam", isActive: 1 },
   { storeID: "7", storeName: "GOG", isActive: 1 },
@@ -62,7 +63,9 @@ export function Store({
     queryKey: ["store_deals", search],
     queryFn: () =>
       demo
-        ? demoDeals.filter((d) => d.title.toLowerCase().includes(search.toLowerCase()))
+        ? demoDeals.filter((d) =>
+            d.title.toLowerCase().includes(search.toLowerCase()),
+          )
         : desktop<Deal[]>("store_deals", { query: search }),
     staleTime: 5 * 60_000,
     placeholderData: keepPreviousData,
@@ -85,7 +88,11 @@ export function Store({
     queryFn: (): Promise<StoreGame> | StoreGame =>
       demo && selected
         ? {
-            info: { title: selected.title, thumb: selected.thumb, steamAppID: selected.steamAppID },
+            info: {
+              title: selected.title,
+              thumb: selected.thumb,
+              steamAppID: selected.steamAppID,
+            },
             cheapestPriceEver: { price: selected.salePrice, date: 0 },
             deals: [
               {
@@ -106,7 +113,9 @@ export function Store({
   // Partner offers are optional extras: failures just hide them.
   const partners =
     useQuery({
-      ...commandQuery<PartnerOffer[]>("partner_offers", { steamAppId: selected?.steamAppID }),
+      ...commandQuery<PartnerOffer[]>("partner_offers", {
+        steamAppId: selected?.steamAppID,
+      }),
       enabled: !!selected?.steamAppID && !demo,
       staleTime: 60 * 60_000,
     }).data ?? [];
@@ -413,11 +422,7 @@ export function Store({
                       onClick={() => {
                         void desktop("open_partner_offer", {
                           id: offer.id,
-                        }).catch((e) =>
-                          setStatus(
-                            t(serviceError(e)),
-                          ),
-                        );
+                        }).catch((e) => setStatus(t(serviceError(e))));
                       }}
                     >
                       {t("buy")}

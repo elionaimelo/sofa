@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
 import { TrashIcon } from "@phosphor-icons/react";
-import { desktop, demo, serviceError, type MessageKey } from "../services";
+import { useEffect, useRef, useState } from "react";
 import type { Translate } from "../i18n";
 import type { Game } from "../library";
+import { demo, desktop, type MessageKey, serviceError } from "../services";
 export function Uninstall({
   game,
   t,
@@ -32,14 +32,18 @@ export function Uninstall({
       });
       onStarted(game.id, completed);
     } catch (e) {
-      setError(serviceError(e, ["confirmationRequired",
+      setError(
+        serviceError(e, [
+          "confirmationRequired",
           "uninstallUnavailable",
           "gameNoLongerInstalled",
           "unsafeUninstallPath",
           "invalidUninstallManifest",
           "uninstallFailed",
           "uninstallTitleRunning",
-          "uninstallBusy",]));
+          "uninstallBusy",
+        ]),
+      );
     } finally {
       request.current = false;
       setBusy(false);

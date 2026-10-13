@@ -1,29 +1,29 @@
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import {
-  BatteryFullIcon,
+  ArrowClockwiseIcon,
+  BatteryChargingIcon,
   BatteryEmptyIcon,
+  BatteryFullIcon,
+  BatteryHighIcon,
   BatteryLowIcon,
   BatteryMediumIcon,
-  BatteryHighIcon,
-  BatteryChargingIcon,
   GameControllerIcon,
-  PowerIcon,
-  ArrowClockwiseIcon,
   MoonIcon,
+  PowerIcon,
   XIcon,
 } from "@phosphor-icons/react";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { Dialog } from "../components/Dialog";
 import type { Translate } from "../i18n";
 import {
-  desktop,
-  navigateControls,
   commandQuery,
+  desktop,
+  type InputRef,
+  type MessageKey,
+  navigateControls,
   queryError,
   serviceError,
-  type MessageKey,
   useFeatureInput,
-  type InputRef,
 } from "../services";
 export type PowerAction = "shutdown" | "restart" | "hibernate";
 export type DeviceBattery = {
@@ -69,9 +69,7 @@ export function BatteryPanels({
     <section className="battery-section">
       <h2>{t("deviceBattery")}</h2>
       {!data ? (
-        <p className="muted">
-          {t(error || "sampling")}
-        </p>
+        <p className="muted">{t(error || "sampling")}</p>
       ) : !data.batteries.length ? (
         <p className="muted">
           {t(data.battery_error ? "batteryUnavailable" : "noBattery")}
@@ -88,7 +86,7 @@ export function BatteryPanels({
                 )}
                 <div>
                   <h3>{b.model || t("deviceBattery")}</h3>
-                  <p>{t((`battery_${b.state}`) as Parameters<Translate>[0])}</p>
+                  <p>{t(`battery_${b.state}` as Parameters<Translate>[0])}</p>
                 </div>
                 <strong>{percent(b.charge_percent)}</strong>
               </div>
@@ -144,9 +142,7 @@ export function BatteryPanels({
               <GameControllerIcon size={32} />
               <div>
                 <h3>{t("controllerNumber", { index: String(c.index) })}</h3>
-                <p>
-                  {t((`controller_${c.level}`) as Parameters<Translate>[0])}
-                </p>
+                <p>{t(`controller_${c.level}` as Parameters<Translate>[0])}</p>
               </div>
             </article>
           ))}
@@ -202,9 +198,7 @@ export function PowerMenu({
       await desktop("perform_power", { action, confirmed: true });
       onClose();
     } catch (e) {
-      setError(
-        serviceError(e),
-      );
+      setError(serviceError(e));
     } finally {
       setBusy(false);
     }
@@ -258,7 +252,7 @@ export function PowerMenu({
                     <span>
                       <strong>{t(a)}</strong>
                       <span>
-                        {t((`${a}Description`) as Parameters<Translate>[0])}
+                        {t(`${a}Description` as Parameters<Translate>[0])}
                       </span>
                     </span>
                   </button>
@@ -317,7 +311,11 @@ export function TopBatteries({
   };
   return (
     // biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>).
-    <div className="top-batteries" role="group" aria-label={t("batteryOverview")}>
+    <div
+      className="top-batteries"
+      role="group"
+      aria-label={t("batteryOverview")}
+    >
       <button
         className="battery-status device-status"
         onClick={onOpen}
@@ -332,7 +330,7 @@ export function TopBatteries({
       </button>
       {controllers.slice(0, 2).map((controller) => {
         const Icon = icons[controller.level] ?? BatteryEmptyIcon;
-        const description = `${t("controllerNumber", { index: String(controller.index) })}: ${t((`controller_${controller.level}`) as Parameters<Translate>[0])}`;
+        const description = `${t("controllerNumber", { index: String(controller.index) })}: ${t(`controller_${controller.level}` as Parameters<Translate>[0])}`;
         return (
           <button
             key={controller.index}

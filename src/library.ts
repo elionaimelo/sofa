@@ -141,7 +141,9 @@ export function filterGames(
         return false;
       if (
         wanted.size &&
-        !gameCategories(g.id, p, catalog).some((label) => wanted.has(categoryKey(label)))
+        !gameCategories(g.id, p, catalog).some((label) =>
+          wanted.has(categoryKey(label)),
+        )
       )
         return false;
       if (f.favoritesOnly && !favorites.has(g.id)) return false;

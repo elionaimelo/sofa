@@ -6,12 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": [
-      "**",
-      "!src-tauri",
-      "!preview",
-      "!package-lock.json"
-    ]
+    "includes": ["**", "!src-tauri", "!preview", "!package-lock.json"]
   },
   "formatter": {
     "enabled": true,

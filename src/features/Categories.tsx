@@ -1,16 +1,17 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { CheckIcon, PlusIcon, XIcon } from "@phosphor-icons/react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { XIcon, PlusIcon, CheckIcon } from "@phosphor-icons/react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { Lang, Translate } from "../i18n";
 import {
+  type CategoryMap,
   categoryKey,
   cleanCategories,
-  gameCategories,
-  type CategoryMap,
   type Game,
+  gameCategories,
   type Preferences,
 } from "../library";
-import type { Translate, Lang } from "../i18n";
 import { demo } from "../services";
+
 // Demonstration data stays in the explicitly labeled browser demo.
 const demoCategories: CategoryMap = {
   "steam:1245620": ["Action", "RPG", "Souls-like", "Open World"],
@@ -100,8 +101,7 @@ export function useCategories(games: Game[]) {
           const result = cleanCategories(
             await invoke<string[]>("game_categories", { id }),
           );
-          if (alive)
-            setCatalog((previous) => ({ ...previous, [id]: result }));
+          if (alive) setCatalog((previous) => ({ ...previous, [id]: result }));
         } catch (e) {
           if (alive) setUnavailable(true);
           // Stop requests when offline or throttled; cached labels and manual categories stay usable.
@@ -164,7 +164,9 @@ export function CategoryEditor({
     const measure = measurement.current;
     if (!row || !measure) return;
     const fit = () => {
-      const widths = [...measure.children].map((item) => item.getBoundingClientRect().width);
+      const widths = [...measure.children].map(
+        (item) => item.getBoundingClientRect().width,
+      );
       const available = row.clientWidth;
       const buttonWidth = Math.max(
         ...[...(moreMeasurement.current?.children ?? [])].map(
@@ -221,7 +223,9 @@ export function CategoryEditor({
           {expanded
             ? t("showLessCategories")
             : all.length > visibleCount
-              ? t("moreCategories", { count: String(all.length - visibleCount) })
+              ? t("moreCategories", {
+                  count: String(all.length - visibleCount),
+                })
               : t("editCategories")}
         </button>
       </div>
@@ -255,7 +259,9 @@ export function CategoryEditor({
                   key={categoryKey(label)}
                   onClick={() =>
                     onChange(
-                      manual.filter((m) => categoryKey(m) !== categoryKey(label)),
+                      manual.filter(
+                        (m) => categoryKey(m) !== categoryKey(label),
+                      ),
                     )
                   }
                   aria-label={t("removeCategory", {

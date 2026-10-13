@@ -1,7 +1,3 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type ComponentType } from "react";
-import { isTauri } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   ArrowsClockwiseIcon,
   ArrowsOutIcon,
@@ -15,12 +11,23 @@ import {
   SunIcon,
   XIcon,
 } from "@phosphor-icons/react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { isTauri } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { type ComponentType, useState } from "react";
 import type { Translate } from "../i18n";
+import { initialLang, translator } from "../i18n";
 import type { Game } from "../library";
-import { commandQuery, desktop, navigateSpatial, queryError, serviceError } from "../services";
+import {
+  commandQuery,
+  desktop,
+  navigateSpatial,
+  queryError,
+  serviceError,
+} from "../services";
 import { useInput } from "../useInput";
 import { BatteryPanels, usePower } from "./Power";
-import { initialLang, translator } from "../i18n";
+
 type Metrics = {
   cpu: number | null;
   used_memory: number;
@@ -34,15 +41,29 @@ type DisplayStatus = {
   cpu_boost: boolean | null;
 };
 type AllyProfile = "silent" | "balanced" | "turbo";
-const profileIcons = { silent: MoonIcon, balanced: ScalesIcon, turbo: LightningIcon };
-function AllyProfiles({ t, onMessage }: { t: Translate; onMessage: (m: string) => void }) {
+const profileIcons = {
+  silent: MoonIcon,
+  balanced: ScalesIcon,
+  turbo: LightningIcon,
+};
+function AllyProfiles({
+  t,
+  onMessage,
+}: {
+  t: Translate;
+  onMessage: (m: string) => void;
+}) {
   // The device model doesn't change while Sofa runs.
-  const status = useQuery({ ...commandQuery<{ supported: boolean }>("ally_status"), staleTime: Infinity });
+  const status = useQuery({
+    ...commandQuery<{ supported: boolean }>("ally_status"),
+    staleTime: Infinity,
+  });
   const supported = !!status.data?.supported;
   // ponytail: highlights what Sofa requested this session; read DSTS 0x00120075 if Armoury Crate changes drift.
   const [active, setActive] = useState<AllyProfile | null>(null);
   const apply = useMutation({
-    mutationFn: (profile: AllyProfile) => desktop("set_ally_profile", { profile }),
+    mutationFn: (profile: AllyProfile) =>
+      desktop("set_ally_profile", { profile }),
     onSuccess: (_, profile) => {
       setActive(profile);
       onMessage(t("allyProfileSent", { profile: t(`ally_${profile}`) }));
@@ -69,7 +90,9 @@ function AllyProfiles({ t, onMessage }: { t: Translate; onMessage: (m: string) =
           );
         })}
       </div>
-      {!status.isPending && !supported && <p className="muted">{t("allyUnavailable")}</p>}
+      {!status.isPending && !supported && (
+        <p className="muted">{t("allyUnavailable")}</p>
+      )}
     </section>
   );
 }
@@ -104,7 +127,9 @@ function Tile({
       <span className="hud-tile-label">
         <Icon size={20} aria-hidden />
         {label}
-        {expanded !== undefined && <CaretDownIcon className="hud-caret" size={16} aria-hidden />}
+        {expanded !== undefined && (
+          <CaretDownIcon className="hud-caret" size={16} aria-hidden />
+        )}
         {pressed !== undefined && <i className="hud-dot" aria-hidden />}
       </span>
       <strong>{value}</strong>
@@ -114,21 +139,36 @@ function Tile({
 }
 export function Hud() {
   const t = translator(initialLang());
-  const metricsQuery = useQuery({ ...commandQuery<Metrics>("system_metrics"), refetchInterval: 2000 });
+  const metricsQuery = useQuery({
+    ...commandQuery<Metrics>("system_metrics"),
+    refetchInterval: 2000,
+  });
   const metrics = metricsQuery.data;
-  const game = useQuery({ ...commandQuery<Game | null>("current_game"), refetchInterval: 5000 }).data;
+  const game = useQuery({
+    ...commandQuery<Game | null>("current_game"),
+    refetchInterval: 5000,
+  }).data;
   const power = usePower();
   const display = useQuery(commandQuery<DisplayStatus>("display_status")).data;
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState<"resolution" | "refresh" | "brightness" | null>(null);
+  const [open, setOpen] = useState<
+    "resolution" | "refresh" | "brightness" | null
+  >(null);
   const [message, setMessage] = useState("");
   const change = useMutation({
-    mutationFn: ({ command, args }: { command: string; args: Record<string, unknown> }) =>
-      desktop(command, args),
+    mutationFn: ({
+      command,
+      args,
+    }: {
+      command: string;
+      args: Record<string, unknown>;
+    }) => desktop(command, args),
     onMutate: () => setMessage(""),
     onSuccess: () => {
       // The focused option is about to unmount; keep controller focus on its tile.
-      document.querySelector<HTMLElement>(".hud-tile[aria-expanded='true']")?.focus();
+      document
+        .querySelector<HTMLElement>(".hud-tile[aria-expanded='true']")
+        ?.focus();
       setOpen(null);
       return queryClient.invalidateQueries({ queryKey: ["display_status"] });
     },
@@ -146,16 +186,21 @@ export function Hud() {
     else navigateSpatial(a, document.querySelector(".floating-hud"));
   });
   const current = display?.current;
-  const same = (m: Mode, w: number, h: number) => m.width === w && m.height === h;
+  const same = (m: Mode, w: number, h: number) =>
+    m.width === w && m.height === h;
   const resolutions = (display?.modes ?? []).filter(
     (m, i, all) => all.findIndex((o) => same(o, m.width, m.height)) === i,
   );
   const rates = current
-    ? (display?.modes ?? []).filter((m) => same(m, current.width, current.height))
+    ? (display?.modes ?? []).filter((m) =>
+        same(m, current.width, current.height),
+      )
     : [];
   // A new resolution keeps the current refresh rate when the panel supports it there.
   const pickResolution = (m: Mode) =>
-    display?.modes.find((o) => same(o, m.width, m.height) && o.refresh === current?.refresh) ?? m;
+    display?.modes.find(
+      (o) => same(o, m.width, m.height) && o.refresh === current?.refresh,
+    ) ?? m;
   const options =
     open === "resolution"
       ? resolutions.map((m) => ({
@@ -176,14 +221,17 @@ export function Hud() {
               pick: () => run("set_brightness", { percent }),
             }))
           : [];
-  const toggle = (name: NonNullable<typeof open>) => setOpen(open === name ? null : name);
+  const toggle = (name: NonNullable<typeof open>) =>
+    setOpen(open === name ? null : name);
   const gb = (n: number) => (n / 1024 ** 3).toFixed(1);
   const battery = power.data?.batteries[0]?.charge_percent;
   return (
     <main className="floating-hud">
       <header data-tauri-drag-region>
         <span data-tauri-drag-region>Sofa HUD</span>
-        {battery != null && <span className="hud-pill">{Math.round(battery)}%</span>}
+        {battery != null && (
+          <span className="hud-pill">{Math.round(battery)}%</span>
+        )}
         <button onClick={close} aria-label={t("close")}>
           <XIcon />
         </button>
@@ -255,12 +303,18 @@ export function Hud() {
           icon={MemoryIcon}
           label={t("memory")}
           value={metrics ? `${gb(metrics.used_memory)} GB` : "—"}
-          note={metrics ? t("ofMemory", { total: gb(metrics.total_memory) }) : t("sampling")}
+          note={
+            metrics
+              ? t("ofMemory", { total: gb(metrics.total_memory) })
+              : t("sampling")
+          }
         />
       </div>
       <BatteryPanels t={t} data={power.data} error={power.error} />
       {(message || metricsQuery.error) && (
-        <p role="status">{message || t(queryError(metricsQuery.error) || "serviceUnavailable")}</p>
+        <p role="status">
+          {message || t(queryError(metricsQuery.error) || "serviceUnavailable")}
+        </p>
       )}
     </main>
   );

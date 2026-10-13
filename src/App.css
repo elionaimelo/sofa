@@ -71,7 +71,7 @@ p {
 }
 kbd {
   font:
-    700 11px/1.3 "Segoe UI",
+    700 11px / 1.3 "Segoe UI",
     sans-serif;
   padding: 4px 7px;
   border-radius: 5px;
@@ -267,7 +267,7 @@ main::before {
   flex: 0 0 clamp(130px, 12.8vw, 230px);
   height: min(32vh, 345px);
   width: auto;
-  aspect-ratio: 2/3;
+  aspect-ratio: 2 / 3;
 }
 .grid {
   flex: 1;
@@ -281,7 +281,7 @@ main::before {
 }
 .tile {
   position: relative;
-  aspect-ratio: 2/3;
+  aspect-ratio: 2 / 3;
   padding: 0;
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 0.13);
@@ -951,7 +951,7 @@ select:focus-visible {
 }
 .deal-art {
   position: relative;
-  aspect-ratio: 2/3;
+  aspect-ratio: 2 / 3;
   overflow: hidden;
   border-radius: 12px;
   width: 100%;
@@ -1049,7 +1049,7 @@ select:focus-visible {
   border-radius: 14px;
 }
 .skeleton-grid .skeleton {
-  aspect-ratio: 2/3;
+  aspect-ratio: 2 / 3;
 }
 .offer-skeleton {
   min-height: 170px;
@@ -1308,11 +1308,19 @@ select:focus-visible {
   padding: 22px;
   text-align: left;
   border-radius: 18px;
-  background: linear-gradient(145deg, rgb(64 72 90 / 0.78), rgb(34 39 52 / 0.95));
+  background: linear-gradient(
+    145deg,
+    rgb(64 72 90 / 0.78),
+    rgb(34 39 52 / 0.95)
+  );
 }
 .settings-hub-grid button:hover,
 .settings-hub-grid button:focus {
-  background: linear-gradient(145deg, rgb(83 75 113 / 0.92), rgb(41 42 65 / 0.97));
+  background: linear-gradient(
+    145deg,
+    rgb(83 75 113 / 0.92),
+    rgb(41 42 65 / 0.97)
+  );
 }
 .settings-hub-grid svg {
   width: 28px;
@@ -1747,7 +1755,7 @@ select:focus-visible {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
-  grid-column: 2/-1;
+  grid-column: 2 / -1;
 }
 .library-toolbar:has(.library-filters) {
   max-height: min(48vh, 340px);
