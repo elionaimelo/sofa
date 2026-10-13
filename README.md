@@ -17,7 +17,7 @@ Controller-first game library for Windows handhelds and the couch. Tauri 2 (Rust
 - Floating HUD (View + Start, the battery icon or Settings → Performance): the Steam game running now, Silent/Balanced/Turbo firmware profiles on the original ROG Ally (RC71L) with its ASUS system driver, resolution and refresh rate (until the next restart), brightness, CPU Boost, CPU/RAM and battery details. It works over windowed and borderless games; it is not an Xbox Game Bar widget. The firmware decides the actual wattage of a profile.
 - Languages: English, Português (Brasil), Español. Follows the OS language and can be changed in the header.
 - OTA updates through GitHub Releases, signed with the Tauri updater key.
-- Registers as an **Xbox full screen experience home app** (Windows 11 24H2+): Settings → Gaming → Xbox mode (formerly Full screen experience) → pick Sofa. To boot into it at sign-in, also turn on **Enter Xbox mode on startup**; on builds older than 26100.8328 / 26200.8328 the desktop can still win that startup race.
+- Registers as an **Xbox full screen experience home app** (Windows 11 24H2+): Settings → Gaming → Xbox mode (formerly Full screen experience) → pick Sofa. The installer also turns on **Enter Xbox mode on startup** (`StartupToGamingHome`) unless you already set it; Settings → Appearance toggles it and can switch to Xbox mode right away through the documented `SetGamingFullScreenExperience` API. On builds older than 26100.8328 / 26200.8328 the desktop can still win the startup race.
 
 ## What the installer changes on your machine
 

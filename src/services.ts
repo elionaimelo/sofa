@@ -140,6 +140,7 @@ const serviceErrors: MessageKey[] = [
   "steamLoginCancelled",
   "steamSessionExpired",
   "settingUnavailable",
+  "restartRequired",
 ];
 /** Message key for a backend error; anything else (URLs, OS text) becomes serviceUnavailable. */
 export const serviceError = (error: unknown, known: MessageKey[] = []): MessageKey => {

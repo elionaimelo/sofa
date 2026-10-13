@@ -125,6 +125,7 @@ export default function App() {
   const [settings, setSettings] = useState(false);
   const [settingsTarget, setSettingsTarget] = useState<"library" | "appearance" | "updates">("library");
   const [powerMenu, setPowerMenu] = useState(false);
+  const [xboxMode, setXboxMode] = useState<{ home: boolean; startup: boolean; active: boolean | null } | null>(null);
   const powerInput: InputRef = useRef(null);
   const power = usePower();
   const [pendingUninstall, setPendingUninstall] = useState<string | null>(null);
@@ -491,6 +492,19 @@ export default function App() {
     } finally {
       updateBusy.current = false;
       setUpdating(false);
+    }
+  };
+  useEffect(() => {
+    if (!settings || settingsTarget !== "appearance" || demo || !isTauri()) return;
+    invoke<typeof xboxMode>("xbox_mode_status").then(setXboxMode, () => setXboxMode(null));
+  }, [settings, settingsTarget]);
+  const xboxStartup = !!xboxMode?.home && !!xboxMode.startup;
+  const toggleXboxStartup = async () => {
+    try {
+      await invoke("set_xbox_mode_startup", { on: !xboxStartup });
+      setXboxMode(await invoke<typeof xboxMode>("xbox_mode_status"));
+    } catch (error) {
+      setStatus(t(serviceError(error)));
     }
   };
   const fullscreen = async () => {
@@ -1359,6 +1373,23 @@ export default function App() {
               </select>
             </label>
             <button onClick={() => void fullscreen()}>{t("fullscreen")}</button>
+            {xboxMode && (
+              <>
+                <button aria-pressed={xboxStartup} onClick={() => void toggleXboxStartup()}>
+                  {t("xboxModeStartup")}: {t(xboxStartup ? "on" : "off")}
+                </button>
+                <p className="muted">{t("xboxModeStartupNote")}</p>
+                {xboxMode.home && xboxMode.active === false && (
+                  <button
+                    onClick={() =>
+                      void invoke("enter_xbox_mode").catch((error) => setStatus(t(serviceError(error))))
+                    }
+                  >
+                    {t("enterXboxMode")}
+                  </button>
+                )}
+              </>
+            )}
             <button
               onClick={() => {
                 setSettings(false);

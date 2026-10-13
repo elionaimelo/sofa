@@ -254,7 +254,7 @@ export function Hud() {
         <Tile
           icon={LightningIcon}
           label="CPU Boost"
-          value={t(display?.cpu_boost ? "hudOn" : "hudOff")}
+          value={t(display?.cpu_boost ? "on" : "off")}
           pressed={!!display?.cpu_boost}
           disabled={busy || display?.cpu_boost == null}
           onClick={() => void run("set_cpu_boost", { on: !display?.cpu_boost })}

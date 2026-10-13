@@ -18,8 +18,9 @@ if ($Uninstall) {
   exit 0
 }
 
+# Never `New-Item -Force` an existing registry key: it replaces the key with an empty one.
 $unlock = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock'
-New-Item $unlock -Force | Out-Null
+if (-not (Test-Path $unlock)) { New-Item $unlock | Out-Null }
 Set-ItemProperty $unlock -Name AllowDevelopmentWithoutDevLicense -Value 1 -Type DWord
 Set-ItemProperty $unlock -Name AllowAllTrustedApps -Value 1 -Type DWord
 
@@ -32,7 +33,13 @@ Add-AppxPackage -Path "$PSScriptRoot\Sofa.Identity.msix" -ExternalLocation $Inst
 
 # Only claim the home app slot when none is chosen; a user's later choice is kept across updates.
 $aumid = "$((Get-AppxPackage -Name Sofa).PackageFamilyName)!App"
-New-Item $cfg -Force | Out-Null
+if (-not (Test-Path $cfg)) { New-Item $cfg | Out-Null }
 if (-not (Get-ItemProperty $cfg -Name GamingHomeApp -ErrorAction SilentlyContinue).GamingHomeApp) {
   Set-ItemProperty $cfg -Name GamingHomeApp -Value $aumid
+}
+# Boot into Xbox mode when Sofa is the home app, unless the user already set this.
+# Up to 0.3.5 this script ran `New-Item -Force` on this key and wiped the value on every update.
+$current = Get-ItemProperty $cfg -ErrorAction SilentlyContinue
+if ($current.GamingHomeApp -eq $aumid -and $null -eq $current.StartupToGamingHome) {
+  Set-ItemProperty $cfg -Name StartupToGamingHome -Value 1 -Type DWord
 }
