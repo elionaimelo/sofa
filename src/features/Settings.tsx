@@ -1,4 +1,4 @@
-import { PowerIcon, XIcon } from "@phosphor-icons/react";
+import { XIcon } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -118,8 +118,8 @@ export function LibrarySettings({
           </p>
         )}
         <p className="muted">{t("steamLibraryPrivacy")}</p>
-        <p className="muted">{t("otherSourcesInstalledOnly")}</p>
       </section>
+      <p className="muted">{t("otherSourcesInstalledOnly")}</p>
       <label>
         {t("sort")}
         <select
@@ -152,7 +152,6 @@ export function AppearanceSettings({
   prefs,
   setPrefs,
   notify,
-  onPowerMenu,
 }: {
   t: Translate;
   lang: Lang;
@@ -160,7 +159,6 @@ export function AppearanceSettings({
   prefs: Preferences;
   setPrefs: SetPrefs;
   notify: Notify;
-  onPowerMenu: () => void;
 }) {
   const queryClient = useQueryClient();
   // Null when Sofa's identity package isn't registered (dev builds).
@@ -240,23 +238,24 @@ export function AppearanceSettings({
             {t("xboxModeStartup")}: {t(startup ? "on" : "off")}
           </button>
           <p className="muted">{t("xboxModeStartupNote")}</p>
-          {xboxMode.home && xboxMode.active === false && (
-            <button
-              onClick={() =>
-                void invoke("enter_xbox_mode").catch((error) =>
-                  notify(serviceError(error)),
-                )
-              }
-            >
-              {t("enterXboxMode")}
-            </button>
+          {xboxMode.active === true ? (
+            <p className="muted">{t("xboxModeActive")}</p>
+          ) : (
+            xboxMode.home &&
+            xboxMode.active === false && (
+              <button
+                onClick={() =>
+                  void invoke("enter_xbox_mode").catch((error) =>
+                    notify(serviceError(error)),
+                  )
+                }
+              >
+                {t("enterXboxMode")}
+              </button>
+            )
           )}
         </>
       )}
-      <button onClick={onPowerMenu}>
-        <PowerIcon />
-        {t("powerMenu")}
-      </button>
     </>
   );
 }

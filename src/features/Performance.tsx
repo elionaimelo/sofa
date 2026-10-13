@@ -371,7 +371,20 @@ export function Hud() {
             icon={FloppyDiskIcon}
             label={t("hudSaveForGame")}
             value={t(saved.data ? "on" : "off")}
-            note={game.title}
+            note={
+              saved.data
+                ? [
+                    saved.data.profile && t(`ally_${saved.data.profile}`),
+                    saved.data.tdp && `${saved.data.tdp} W`,
+                    saved.data.mode &&
+                      `${saved.data.mode.width}×${saved.data.mode.height} ${saved.data.mode.refresh} Hz`,
+                    saved.data.brightness != null &&
+                      `${saved.data.brightness}%`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || game.title
+                : game.title
+            }
             pressed={!!saved.data}
             disabled={busy || saveForGame.isPending || saved.isPending}
             onClick={() =>

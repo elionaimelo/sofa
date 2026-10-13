@@ -114,6 +114,12 @@ export default function App() {
     ),
   );
   const [status, setStatus] = useState("");
+  // Status lines are transient feedback; a stale "installing…" or error misleads later.
+  useEffect(() => {
+    if (!status) return;
+    const id = setTimeout(() => setStatus(""), 8000);
+    return () => clearTimeout(id);
+  }, [status]);
   const [lang, setLang] = useState(initialLang);
   const [details, setDetails] = useState<Game | null>(null);
   const [settings, setSettings] = useState<SettingsPanel | null>(null);
@@ -233,6 +239,15 @@ export default function App() {
     () => setFocus((f) => Math.min(f, Math.max(0, visible.length - 1))),
     [visible.length],
   );
+  // Hiding or uninstalling the focused game removes its tile (and the dialog's return
+  // target); put controller focus back on the grid instead of losing it to <body>.
+  useEffect(() => {
+    if (document.activeElement !== document.body) return;
+    const tile = grid.current?.children[Math.min(focus, visible.length - 1)] as
+      | HTMLElement
+      | undefined;
+    tile?.focus();
+  }, [visible.length, focus]);
   useEffect(() => {
     grid.current?.children[focus]?.scrollIntoView({
       block: "nearest",
@@ -434,6 +449,45 @@ export default function App() {
     if (a === "x" && selected) toggleFavorite(selected);
     if (a === "y") install();
   });
+  const hints: [string, string][] = details
+    ? [
+        ["A", t("selectAction")],
+        ["X", t("favorites")],
+        [
+          "Y",
+          t(prefs.hidden.includes(details.id) ? "restoreGame" : "hideGame"),
+        ],
+        ["B", t("close")],
+      ]
+    : settings || powerMenu
+      ? [
+          ["A", t("selectAction")],
+          ["B", t("close")],
+        ]
+      : filtersOpen && page === "library"
+        ? [
+            ["A", t("selectAction")],
+            ["Y", t("clearFilters")],
+            ["B", t("close")],
+          ]
+        : [
+            ["View", t("menu")],
+            ["A", t("selectAction")],
+            ...(page === "home" || page === "library"
+              ? ([
+                  ["X", t("favorites")],
+                  ["LB/RB", t("sources")],
+                ] as [string, string][])
+              : page === "store"
+                ? ([
+                    ["X", t("wishlist")],
+                    ["LB/RB", `${t("discover")} / ${t("wishlist")}`],
+                  ] as [string, string][])
+                : []),
+            ...(page === "home"
+              ? []
+              : ([["B", t("home")]] as [string, string][])),
+          ];
   return (
     <main className={`page-${page} density-${prefs.density}`}>
       <a className="skip-link" href="#content">
@@ -1004,13 +1058,11 @@ export default function App() {
           </button>
         )}
         <span className="hints">
-          <kbd>View</kbd> {t("menu")} <kbd>A</kbd> {t("selectAction")}{" "}
-          {(page === "home" || page === "library" || page === "store") && (
-            <>
-              <kbd>X</kbd> {t(page === "store" ? "wishlist" : "favorites")}
-            </>
-          )}{" "}
-          <kbd>B</kbd> {t("home")}
+          {hints.map(([button, label]) => (
+            <span key={button}>
+              <kbd>{button}</kbd> {label}
+            </span>
+          ))}
         </span>
       </footer>
       {powerMenu && (
@@ -1146,10 +1198,6 @@ export default function App() {
               prefs={prefs}
               setPrefs={setPrefs}
               notify={notify}
-              onPowerMenu={() => {
-                setSettings(null);
-                setPowerMenu(true);
-              }}
             />
           )}
           {settings === "updates" && <UpdateSettings t={t} updates={updates} />}
