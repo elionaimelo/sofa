@@ -27,7 +27,7 @@ jobs:
       - run: npm run build
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       # Xbox Game Bar widget (widget/): UWP app signed with the same cert; the installer sideloads it.
-      - uses: microsoft/setup-msbuild@v2
+      - uses: microsoft/setup-msbuild@v3
       - name: Build Game Bar widget
         env:
           IDENTITY_PFX_BASE64: ${{ secrets.IDENTITY_PFX_BASE64 }}
