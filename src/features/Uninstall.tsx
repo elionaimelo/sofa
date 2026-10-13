@@ -52,19 +52,14 @@ export function Uninstall({
       setBusy(false);
     }
   };
+  if (game.source === "gog") return null;
   return (
     <section
       className="uninstall-section"
       data-uninstall-busy={busy || undefined}
     >
       <p className="uninstall-note">
-        {t(
-          game.source === "epic"
-            ? "uninstallEpicNote"
-            : game.source === "gog"
-              ? "uninstallGogNote"
-              : "uninstallSteamNote",
-        )}
+        {t(game.source === "epic" ? "uninstallEpicNote" : "uninstallSteamNote")}
       </p>
       {confirm ? (
         <div className="uninstall-confirm" data-uninstall-confirm>
@@ -73,9 +68,7 @@ export function Uninstall({
             {t(
               game.source === "epic"
                 ? "uninstallEpicConfirm"
-                : game.source === "gog"
-                  ? "uninstallGogConfirm"
-                  : "uninstallConfirm",
+                : "uninstallConfirm",
             )}
           </p>
           <div className="detail-actions">

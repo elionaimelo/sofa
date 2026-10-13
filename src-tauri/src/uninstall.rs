@@ -55,10 +55,6 @@ pub async fn uninstall_game(
                 .map_err(|_| "uninstallFailed")??;
             Ok(true)
         }
-        "gog" => {
-            uninstall_gog(&id)?;
-            Ok(false)
-        }
         _ => Err("uninstallUnavailable".into()),
     }
 }
@@ -80,46 +76,4 @@ mod tests {
             assert!(steam_target(id).is_err());
         }
     }
-}
-
-#[cfg(windows)]
-fn uninstall_gog(id: &str) -> Result<(), String> {
-    use std::{fs, path::PathBuf};
-    use winreg::{RegKey, enums::HKEY_LOCAL_MACHINE};
-    let product = id
-        .strip_prefix("gog:")
-        .filter(|v| !v.is_empty() && v.bytes().all(|b| b.is_ascii_digit()))
-        .ok_or("uninstallUnavailable")?;
-    let key = RegKey::predef(HKEY_LOCAL_MACHINE)
-        .open_subkey(format!(r"SOFTWARE\WOW6432Node\GOG.com\Games\{product}"))
-        .map_err(|_| "uninstallUnavailable")?;
-    let path = key
-        .get_value::<String, _>("path")
-        .or_else(|_| key.get_value("PATH"))
-        .map_err(|_| "uninstallUnavailable")?;
-    let root = fs::canonicalize(PathBuf::from(path)).map_err(|_| "uninstallUnavailable")?;
-    if root.components().count() < 3 {
-        return Err("unsafeUninstallPath".into());
-    }
-    for name in ["unins000.exe", "unins001.exe", "unins002.exe"] {
-        let candidate = root.join(name);
-        let Ok(meta) = fs::symlink_metadata(&candidate) else {
-            continue;
-        };
-        use std::os::windows::fs::MetadataExt;
-        if !meta.is_file() || meta.file_attributes() & 0x400 != 0 {
-            continue;
-        }
-        let executable = fs::canonicalize(candidate).map_err(|_| "uninstallUnavailable")?;
-        if executable.parent() != Some(root.as_path()) {
-            return Err("unsafeUninstallPath".into());
-        }
-        return tauri_plugin_opener::open_path(executable, None::<&str>)
-            .map_err(|_| "openFailed".into());
-    }
-    Err("uninstallUnavailable".into())
-}
-#[cfg(not(windows))]
-fn uninstall_gog(_: &str) -> Result<(), String> {
-    Err("uninstallUnavailable".into())
 }

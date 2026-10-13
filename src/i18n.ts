@@ -4,14 +4,10 @@ const en = {
   uninstallBusy: "Another title is being uninstalled. Wait for it to finish.",
   uninstallEpicNote:
     "Epic: removes only files listed in this title's installed build manifest. Close the title and Epic Launcher first.",
-  uninstallGogNote:
-    "GOG: opens this title's registered uninstaller. Sofa stays open.",
   uninstallSteamNote:
     "Steam: uses Steam's own uninstall confirmation. Sofa stays open.",
   uninstallEpicConfirm:
     "Remove the installed files of this title? Unlisted files, mods and saves outside the installation are retained. This operation cannot be undone by Sofa. Close the title and Epic Launcher before continuing.",
-  uninstallGogConfirm:
-    "The GOG uninstaller will ask for confirmation. Sofa stays open and updates the library after removal. Save preservation depends on the title and the uninstaller's options.",
   unsafeUninstallPath:
     "The installation contains an unsafe path. No removal was started.",
   invalidUninstallManifest:
@@ -243,14 +239,10 @@ const dicts = {
     uninstallBusy: "Outro título está sendo desinstalado. Aguarde a conclusão.",
     uninstallEpicNote:
       "Epic: remove somente os arquivos listados no manifesto instalado deste título. Feche o título e o Epic Launcher antes de continuar.",
-    uninstallGogNote:
-      "GOG: abre o desinstalador registrado deste título. O Sofa continua aberto.",
     uninstallSteamNote:
       "Steam: usa a confirmação de desinstalação da própria Steam. O Sofa continua aberto.",
     uninstallEpicConfirm:
       "Remover os arquivos instalados deste título? Arquivos não listados, mods e saves fora da instalação serão mantidos. Esta operação não pode ser desfeita pelo Sofa. Feche o título e o Epic Launcher antes de continuar.",
-    uninstallGogConfirm:
-      "O desinstalador da GOG pedirá confirmação. O Sofa continua aberto e atualiza a biblioteca após a remoção. A preservação dos saves depende do título e das opções do desinstalador.",
     unsafeUninstallPath:
       "A instalação contém um caminho inseguro. Nenhuma remoção foi iniciada.",
     invalidUninstallManifest:
@@ -488,14 +480,10 @@ const dicts = {
     uninstallBusy: "Se está desinstalando otro título. Espera a que termine.",
     uninstallEpicNote:
       "Epic: elimina solo los archivos del manifiesto instalado de este título. Cierra el título y Epic Launcher antes de continuar.",
-    uninstallGogNote:
-      "GOG: abre el desinstalador registrado de este título. Sofa sigue abierto.",
     uninstallSteamNote:
       "Steam: usa la confirmación de desinstalación de Steam. Sofa sigue abierto.",
     uninstallEpicConfirm:
       "¿Eliminar los archivos instalados de este título? Se conservarán los archivos no listados, mods y partidas fuera de la instalación. Sofa no puede deshacer esta operación. Cierra el título y Epic Launcher antes de continuar.",
-    uninstallGogConfirm:
-      "El desinstalador de GOG pedirá confirmación. Sofa sigue abierto y actualiza la biblioteca después. La conservación de partidas depende del título y las opciones del desinstalador.",
     unsafeUninstallPath:
       "La instalación contiene una ruta insegura. No se inició la eliminación.",
     invalidUninstallManifest:
