@@ -2,7 +2,6 @@ import {
   ArrowsClockwiseIcon,
   ArrowsOutIcon,
   CaretDownIcon,
-  CpuIcon,
   FloppyDiskIcon,
   GameControllerIcon,
   LightningIcon,
@@ -15,19 +14,21 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { type ComponentType, useState } from "react";
+import { type ComponentType, useRef, useState } from "react";
 import type { Translate } from "../i18n";
 import { initialLang, translator } from "../i18n";
 import type { Game } from "../library";
 import {
   commandQuery,
   desktop,
+  type InputRef,
   navigateSpatial,
   queryError,
   serviceError,
+  useFeatureInput,
 } from "../services";
 import { useInput } from "../useInput";
-import { BatteryPanels, usePower } from "./Power";
+import { ControllerBatteries, usePower } from "./Power";
 
 type Metrics = {
   cpu: number | null;
@@ -147,8 +148,38 @@ function Tile({
   );
 }
 const inWidget = new URLSearchParams(location.search).get("widget") === "1";
+/** The HUD window (floating, over windowed games) and the Game Bar widget page. */
 export function Hud() {
   const t = translator(initialLang());
+  const inputRef: InputRef = useRef(null);
+  useInput((a) => inputRef.current?.(a));
+  return (
+    <HudPanel
+      t={t}
+      inputRef={inputRef}
+      onClose={() => {
+        if (isTauri()) void getCurrentWindow().close();
+      }}
+    />
+  );
+}
+
+/**
+ * HUD content. Rendered as its own window/page, or `embedded` in a dialog inside Sofa: in
+ * Xbox mode Sofa is fullscreen and Windows won't show a second always-on-top window.
+ */
+export function HudPanel({
+  t,
+  inputRef,
+  onClose,
+  embedded = false,
+}: {
+  t: Translate;
+  inputRef: InputRef;
+  onClose: () => void;
+  embedded?: boolean;
+}) {
+  const root = useRef<HTMLElement>(null);
   const metricsQuery = useQuery({
     ...commandQuery<Metrics>("system_metrics"),
     refetchInterval: 2000,
@@ -167,7 +198,11 @@ export function Hud() {
   // Last profile picked in this HUD; what "save for this game" stores.
   const [profile, setProfile] = useState<AllyProfile | null>(null);
   const ally = useQuery({
-    ...commandQuery<{ supported: boolean; tdp: number | null }>("ally_status"),
+    ...commandQuery<{
+      supported: boolean;
+      tdp_supported: boolean;
+      tdp: number | null;
+    }>("ally_status"),
     staleTime: Number.POSITIVE_INFINITY,
   }).data;
   const [tdp, setTdp] = useState<number | null>(null);
@@ -224,13 +259,12 @@ export function Hud() {
   const run = (command: string, args: Record<string, unknown>) => {
     if (!busy) change.mutate({ command, args });
   };
-  const close = () => {
-    if (isTauri()) void getCurrentWindow().close();
-  };
-  useInput((a) => {
+  const close = onClose;
+  useFeatureInput(inputRef, (a) => {
     if (a === "b") open ? setOpen(null) : close();
-    else navigateSpatial(a, document.querySelector(".floating-hud"));
+    else navigateSpatial(a, root.current);
   });
+  const Root = embedded ? "div" : "main";
   const current = display?.current;
   const same = (m: Mode, w: number, h: number) =>
     m.width === w && m.height === h;
@@ -281,7 +315,7 @@ export function Hud() {
   const gb = (n: number) => (n / 1024 ** 3).toFixed(1);
   const battery = power.data?.batteries[0]?.charge_percent;
   return (
-    <main className="floating-hud">
+    <Root className="floating-hud" ref={root as never}>
       {/* Inside the Game Bar widget the host draws the title bar and close button. */}
       {/* The Game Bar draws its own title bar; keep the page heading for screen readers. */}
       {inWidget && <h1 className="visually-hidden">Sofa HUD</h1>}
@@ -363,7 +397,7 @@ export function Hud() {
           onClick={() => void run("set_cpu_boost", { on: !display?.cpu_boost })}
         />
         {open === "brightness" && <Options options={options} disabled={busy} />}
-        {ally?.supported && (
+        {ally?.tdp_supported && (
           <Tile
             icon={LightningIcon}
             label={t("hudTdp")}
@@ -411,12 +445,6 @@ export function Hud() {
           />
         )}
         <Tile
-          icon={CpuIcon}
-          label={t("cpuUsage")}
-          value={metrics?.cpu != null ? `${metrics.cpu.toFixed(0)}%` : "—"}
-          note={metrics?.cpu == null ? t("sampling") : undefined}
-        />
-        <Tile
           icon={MemoryIcon}
           label={t("memory")}
           value={metrics ? `${gb(metrics.used_memory)} GB` : "—"}
@@ -427,7 +455,7 @@ export function Hud() {
           }
         />
       </div>
-      <BatteryPanels t={t} data={power.data} error={power.error} />
+      <ControllerBatteries t={t} data={power.data} />
       {/* Live regions stay mounted so screen readers announce changes, not insertions. */}
       <p role="status">{message}</p>
       {metricsQuery.error && (
@@ -435,7 +463,7 @@ export function Hud() {
           {t(queryError(metricsQuery.error) || "serviceUnavailable")}
         </p>
       )}
-    </main>
+    </Root>
   );
 }
 function Options({

@@ -1,4 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { AnimatePresence } from "motion/react";
 import {
   useCallback,
@@ -43,6 +44,7 @@ import {
   categoryLabel,
   useCategories,
 } from "./features/Categories";
+import { HudPanel } from "./features/Performance";
 import { PowerMenu, TopBatteries, usePower } from "./features/Power";
 import {
   AppearanceSettings,
@@ -114,6 +116,12 @@ export default function App() {
     ),
   );
   const [status, setStatus] = useState("");
+  // View + Menu while Sofa has focus: the native watcher asks this window to toggle the panel.
+  useEffect(() => {
+    if (!isTauri()) return;
+    const stop = listen("toggle-hud", () => setHudOpen((open) => !open));
+    return () => void stop.then((unlisten) => unlisten());
+  }, []);
   // Status lines are transient feedback; a stale "installing…" or error misleads later.
   useEffect(() => {
     if (!status) return;
@@ -124,6 +132,8 @@ export default function App() {
   const [details, setDetails] = useState<Game | null>(null);
   const [settings, setSettings] = useState<SettingsPanel | null>(null);
   const [powerMenu, setPowerMenu] = useState(false);
+  const [hudOpen, setHudOpen] = useState(false);
+  const hudInput: InputRef = useRef(null);
   const powerInput: InputRef = useRef(null);
   const power = usePower();
   const [launching, setLaunching] = useState(false);
@@ -300,10 +310,9 @@ export default function App() {
       setLaunching(false);
     }
   };
-  const openHud = () => {
-    if (!isTauri()) return setStatus(t("browserPreview"));
-    invoke("open_hud").catch((e) => setStatus(t(serviceError(e))));
-  };
+  // In Sofa the HUD is a panel, not a window: in Xbox mode Sofa is fullscreen and Windows
+  // won't show another always-on-top window over it. The floating window is for games.
+  const openHud = () => setHudOpen(true);
   const installGame = async (game: Game) => {
     if (game.installed) return;
     if (demo || !isTauri()) {
@@ -319,6 +328,10 @@ export default function App() {
     }
   };
   useInput((a) => {
+    if (hudOpen) {
+      hudInput.current?.(a);
+      return;
+    }
     if (
       a === "filters" &&
       page === "library" &&
@@ -453,45 +466,50 @@ export default function App() {
   });
   // The library's collection title is its page heading; on Home the hero title is.
   const CollectionHeading = page === "library" ? "h1" : "h2";
-  const hints: [string, string][] = details
+  const hints: [string, string][] = hudOpen
     ? [
         ["A", t("selectAction")],
-        ["X", t("favorites")],
-        [
-          "Y",
-          t(prefs.hidden.includes(details.id) ? "restoreGame" : "hideGame"),
-        ],
         ["B", t("close")],
       ]
-    : settings || powerMenu
+    : details
       ? [
           ["A", t("selectAction")],
+          ["X", t("favorites")],
+          [
+            "Y",
+            t(prefs.hidden.includes(details.id) ? "restoreGame" : "hideGame"),
+          ],
           ["B", t("close")],
         ]
-      : filtersOpen && page === "library"
+      : settings || powerMenu
         ? [
             ["A", t("selectAction")],
-            ["Y", t("clearFilters")],
             ["B", t("close")],
           ]
-        : [
-            ["View", t("menu")],
-            ["A", t("selectAction")],
-            ...(page === "home" || page === "library"
-              ? ([
-                  ["X", t("favorites")],
-                  ["LB/RB", t("sources")],
-                ] as [string, string][])
-              : page === "store"
+        : filtersOpen && page === "library"
+          ? [
+              ["A", t("selectAction")],
+              ["Y", t("clearFilters")],
+              ["B", t("close")],
+            ]
+          : [
+              ["View", t("menu")],
+              ["A", t("selectAction")],
+              ...(page === "home" || page === "library"
                 ? ([
-                    ["X", t("wishlist")],
-                    ["LB/RB", `${t("discover")} / ${t("wishlist")}`],
+                    ["X", t("favorites")],
+                    ["LB/RB", t("sources")],
                   ] as [string, string][])
-                : []),
-            ...(page === "home"
-              ? []
-              : ([["B", t("home")]] as [string, string][])),
-          ];
+                : page === "store"
+                  ? ([
+                      ["X", t("wishlist")],
+                      ["LB/RB", `${t("discover")} / ${t("wishlist")}`],
+                    ] as [string, string][])
+                  : []),
+              ...(page === "home"
+                ? []
+                : ([["B", t("home")]] as [string, string][])),
+            ];
   return (
     <main className={`page-${page} density-${prefs.density}`}>
       <a className="skip-link" href="#content">
@@ -1081,6 +1099,16 @@ export default function App() {
           ))}
         </span>
       </footer>
+      {hudOpen && (
+        <Dialog label="HUD" onClose={() => setHudOpen(false)}>
+          <HudPanel
+            t={t}
+            inputRef={hudInput}
+            embedded
+            onClose={() => setHudOpen(false)}
+          />
+        </Dialog>
+      )}
       {powerMenu && (
         <PowerMenu
           t={t}

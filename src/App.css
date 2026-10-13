@@ -1314,16 +1314,6 @@ select:focus-visible,
 .floating-hud .battery-section > h2 {
   margin: 6px 0 8px;
 }
-.floating-hud .battery-card {
-  padding: 16px;
-}
-.floating-hud .battery-card dl {
-  gap: 12px;
-  margin: 14px 0 8px;
-}
-.floating-hud .battery-card dd {
-  font-size: 18px;
-}
 .settings-hub {
   flex: 1;
   min-height: 0;
@@ -1582,55 +1572,6 @@ select:focus-visible,
   font-weight: 550;
   margin: 24px 0 16px;
 }
-.battery-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 20px;
-  max-width: 960px;
-}
-.battery-card {
-  background: #252b36;
-  border-radius: 18px;
-  padding: 26px;
-}
-.battery-heading {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-.battery-heading h3 {
-  font-size: 18px;
-  font-weight: 550;
-  margin: 0;
-}
-.battery-heading p {
-  color: var(--muted);
-  font-size: 13px;
-  margin-top: 5px;
-}
-.battery-heading > strong {
-  margin-left: auto;
-  font-size: 36px;
-  font-weight: 550;
-  font-variant-numeric: tabular-nums;
-}
-.battery-card dl {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  margin: 26px 0 16px;
-}
-.battery-card dt {
-  color: var(--muted);
-  font-size: 13px;
-  margin-bottom: 6px;
-}
-.battery-card dd {
-  margin: 0;
-  font-size: 23px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
 .controller-batteries {
   display: flex;
   flex-wrap: wrap;
@@ -1703,15 +1644,6 @@ select:focus-visible,
     flex-direction: row;
     gap: 16px;
     padding: 18px;
-  }
-  .battery-cards {
-    grid-template-columns: 1fr;
-  }
-  .battery-card {
-    padding: 22px;
-  }
-  .battery-heading > strong {
-    font-size: 30px;
   }
 }
 .partner-offers {
@@ -2391,8 +2323,6 @@ footer kbd {
   font-size: 22px;
 }
 .compare-summary,
-.battery-heading p,
-.battery-card dt,
 .controller-batteries p,
 .power-actions span span {
   font-size: 16px;

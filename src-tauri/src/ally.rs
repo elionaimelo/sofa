@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize)]
 pub struct AllyStatus {
     supported: bool,
+    /// Custom watts are offered only where the limits were validated.
+    tdp_supported: bool,
     /// Sustained power limit (SPL) in watts, when the firmware reports it.
     tdp: Option<u8>,
 }
@@ -77,32 +79,63 @@ pub(crate) fn powershell(script: &str) -> Result<String, String> {
 }
 
 #[cfg(windows)]
-fn supported() -> bool {
-    powershell(
-        "$ErrorActionPreference='Stop'; $model=(Get-CimInstance Win32_ComputerSystem).Model; \
-         if($model -notmatch 'RC71L'){exit 1}; \
+fn probe() -> Probe {
+    // Capability, not model: the firmware reports whether the thermal-policy device exists
+    // (presence bit 0x10000 in DSTS), like the Linux asus-wmi driver checks it.
+    let Ok(out) = powershell(
+        "$ErrorActionPreference='Stop'; \
+         \"model=$((Get-CimInstance Win32_ComputerSystem).Model)\"; \
          $device=Get-CimInstance -Namespace root/wmi -ClassName AsusAtkWmi_WMNB | Select-Object -First 1; \
-         if($null -eq $device){exit 1}; 'ok'",
-    )
-    .is_ok()
+         if($null -eq $device){exit 0}; \
+         \"status=$((Invoke-CimMethod -InputObject $device -MethodName DSTS -Arguments @{Device_ID=[uint32]0x00120075}).device_status)\"",
+    ) else {
+        return Probe::default();
+    };
+    parse_probe(&out)
 }
 
+#[derive(Default, Debug, PartialEq)]
+struct Probe {
+    model: String,
+    /// The firmware exposes the thermal policy (Silent/Balanced/Turbo).
+    profiles: bool,
+}
+
+#[cfg(any(windows, test))]
+fn parse_probe(out: &str) -> Probe {
+    let field = |key: &str| out.lines().find_map(|l| l.trim().strip_prefix(key)).unwrap_or("");
+    let status: u32 = field("status=").parse().unwrap_or(0);
+    Probe {
+        model: field("model=").to_owned(),
+        profiles: status & 0x10000 != 0,
+    }
+}
+
+/// Watts are only validated on the 2023 ROG Ally; other models' limits differ.
+fn tdp_validated(model: &str) -> bool {
+    model.contains("RC71L")
+}
+
+
 #[cfg(not(windows))]
-fn supported() -> bool {
-    false
+fn probe() -> Probe {
+    Probe::default()
 }
 
 #[tauri::command]
-pub async fn ally_status() -> AllyStatus {
-    let supported = tauri::async_runtime::spawn_blocking(supported)
-        .await
-        .unwrap_or(false);
-    let tdp = if supported {
+pub async fn ally_status(app: tauri::AppHandle) -> AllyStatus {
+    let probe = tauri::async_runtime::spawn_blocking(probe).await.unwrap_or_default();
+    crate::log::info(&app, format!("ally: model {:?}, profiles {}", probe.model, probe.profiles));
+    let tdp = if probe.profiles && tdp_validated(&probe.model) {
         tauri::async_runtime::spawn_blocking(read_tdp).await.ok().flatten()
     } else {
         None
     };
-    AllyStatus { supported, tdp }
+    AllyStatus {
+        supported: probe.profiles,
+        tdp_supported: probe.profiles && tdp_validated(&probe.model),
+        tdp,
+    }
 }
 
 /// Custom TDP: sets sustained, slow and fast limits to the same watts (the firmware
@@ -168,12 +201,10 @@ pub async fn set_ally_profile(profile: AllyProfile) -> Result<(), String> {
 
 #[cfg(windows)]
 fn set_profile(profile: AllyProfile) -> Result<(), String> {
-    // RC71L uses ASUS System Control Interface's fixed firmware modes.
+    // Fixed firmware modes of the ASUS thermal-policy device (any model that exposes it).
     // This requests a profile; the firmware and power source decide the actual watts.
     let script = format!(
         "$ErrorActionPreference='Stop'; \
-         $model=(Get-CimInstance Win32_ComputerSystem).Model; \
-         if($model -notmatch 'RC71L'){{exit 1}}; \
          $device=Get-CimInstance -Namespace root/wmi -ClassName AsusAtkWmi_WMNB | Select-Object -First 1; \
          if($null -eq $device){{exit 1}}; \
          $result=Invoke-CimMethod -InputObject $device -MethodName DEVS -Arguments @{{Device_ID=[uint32]0x00120075; Control_status=[uint32]{}}}; \
@@ -195,6 +226,15 @@ fn set_profile(_profile: AllyProfile) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn detects_profiles_by_firmware_presence_bit() {
+        let probe = parse_probe("model=RC73YA\r\nstatus=65537\r\n");
+        assert_eq!(probe, Probe { model: "RC73YA".into(), profiles: true });
+        assert!(!parse_probe("model=RC71L\nstatus=0").profiles);
+        assert!(!parse_probe("model=Desktop").profiles);
+        assert!(tdp_validated("RC71L") && !tdp_validated("RC73YA"));
+    }
 
     #[test]
     fn firmware_modes_are_fixed() {

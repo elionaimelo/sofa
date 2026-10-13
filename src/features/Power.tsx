@@ -53,84 +53,16 @@ export function usePower() {
   });
   return { data: data ?? null, error: queryError(error) };
 }
-export function BatteryPanels({
+/** Controller batteries (XInput); the device battery lives in the top bar and HUD pill. */
+export function ControllerBatteries({
   t,
   data,
-  error,
 }: {
   t: Translate;
   data: PowerStatus | null;
-  error: MessageKey | "";
 }) {
-  const wh = (value: number | null) =>
-    value == null ? "—" : `${value.toFixed(1)} Wh`;
-  const percent = (value: number | null) =>
-    value == null ? "—" : `${Math.round(value)}%`;
   return (
     <section className="battery-section">
-      <h2>{t("deviceBattery")}</h2>
-      {!data ? (
-        <p className="muted">{t(error || "sampling")}</p>
-      ) : !data.batteries.length ? (
-        <p className="muted">
-          {t(data.battery_error ? "batteryUnavailable" : "noBattery")}
-        </p>
-      ) : (
-        <div className="battery-cards">
-          {data.batteries.map((b) => (
-            <article className="battery-card" key={b.index}>
-              <div className="battery-heading">
-                {b.state === "charging" || data.ac_power ? (
-                  <BatteryChargingIcon size={30} />
-                ) : (
-                  <BatteryFullIcon size={30} />
-                )}
-                <div>
-                  <h3>{b.model || t("deviceBattery")}</h3>
-                  <p>
-                    {t(
-                      `battery_${b.state === "unknown" && data.ac_power ? "charging" : b.state}` as Parameters<Translate>[0],
-                    )}
-                  </p>
-                </div>
-                <strong>{percent(b.charge_percent)}</strong>
-              </div>
-              <dl>
-                <div>
-                  <dt>{t("fullCapacity")}</dt>
-                  <dd>{wh(b.full_capacity_wh)}</dd>
-                </div>
-                <div>
-                  <dt>{t("designCapacity")}</dt>
-                  <dd>{wh(b.design_capacity_wh)}</dd>
-                </div>
-                <div>
-                  <dt>{t("batteryHealth")}</dt>
-                  <dd>{percent(b.health_percent)}</dd>
-                </div>
-                <div>
-                  <dt>{t("batteryCycles")}</dt>
-                  <dd>{b.cycles ?? "—"}</dd>
-                </div>
-              </dl>
-              {b.remaining_seconds != null && (
-                <p className="muted">
-                  {t("batteryRemaining", {
-                    minutes: String(Math.round(b.remaining_seconds / 60)),
-                  })}
-                </p>
-              )}
-              {b.charging_seconds != null && (
-                <p className="muted">
-                  {t("batteryToFull", {
-                    minutes: String(Math.round(b.charging_seconds / 60)),
-                  })}
-                </p>
-              )}
-            </article>
-          ))}
-        </div>
-      )}
       <h2>{t("controllerBattery")}</h2>
       {!data?.controllers.length ? (
         <p className="muted">

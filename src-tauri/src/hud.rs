@@ -78,6 +78,7 @@ pub async fn open_hud(app: tauri::AppHandle) -> Result<(), String> {
 /// Game Bar owns the Xbox/Command Center buttons; Sofa can't claim them without a UWP widget.
 #[cfg(windows)]
 pub fn watch_controller(app: tauri::AppHandle) {
+    use tauri::Emitter;
     use windows_sys::Win32::UI::Input::XboxController::*;
     std::thread::spawn(move || {
         let mut connected = [true; 4];
@@ -96,9 +97,18 @@ pub fn watch_controller(app: tauri::AppHandle) {
                 held |= *live && state.Gamepad.wButtons & chord == chord;
             }
             if held && !was_held {
-                match app.get_webview_window("hud") {
-                    Some(window) => drop(window.close()),
-                    None => drop(show_hud(&app)),
+                // Sofa in front (e.g. Xbox mode, fullscreen): its own panel; over a game: the window.
+                let sofa_focused = app
+                    .get_webview_window("main")
+                    .and_then(|w| w.is_focused().ok())
+                    .unwrap_or(false);
+                if sofa_focused {
+                    let _ = app.emit_to("main", "toggle-hud", ());
+                } else {
+                    match app.get_webview_window("hud") {
+                        Some(window) => drop(window.close()),
+                        None => drop(show_hud(&app)),
+                    }
                 }
             }
             was_held = held;
