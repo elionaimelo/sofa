@@ -8,6 +8,7 @@ Each directory has its own `AGENTS.md` with the rules for that layer:
 - `src-tauri/AGENTS.md` — Rust and Tauri backend
 - `tests/AGENTS.md` — frontend unit tests
 - `docs/AGENTS.md` — product docs and business rules
+- `widget/AGENTS.md` — Xbox Game Bar widget (C# UWP shell for the HUD)
 
 ## Commands
 

@@ -137,6 +137,7 @@ function Tile({
     </Tag>
   );
 }
+const inWidget = new URLSearchParams(location.search).get("widget") === "1";
 export function Hud() {
   const t = translator(initialLang());
   const metricsQuery = useQuery({
@@ -227,15 +228,18 @@ export function Hud() {
   const battery = power.data?.batteries[0]?.charge_percent;
   return (
     <main className="floating-hud">
-      <header data-tauri-drag-region>
-        <span data-tauri-drag-region>Sofa HUD</span>
-        {battery != null && (
-          <span className="hud-pill">{Math.round(battery)}%</span>
-        )}
-        <button onClick={close} aria-label={t("close")}>
-          <XIcon />
-        </button>
-      </header>
+      {/* Inside the Game Bar widget the host draws the title bar and close button. */}
+      {!inWidget && (
+        <header data-tauri-drag-region>
+          <span data-tauri-drag-region>Sofa HUD</span>
+          {battery != null && (
+            <span className="hud-pill">{Math.round(battery)}%</span>
+          )}
+          <button onClick={close} aria-label={t("close")}>
+            <XIcon />
+          </button>
+        </header>
+      )}
       <section className="hud-now" aria-label={t("hudNowPlaying")}>
         {game ? (
           <>

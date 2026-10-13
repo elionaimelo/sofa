@@ -24,6 +24,28 @@ jobs:
       - run: npx biome ci
       - run: npm test
       - run: cargo test --manifest-path src-tauri/Cargo.toml
+      # Xbox Game Bar widget (widget/): UWP app signed with the same cert; the installer sideloads it.
+      - uses: microsoft/setup-msbuild@v2
+      - name: Build Game Bar widget
+        env:
+          IDENTITY_PFX_BASE64: ${{ secrets.IDENTITY_PFX_BASE64 }}
+          IDENTITY_PFX_PASSWORD: ${{ secrets.IDENTITY_PFX_PASSWORD }}
+        run: |
+          $ver = (Get-Content package.json | ConvertFrom-Json).version + '.0'
+          (Get-Content widget/Package.appxmanifest) -replace 'Version="0.0.0.0"', "Version=`"$ver`"" | Set-Content widget/Package.appxmanifest
+          $pfx = "$env:RUNNER_TEMP/widget.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:IDENTITY_PFX_BASE64))
+          msbuild widget/Sofa.Widget.csproj -t:restore -p:Configuration=Release -p:Platform=x64
+          msbuild widget/Sofa.Widget.csproj -p:Configuration=Release -p:Platform=x64 -p:AppxBundle=Never `
+            -p:UapAppxPackageBuildMode=SideloadOnly -p:AppxPackageSigningEnabled=true `
+            -p:PackageCertificateKeyFile=$pfx -p:PackageCertificatePassword=$env:IDENTITY_PFX_PASSWORD -p:PackageCertificateThumbprint="" `
+            -p:AppxPackageDir="$env:RUNNER_TEMP/widget-out/"
+          Remove-Item $pfx
+          $out = Get-ChildItem "$env:RUNNER_TEMP/widget-out" -Directory | Select-Object -First 1
+          $dest = 'src-tauri/packaging/widget'
+          New-Item "$dest/Dependencies" -ItemType Directory -Force | Out-Null
+          Copy-Item "$($out.FullName)/*.msix" "$dest/Sofa.Widget.msix"
+          Copy-Item "$($out.FullName)/Dependencies/x64/*.appx" "$dest/Dependencies"
       # Sparse MSIX that gives Sofa.exe a package identity (Xbox full screen experience home app).
       # Signed with the self-signed "CN=Sofa" cert; the installer trusts its public half.
       - name: Build identity package
