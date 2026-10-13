@@ -31,21 +31,33 @@ jobs:
       - run: cargo test --manifest-path src-tauri/Cargo.toml
 
   # Xbox Game Bar widget (widget/): UWP app signed with the same cert; the installer sideloads it.
+  # Rebuilt only when widget/ or its artwork changes: the signed package is cached by content,
+  # and its version follows the number of commits touching widget/ (not the app version).
   widget:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: microsoft/setup-msbuild@v3
-      - uses: actions/cache@v5
+        with:
+          fetch-depth: 0
+      - id: cache
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/widget
+          key: widget-${{ hashFiles('widget/**', 'src-tauri/packaging/Assets/**') }}
+      - if: steps.cache.outputs.cache-hit != 'true'
+        uses: microsoft/setup-msbuild@v3
+      - if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache@v5
         with:
           path: ~/.nuget/packages
           key: nuget-${{ hashFiles('widget/Sofa.Widget.csproj') }}
       - name: Build Game Bar widget
+        if: steps.cache.outputs.cache-hit != 'true'
         env:
           IDENTITY_PFX_BASE64: ${{ secrets.IDENTITY_PFX_BASE64 }}
           IDENTITY_PFX_PASSWORD: ${{ secrets.IDENTITY_PFX_PASSWORD }}
         run: |
-          $ver = (Get-Content package.json | ConvertFrom-Json).version + '.0'
+          $ver = "1.0.$(git rev-list --count HEAD -- widget).0"
           (Get-Content widget/Package.appxmanifest) -replace 'Version="0.0.0.0"', "Version=`"$ver`"" | Set-Content widget/Package.appxmanifest
           $pfx = "$env:RUNNER_TEMP/widget.pfx"
           [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:IDENTITY_PFX_BASE64))

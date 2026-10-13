@@ -37,8 +37,9 @@ sha1 = "0.10"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]
-codegen-units = 1
-lto = true
+# Thin LTO parallelises whole-program optimisation: much faster CI builds for a slightly
+# larger binary. (Fat LTO with codegen-units = 1 was the slowest step of every release.)
+lto = "thin"
 opt-level = 3
 panic = "abort"
 strip = true
