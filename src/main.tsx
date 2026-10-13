@@ -13,7 +13,11 @@ const Hud = lazy(() =>
 
 const queryClient = new QueryClient({
   defaultOptions: {
+    // Queries are Tauri IPC calls, not web requests: battery, HUD and library must keep
+    // working offline. Commands that need the internet fail with the "network" key instead.
+    mutations: { networkMode: "always" },
     queries: {
+      networkMode: "always",
       // Errors are message keys; only a dropped connection is worth retrying.
       retry: (failures, error) =>
         failures < 2 && serviceError(error) === "network",
