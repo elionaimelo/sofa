@@ -1,9 +1,9 @@
-import { GameControllerIcon } from "@phosphor-icons/react";
 import type { Translate } from "../i18n";
 import { type Game, hero } from "../library";
+import { SofaIcon } from "./SofaIcon";
 
 /**
- * Shown while a launcher starts the game: the game's art behind a controller that rumbles.
+ * Shown while a launcher starts the game: the game's art behind the Sofa icon that rumbles.
  * Dismissed by App when the game takes focus, after a timeout, or with B.
  */
 export function LaunchScreen({ game, t }: { game: Game; t: Translate }) {
@@ -18,7 +18,7 @@ export function LaunchScreen({ game, t }: { game: Game; t: Translate }) {
       )}
       <div className="launch-content">
         <span className="launch-icon">
-          <GameControllerIcon weight="duotone" />
+          <SofaIcon size={96} />
         </span>
         <h2>{game.title}</h2>
         <p>{t("launching", { title: game.title })}</p>

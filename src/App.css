@@ -141,11 +141,17 @@ main::before {
   font-size: 29px;
   font-weight: 750;
   letter-spacing: -1.5px;
+  flex-shrink: 0;
 }
-.brand span {
-  color: var(--accent);
-  font-size: 12px;
-  margin-left: 4px;
+.sofa-icon {
+  display: block;
+  flex-shrink: 0;
+  border-radius: 20%;
+}
+.app-loading {
+  display: grid;
+  place-items: center;
+  height: 100%;
 }
 .primary-nav {
   display: flex;
@@ -887,9 +893,6 @@ dialog::backdrop {
   }
 }
 @media (max-width: 600px) {
-  .brand {
-    font-size: 25px;
-  }
   .system-bar time {
     display: none;
   }
@@ -1388,6 +1391,9 @@ select:focus-visible,
   background: none;
 }
 .floating-hud header h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin: 0;
   font-size: inherit;
   font-weight: inherit;
@@ -1552,6 +1558,11 @@ select:focus-visible,
   display: grid;
   gap: 10px;
   margin-bottom: 32px;
+}
+.settings-hub-heading .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 .settings-hub-heading h1 {
   font-size: clamp(36px, 4vw, 58px);
@@ -1744,7 +1755,7 @@ select:focus-visible,
     gap: 4px;
     min-width: 50px;
   }
-  .brand {
+  .brand-name {
     display: none;
   }
   .app-header {
@@ -2406,9 +2417,6 @@ dialog::backdrop {
     padding-inline: 12px;
     gap: 8px;
   }
-  .brand {
-    font-size: 24px;
-  }
   .primary-nav {
     justify-content: flex-start;
   }
@@ -2429,12 +2437,6 @@ dialog::backdrop {
     flex-shrink: 0;
   }
 }
-@media (max-width: 520px) {
-  .app-header .brand {
-    display: none;
-  }
-}
-
 /* Living-room scale: keep secondary text readable and controls easy to target. */
 main:not(.floating-hud) {
   font-family: "Outfit Variable", "Segoe UI", system-ui, sans-serif;
@@ -2783,9 +2785,7 @@ footer kbd {
   background: rgb(255 255 255 / 0.08);
   color: #fff;
 }
-.launch-icon svg {
-  width: 72px;
-  height: 72px;
+.launch-icon .sofa-icon {
   animation: rumble 1.3s ease-in-out infinite;
 }
 .launch-icon::after {
@@ -2847,7 +2847,7 @@ footer kbd {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .launch-icon svg,
+  .launch-icon .sofa-icon,
   .launch-icon::after,
   .launch-screen {
     animation: none;

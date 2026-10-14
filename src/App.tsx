@@ -15,6 +15,7 @@ import { LaunchScreen } from "./components/LaunchScreen";
 import { Picker } from "./components/Picker";
 import { Scene } from "./components/Scene";
 import { SearchField } from "./components/SearchField";
+import { SofaIcon } from "./components/SofaIcon";
 import { initialLang, type Lang, saveLang, translator } from "./i18n";
 import {
   activeFilters,
@@ -639,7 +640,8 @@ export default function App() {
           onClick={() => setPage("home")}
           aria-label={`Sofa · ${t("home")}`}
         >
-          sofa<span>●</span>
+          <SofaIcon />
+          <span className="brand-name">sofa</span>
         </button>
         <nav className="primary-nav" aria-label="Sofa">
           {PAGES.map((p) => {
@@ -1162,6 +1164,7 @@ export default function App() {
             <section className="settings-hub" id="content" tabIndex={-1}>
               <div className="settings-hub-heading">
                 <p className="eyebrow">
+                  <SofaIcon size={36} />
                   {updates.version ? `Sofa ${updates.version}` : "Sofa"}
                 </p>
                 <h1>{t("settings")}</h1>

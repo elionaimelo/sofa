@@ -20,6 +20,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type ComponentType, useEffect, useRef, useState } from "react";
+import { SofaIcon } from "../components/SofaIcon";
 import type { Translate } from "../i18n";
 import { initialLang, isLang, translator } from "../i18n";
 import type { Game } from "../library";
@@ -402,7 +403,10 @@ export function HudPanel({
       {inWidget && <h1 className="visually-hidden">Sofa HUD</h1>}
       {!inWidget && (
         <header data-tauri-drag-region>
-          <h1 data-tauri-drag-region>Sofa HUD</h1>
+          <h1 data-tauri-drag-region>
+            <SofaIcon size={36} dragRegion />
+            Sofa HUD
+          </h1>
           {battery != null && (
             <span className="hud-pill">{Math.round(battery)}%</span>
           )}

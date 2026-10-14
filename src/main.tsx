@@ -2,6 +2,7 @@ import { IconContext } from "@phosphor-icons/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
+import { SofaIcon } from "./components/SofaIcon";
 import { initialLang } from "./i18n";
 import { serviceError } from "./services";
 import "./App.css";
@@ -38,7 +39,13 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <IconContext.Provider value={iconDefaults}>
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <div className="app-loading" role="status" aria-label="Sofa">
+              <SofaIcon size={96} />
+            </div>
+          }
+        >
           {new URLSearchParams(location.search).get("hud") === "1" ? (
             <Hud />
           ) : (

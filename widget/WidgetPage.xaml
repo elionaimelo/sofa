@@ -8,6 +8,7 @@
         <controls:WebView2 x:Name="View" NavigationCompleted="View_NavigationCompleted" />
         <!-- Shown when Sofa isn't running (the HUD is served by the app itself). -->
         <StackPanel x:Name="Offline" Visibility="Collapsed" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12" Padding="24">
+            <Image Source="ms-appx:///Assets/Square150x150Logo.png" Width="96" Height="96" HorizontalAlignment="Center" />
             <TextBlock Text="Sofa is not running" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" />
             <TextBlock Text="Open Sofa to use the HUD." Foreground="#B9BEC9" TextAlignment="Center" TextWrapping="Wrap" />
             <Button Content="Retry" HorizontalAlignment="Center" Click="Retry_Click" />
