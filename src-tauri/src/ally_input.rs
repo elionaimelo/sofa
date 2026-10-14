@@ -1,9 +1,11 @@
 //! ROG Ally 2023 OEM buttons (Command Center, Armoury Crate) use ASUS HID reports, not XInput.
 //! Protocol references: Linux hid-asus/hid-ids and G-Helper KeyboardListener.
 
+/// Usages as the Linux hid-asus driver names them: 0x38 is the ROG (Armoury Crate) key,
+/// 0xa6 the Command Center (QAM) key, 0xa7 the ROG key held, 0xa5 a back paddle.
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum OemAction {
-    /// Command Center press.
+    /// Command Center or Armoury Crate tapped.
     GameBar,
     /// Armoury Crate held.
     TaskSwitcher,
@@ -24,7 +26,7 @@ impl OemButtons {
         let rising = key != self.held;
         self.held = key;
         match key {
-            0xa6 if rising => Some(OemAction::GameBar),
+            0x38 | 0xa6 if rising => Some(OemAction::GameBar),
             0xa7 if rising => Some(OemAction::TaskSwitcher),
             _ => None,
         }
@@ -160,9 +162,16 @@ mod tests {
     }
 
     #[test]
-    fn ignores_short_reports_paddles_and_armoury_crate_taps() {
+    fn armoury_crate_tap_opens_game_bar_too() {
         let mut buttons = OemButtons::default();
-        for report in [&[][..], &[0x5a], &[0x5d, 0xa6], &[0x5a, 0xa5], &[0x5a, 0x38]] {
+        assert_eq!(buttons.update(&[0x5a, 0x38]), Some(OemAction::GameBar));
+        assert_eq!(buttons.update(&[0x5a, 0x38]), None);
+    }
+
+    #[test]
+    fn ignores_short_reports_and_paddles() {
+        let mut buttons = OemButtons::default();
+        for report in [&[][..], &[0x5a], &[0x5d, 0xa6], &[0x5a, 0xa5]] {
             assert_eq!(buttons.update(report), None);
         }
     }
