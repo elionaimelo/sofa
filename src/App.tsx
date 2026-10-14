@@ -777,6 +777,14 @@ export default function App() {
                   id="library-filters"
                   data-filter-panel
                 >
+                  <div className="drawer-head">
+                    <h2>{t("filters")}</h2>
+                    {activeFilters(prefs.filters) > 0 && (
+                      <span className="drawer-count">
+                        {activeFilters(prefs.filters)}
+                      </span>
+                    )}
+                  </div>
                   <section
                     className="category-filter"
                     aria-labelledby="category-filter-title"
@@ -910,7 +918,10 @@ export default function App() {
                     >
                       {t("clearFilters")}
                     </button>
-                    <button onClick={() => setFiltersOpen(false)}>
+                    <button
+                      className="accent"
+                      onClick={() => setFiltersOpen(false)}
+                    >
                       {t("showResults")}
                     </button>
                   </div>

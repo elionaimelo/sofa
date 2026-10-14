@@ -1868,13 +1868,61 @@ select:focus-visible,
   width: min(440px, 92vw);
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 24px 24px 28px;
+  gap: 22px;
+  padding: 22px 24px 0;
   overflow-y: auto;
   background: #222833;
   border-left: 1px solid rgb(255 255 255 / 0.1);
   box-shadow: -24px 0 60px rgb(0 0 0 / 0.5);
   animation: drawer-in 0.2s ease-out;
+}
+.drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.drawer-head h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+}
+.drawer-count {
+  min-width: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: center;
+}
+/* One column: title and hint, then a full-width search, then the chips. */
+.library-filters .category-filter-heading {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.library-filters .category-filter-heading input {
+  width: 100%;
+}
+.library-filters .category-options {
+  max-height: 34vh;
+}
+.library-filters :is(label, .field) {
+  font-size: 14px;
+}
+/* Actions stay reachable while the list above scrolls. */
+.library-filters .filter-actions {
+  position: sticky;
+  bottom: 0;
+  margin: auto -24px 0;
+  padding: 16px 24px 22px;
+  background: linear-gradient(transparent, #222833 35%);
+}
+.library-filters .filter-actions button {
+  flex: 1;
+  min-height: 48px;
 }
 .drawer-backdrop {
   position: fixed;
