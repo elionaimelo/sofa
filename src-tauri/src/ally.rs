@@ -7,6 +7,169 @@ pub struct AllyStatus {
     tdp_supported: bool,
     /// Sustained power limit (SPL) in watts, when the firmware reports it.
     tdp: Option<u8>,
+    /// The ASUS ACPI driver accepts fan curves.
+    fans: bool,
+    /// Lighting and mouse mode Sofa last requested from the built-in pad.
+    pad: crate::ally_pad::Requested,
+}
+
+/// Fan curve presets: eight temperature points and the duty at each, for both fans.
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum FanPreset {
+    /// Whatever the firmware uses for the current profile.
+    Default,
+    Quiet,
+    Cool,
+}
+
+#[cfg(any(windows, test))]
+const FAN_TEMPS: [u8; 8] = [30, 40, 50, 60, 70, 80, 90, 100];
+
+#[cfg(any(windows, test))]
+impl FanPreset {
+    /// Duty per temperature point; the top point always runs the fan flat out.
+    fn duties(self) -> Option<[u8; 8]> {
+        match self {
+            Self::Default => None,
+            Self::Quiet => Some([0, 0, 10, 20, 35, 50, 70, 100]),
+            Self::Cool => Some([25, 35, 45, 55, 65, 75, 90, 100]),
+        }
+    }
+
+    /// The 16-byte DEVS payload: temperatures, then duties (as the Linux asus-wmi driver sends).
+    fn curve(self) -> Option<[u8; 16]> {
+        let duties = self.duties()?;
+        let mut curve = [0u8; 16];
+        curve[..8].copy_from_slice(&FAN_TEMPS);
+        curve[8..].copy_from_slice(&duties);
+        Some(curve)
+    }
+}
+
+/// ASUS WMI device ids of the fan curves, as the Linux asus-wmi driver names them.
+#[cfg(windows)]
+const CPU_FAN_CURVE: u32 = 0x00110024;
+#[cfg(windows)]
+const GPU_FAN_CURVE: u32 = 0x00110025;
+#[cfg(windows)]
+const THERMAL_POLICY: u32 = 0x00120075;
+
+/// Calls the DEVS method of the ASUS ACPI driver with a multi-byte argument, which the WMI
+/// class can't carry (its DEVS takes one 32-bit value). Same ioctl G-Helper uses.
+#[cfg(windows)]
+fn atk_devs(device: u32, params: &[u8]) -> Result<u32, String> {
+    use windows_sys::Win32::Foundation::{CloseHandle, GENERIC_READ, GENERIC_WRITE, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::Storage::FileSystem::{CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING};
+    use windows_sys::Win32::System::IO::DeviceIoControl;
+    const DEVS: u32 = 0x53564544;
+    const CONTROL_CODE: u32 = 0x0022240C;
+    let path: Vec<u16> = "\\\\.\\ATKACPI".encode_utf16().chain(std::iter::once(0)).collect();
+    // NUL-terminated path to the driver's control device; no overlapped IO.
+    let handle = unsafe {
+        CreateFileW(
+            path.as_ptr(),
+            GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            std::ptr::null(),
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            std::ptr::null_mut(),
+        )
+    };
+    if handle == INVALID_HANDLE_VALUE {
+        return Err("settingUnavailable".into());
+    }
+    let mut input = Vec::with_capacity(12 + params.len());
+    input.extend_from_slice(&DEVS.to_le_bytes());
+    input.extend_from_slice(&((4 + params.len()) as u32).to_le_bytes());
+    input.extend_from_slice(&device.to_le_bytes());
+    input.extend_from_slice(params);
+    let mut output = [0u8; 20];
+    let mut returned = 0u32;
+    // Both buffers outlive the call and their lengths are passed with them.
+    let ok = unsafe {
+        DeviceIoControl(
+            handle,
+            CONTROL_CODE,
+            input.as_ptr().cast(),
+            input.len() as u32,
+            output.as_mut_ptr().cast(),
+            output.len() as u32,
+            &mut returned,
+            std::ptr::null_mut(),
+        )
+    };
+    // The handle came from a successful CreateFileW above.
+    unsafe { CloseHandle(handle) };
+    if ok == 0 {
+        return Err("settingUnavailable".into());
+    }
+    Ok(u32::from_le_bytes([output[0], output[1], output[2], output[3]]))
+}
+
+#[cfg(windows)]
+fn fans_supported() -> bool {
+    use windows_sys::Win32::Foundation::{CloseHandle, GENERIC_READ, GENERIC_WRITE, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::Storage::FileSystem::{CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING};
+    let path: Vec<u16> = "\\\\.\\ATKACPI".encode_utf16().chain(std::iter::once(0)).collect();
+    // Only probes that the driver's control device opens.
+    let handle = unsafe {
+        CreateFileW(path.as_ptr(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, std::ptr::null(), OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, std::ptr::null_mut())
+    };
+    if handle == INVALID_HANDLE_VALUE {
+        return false;
+    }
+    // Opened just above.
+    unsafe { CloseHandle(handle) };
+    true
+}
+
+#[cfg(not(windows))]
+fn fans_supported() -> bool {
+    false
+}
+
+#[cfg(windows)]
+fn write_fan_curve(preset: FanPreset) -> Result<(), String> {
+    match preset.curve() {
+        Some(curve) => {
+            for device in [CPU_FAN_CURVE, GPU_FAN_CURVE] {
+                if atk_devs(device, &curve)? != 1 {
+                    return Err("settingUnavailable".into());
+                }
+            }
+            Ok(())
+        }
+        // Re-applying the thermal policy restores the firmware's own curves.
+        None => {
+            let out = powershell(&format!(
+                "$ErrorActionPreference='Stop'; \
+                 $device=Get-CimInstance -Namespace root/wmi -ClassName AsusAtkWmi_WMNB | Select-Object -First 1; \
+                 (Invoke-CimMethod -InputObject $device -MethodName DSTS -Arguments @{{Device_ID=[uint32]{THERMAL_POLICY}}}).device_status"
+            ))?;
+            let raw: u32 = out.trim().parse().map_err(|_| "settingUnavailable")?;
+            let profile = match raw & 0xFF {
+                1 => AllyProfile::Turbo,
+                2 => AllyProfile::Silent,
+                _ => AllyProfile::Balanced,
+            };
+            set_profile(profile).map_err(|_| "settingUnavailable".into())
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn write_fan_curve(_preset: FanPreset) -> Result<(), String> {
+    Err("settingUnavailable".into())
+}
+
+#[tauri::command]
+pub async fn set_fan_curve(preset: FanPreset, app: tauri::AppHandle) -> Result<(), String> {
+    crate::log::info(&app, format!("ally: fan preset {preset:?}"));
+    tauri::async_runtime::spawn_blocking(move || write_fan_curve(preset))
+        .await
+        .map_err(|_| "settingUnavailable".to_string())?
 }
 
 /// ASUS WMI device ids, as documented by the Linux `asus-wmi` driver.
@@ -128,7 +291,8 @@ fn probe() -> Probe {
 }
 
 #[tauri::command]
-pub async fn ally_status(app: tauri::AppHandle) -> AllyStatus {
+pub async fn ally_status(app: tauri::AppHandle, pad: tauri::State<'_, crate::ally_pad::PadState>) -> Result<AllyStatus, String> {
+    let requested = pad.requested();
     let probe = tauri::async_runtime::spawn_blocking(probe).await.unwrap_or_default();
     crate::log::info(&app, format!("ally: model {:?}, profiles {}", probe.model, probe.profiles));
     let tdp = if probe.profiles && tdp_validated(&probe.model) {
@@ -136,11 +300,13 @@ pub async fn ally_status(app: tauri::AppHandle) -> AllyStatus {
     } else {
         None
     };
-    AllyStatus {
+    Ok(AllyStatus {
         supported: probe.profiles,
         tdp_supported: probe.profiles && tdp_validated(&probe.model),
         tdp,
-    }
+        fans: probe.profiles && fans_supported(),
+        pad: requested,
+    })
 }
 
 /// Custom TDP: sets sustained, slow and fast limits to the same watts (the firmware
@@ -239,6 +405,15 @@ mod tests {
         assert!(!parse_probe("model=RC71L\nstatus=0").profiles);
         assert!(!parse_probe("model=Desktop").profiles);
         assert!(tdp_validated("RC71L") && !tdp_validated("RC73YA"));
+    }
+
+    #[test]
+    fn fan_presets_end_flat_out_and_default_has_no_curve() {
+        let quiet = FanPreset::Quiet.curve().unwrap();
+        assert_eq!(&quiet[..8], &FAN_TEMPS);
+        assert_eq!(quiet[15], 100);
+        assert!(FanPreset::Quiet.duties().unwrap().iter().zip(FanPreset::Cool.duties().unwrap()).all(|(q, c)| *q <= c));
+        assert_eq!(FanPreset::Default.curve(), None);
     }
 
     #[test]

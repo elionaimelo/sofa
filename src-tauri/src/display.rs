@@ -13,6 +13,61 @@ pub struct DisplayStatus {
     modes: Vec<Mode>,
     brightness: Option<u8>,
     cpu_boost: Option<bool>,
+    /// Windows' global Auto HDR switch; the panel still has to support HDR for it to matter.
+    auto_hdr: Option<bool>,
+}
+
+/// `DirectXUserGlobalSettings` is a `Key=Value;` list; Auto HDR is one of its entries.
+#[cfg(any(windows, test))]
+fn auto_hdr_enabled(settings: &str) -> bool {
+    settings.split(';').any(|entry| entry.trim() == "AutoHDREnable=1")
+}
+
+#[cfg(any(windows, test))]
+fn with_auto_hdr(settings: &str, on: bool) -> String {
+    let mut entries: Vec<String> = settings
+        .split(';')
+        .map(str::trim)
+        .filter(|e| !e.is_empty() && !e.starts_with("AutoHDREnable="))
+        .map(str::to_owned)
+        .collect();
+    entries.push(format!("AutoHDREnable={}", u8::from(on)));
+    entries.iter().map(|e| format!("{e};")).collect()
+}
+
+#[cfg(windows)]
+const GPU_PREFERENCES: &str = r"Software\Microsoft\DirectX\UserGpuPreferences";
+
+#[cfg(windows)]
+fn read_auto_hdr() -> Option<bool> {
+    use winreg::{RegKey, enums::HKEY_CURRENT_USER};
+    let settings: String = RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey(GPU_PREFERENCES)
+        .and_then(|k| k.get_value("DirectXUserGlobalSettings"))
+        .unwrap_or_default();
+    Some(auto_hdr_enabled(&settings))
+}
+
+#[cfg(windows)]
+fn write_auto_hdr(on: bool) -> Result<(), String> {
+    use winreg::{RegKey, enums::HKEY_CURRENT_USER};
+    let (key, _) = RegKey::predef(HKEY_CURRENT_USER)
+        .create_subkey(GPU_PREFERENCES)
+        .map_err(|_| "settingUnavailable")?;
+    let settings: String = key.get_value("DirectXUserGlobalSettings").unwrap_or_default();
+    key.set_value("DirectXUserGlobalSettings", &with_auto_hdr(&settings, on))
+        .map_err(|_| "settingUnavailable".into())
+}
+
+/// Games started afterwards pick the new value up; Windows itself needs no restart.
+#[tauri::command]
+pub async fn set_auto_hdr(on: bool) -> Result<(), String> {
+    blocking(move || write_auto_hdr(on)).await
+}
+
+#[cfg(not(windows))]
+fn write_auto_hdr(_on: bool) -> Result<(), String> {
+    Err("settingUnavailable".into())
 }
 
 /// Reads the `brightness=` and `boost=` lines printed by the status script.
@@ -105,6 +160,7 @@ fn status() -> DisplayStatus {
         modes,
         brightness,
         cpu_boost,
+        auto_hdr: read_auto_hdr(),
     }
 }
 
@@ -178,6 +234,18 @@ fn set_mode(_mode: Mode) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn auto_hdr_entry_is_replaced_in_the_gpu_preferences_list() {
+        assert!(auto_hdr_enabled("SwapEffectUpgradeEnable=1;AutoHDREnable=1;"));
+        assert!(!auto_hdr_enabled("AutoHDREnable=0;"));
+        assert!(!auto_hdr_enabled(""));
+        assert_eq!(with_auto_hdr("", true), "AutoHDREnable=1;");
+        assert_eq!(
+            with_auto_hdr("SwapEffectUpgradeEnable=1;AutoHDREnable=1;", false),
+            "SwapEffectUpgradeEnable=1;AutoHDREnable=0;"
+        );
+    }
 
     #[test]
     fn parses_status_script_output() {

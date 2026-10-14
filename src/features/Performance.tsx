@@ -2,11 +2,16 @@ import {
   ArrowsClockwiseIcon,
   ArrowsOutIcon,
   CaretDownIcon,
+  CursorIcon,
+  FanIcon,
   FloppyDiskIcon,
   GameControllerIcon,
+  GaugeIcon,
+  LightbulbIcon,
   LightningIcon,
   MoonIcon,
   ScalesIcon,
+  SparkleIcon,
   SunIcon,
   XIcon,
 } from "@phosphor-icons/react";
@@ -34,8 +39,13 @@ type DisplayStatus = {
   modes: Mode[];
   brightness: number | null;
   cpu_boost: boolean | null;
+  auto_hdr: boolean | null;
 };
 type AllyProfile = "silent" | "balanced" | "turbo";
+type FanPreset = "default" | "quiet" | "cool";
+const fanPresets: FanPreset[] = ["default", "quiet", "cool"];
+/** Same list the backend accepts; 0 removes the limit. */
+const framerateLimits = [0, 30, 40, 45, 60, 72, 90, 120];
 const profileIcons = {
   silent: MoonIcon,
   balanced: ScalesIcon,
@@ -208,9 +218,22 @@ export function HudPanel({
       supported: boolean;
       tdp_supported: boolean;
       tdp: number | null;
+      fans: boolean;
+      pad: { lighting: boolean | null; mouse_mode: boolean | null };
     }>("ally_status"),
     staleTime: Number.POSITIVE_INFINITY,
   }).data;
+  // Each of these shows a tile only when the piece that does the work is installed.
+  const framerate = useQuery(
+    commandQuery<{ installed: boolean; limit: number | null }>(
+      "framerate_status",
+    ),
+  ).data;
+  const builtin = useQuery(
+    commandQuery<{ enabled: boolean | null }>("builtin_controller"),
+  ).data;
+  // The firmware doesn't report the active curve; remember what this HUD picked.
+  const [fan, setFan] = useState<FanPreset>("default");
   const [tdp, setTdp] = useState<number | null>(null);
   const currentTdp = tdp ?? ally?.tdp ?? null;
   const saved = useQuery({
@@ -239,7 +262,7 @@ export function HudPanel({
   const power = usePower();
   const display = useQuery(commandQuery<DisplayStatus>("display_status")).data;
   const [open, setOpen] = useState<
-    "resolution" | "refresh" | "brightness" | "tdp" | null
+    "resolution" | "refresh" | "brightness" | "tdp" | "fps" | "fans" | null
   >(null);
   const [message, setMessage] = useState("");
   const change = useMutation({
@@ -249,21 +272,26 @@ export function HudPanel({
     }: {
       command: string;
       args: Record<string, unknown>;
+      refresh: string;
     }) => desktop(command, args),
     onMutate: () => setMessage(""),
-    onSuccess: () => {
+    onSuccess: (_, { refresh }) => {
       // The focused option is about to unmount; keep controller focus on its tile.
       document
         .querySelector<HTMLElement>(".hud-tile[aria-expanded='true']")
         ?.focus();
       setOpen(null);
-      return queryClient.invalidateQueries({ queryKey: ["display_status"] });
+      return queryClient.invalidateQueries({ queryKey: [refresh] });
     },
     onError: (error) => setMessage(t(serviceError(error))),
   });
   const busy = change.isPending;
-  const run = (command: string, args: Record<string, unknown>) => {
-    if (!busy) change.mutate({ command, args });
+  const run = (
+    command: string,
+    args: Record<string, unknown>,
+    refresh = "display_status",
+  ) => {
+    if (!busy) change.mutate({ command, args, refresh });
   };
   const close = onClose;
   useFeatureInput(inputRef, (a) => {
@@ -328,7 +356,23 @@ export function HudPanel({
                   run("set_tdp", { watts });
                 },
               }))
-            : [];
+            : open === "fps"
+              ? framerateLimits.map((fps) => ({
+                  label: fps ? `${fps} FPS` : t("off"),
+                  selected: fps === (framerate?.limit ?? 0),
+                  pick: () =>
+                    run("set_framerate_limit", { fps }, "framerate_status"),
+                }))
+              : open === "fans"
+                ? fanPresets.map((preset) => ({
+                    label: t(`fan_${preset}`),
+                    selected: preset === fan,
+                    pick: () => {
+                      setFan(preset);
+                      run("set_fan_curve", { preset }, "ally_status");
+                    },
+                  }))
+                : [];
   const toggle = (name: NonNullable<typeof open>) =>
     setOpen(open === name ? null : name);
   const battery = power.data?.batteries[0]?.charge_percent;
@@ -394,7 +438,7 @@ export function HudPanel({
           disabled={busy || rates.length < 2}
           onClick={() => toggle("refresh")}
         />
-        {options.length > 0 && open !== "brightness" && (
+        {(open === "resolution" || open === "refresh") && (
           <Options options={options} disabled={busy} />
         )}
         <Tile
@@ -427,6 +471,91 @@ export function HudPanel({
           />
         )}
         {open === "tdp" && <Options options={options} disabled={busy} />}
+        {framerate?.installed && (
+          <Tile
+            icon={GaugeIcon}
+            label={t("hudFramerateLimit")}
+            value={framerate.limit ? `${framerate.limit} FPS` : t("off")}
+            note={t("hudTapToChange")}
+            expanded={open === "fps"}
+            disabled={busy}
+            onClick={() => toggle("fps")}
+          />
+        )}
+        {open === "fps" && <Options options={options} disabled={busy} />}
+        {display?.auto_hdr != null && (
+          <Tile
+            icon={SparkleIcon}
+            label="Auto HDR"
+            value={t(display.auto_hdr ? "on" : "off")}
+            note={t("hudAutoHdrNote")}
+            pressed={display.auto_hdr}
+            disabled={busy}
+            onClick={() => run("set_auto_hdr", { on: !display.auto_hdr })}
+          />
+        )}
+        {ally?.fans && (
+          <Tile
+            icon={FanIcon}
+            label={t("hudFanCurve")}
+            value={t(`fan_${fan}`)}
+            note={t("hudFanNote")}
+            expanded={open === "fans"}
+            disabled={busy}
+            onClick={() => toggle("fans")}
+          />
+        )}
+        {open === "fans" && <Options options={options} disabled={busy} />}
+        {ally?.supported && (
+          <>
+            <Tile
+              icon={LightbulbIcon}
+              label={t("hudControllerLighting")}
+              value={t(ally.pad.lighting === false ? "off" : "on")}
+              pressed={ally.pad.lighting !== false}
+              disabled={busy}
+              onClick={() =>
+                run(
+                  "set_controller_lighting",
+                  { on: ally.pad.lighting === false },
+                  "ally_status",
+                )
+              }
+            />
+            <Tile
+              icon={CursorIcon}
+              label={t("hudMouseMode")}
+              value={t(ally.pad.mouse_mode ? "on" : "off")}
+              note={t("hudMouseModeNote")}
+              pressed={!!ally.pad.mouse_mode}
+              disabled={busy}
+              onClick={() =>
+                run(
+                  "set_controller_mode",
+                  { mouse: !ally.pad.mouse_mode },
+                  "ally_status",
+                )
+              }
+            />
+          </>
+        )}
+        {builtin?.enabled != null && (
+          <Tile
+            icon={GameControllerIcon}
+            label={t("hudExternalController")}
+            value={t(builtin.enabled ? "off" : "on")}
+            note={t("hudExternalControllerNote")}
+            pressed={!builtin.enabled}
+            disabled={busy}
+            onClick={() =>
+              run(
+                "set_builtin_controller",
+                { enabled: !builtin.enabled },
+                "builtin_controller",
+              )
+            }
+          />
+        )}
         {game && (
           <Tile
             icon={FloppyDiskIcon}

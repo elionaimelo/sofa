@@ -42,7 +42,7 @@ fn json(status: u16, body: String) -> Response<std::io::Cursor<Vec<u8>>> {
 
 /// Runs one HUD command. Same functions the Tauri commands use; only this allowlist is reachable.
 async fn dispatch(app: &tauri::AppHandle, command: &str, args: serde_json::Value) -> Result<serde_json::Value, String> {
-    use crate::{ally, display, game_settings, hud, power, session};
+    use crate::{ally, ally_pad, display, game_settings, hud, power, rtss, session};
     fn parse<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> Result<T, String> {
         serde_json::from_value(value).map_err(|_| "invalidInput".to_string())
     }
@@ -53,7 +53,15 @@ async fn dispatch(app: &tauri::AppHandle, command: &str, args: serde_json::Value
     match command {
         "current_session" => out(session::current_session(app.clone(), app.state()).await?),
         "power_status" => out(power::power_status().await?),
-        "ally_status" => out(ally::ally_status(app.clone()).await),
+        "ally_status" => out(ally::ally_status(app.clone(), app.state()).await?),
+        "set_fan_curve" => out(ally::set_fan_curve(parse(arg("preset"))?, app.clone()).await?),
+        "set_controller_lighting" => out(ally_pad::set_controller_lighting(parse(arg("on"))?, app.state()).await?),
+        "set_controller_mode" => out(ally_pad::set_controller_mode(parse(arg("mouse"))?, app.state()).await?),
+        "builtin_controller" => out(ally_pad::builtin_controller(app.clone()).await),
+        "set_builtin_controller" => out(ally_pad::set_builtin_controller(parse(arg("enabled"))?, app.clone()).await?),
+        "framerate_status" => out(rtss::framerate_status().await),
+        "set_framerate_limit" => out(rtss::set_framerate_limit(parse(arg("fps"))?, app.clone()).await?),
+        "set_auto_hdr" => out(display::set_auto_hdr(parse(arg("on"))?).await?),
         "language" => out(hud::language(app.clone()).await),
         "set_ally_profile" => out(ally::set_ally_profile(parse(arg("profile"))?).await?),
         "set_tdp" => out(ally::set_tdp(parse(arg("watts"))?).await?),
