@@ -46,13 +46,14 @@ const labels: Record<string, [string, string]> = {
 };
 export const categoryLabel = (value: string, lang: Lang) =>
   lang === "en" ? value : (labels[value]?.[lang === "pt-BR" ? 0 : 1] ?? value);
-export function useCategories(games: Game[]) {
+export function useCategories(games: Game[], lang: Lang) {
   const [catalog, setCatalog] = useState<CategoryMap>({});
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const [revision, setRevision] = useState(0);
-  // Rescans hand over a new array every few seconds; only a different set of Steam ids restarts the fetch.
+  // Rescans hand over a new array every few seconds; only a different set of Steam ids (or
+  // language: labels come localized from the store) restarts the fetch.
   const steamIds = games
     .filter((g) => g.source === "steam")
     .map((g) => g.id)
@@ -75,7 +76,7 @@ export function useCategories(games: Game[]) {
       setUnavailable(false);
       let cached: Record<string, { updated: number; labels: string[] }> = {};
       try {
-        cached = await invoke<typeof cached>("cached_categories");
+        cached = await invoke<typeof cached>("cached_categories", { lang });
         if (alive) {
           setCatalog(
             Object.fromEntries(
@@ -99,7 +100,7 @@ export function useCategories(games: Game[]) {
         if (!alive) break;
         try {
           const result = cleanCategories(
-            await invoke<string[]>("game_categories", { id }),
+            await invoke<string[]>("game_categories", { id, lang }),
           );
           if (alive) setCatalog((previous) => ({ ...previous, [id]: result }));
         } catch (e) {
@@ -125,7 +126,7 @@ export function useCategories(games: Game[]) {
       clearTimeout(timer);
       wake?.();
     };
-  }, [steamIds, revision]);
+  }, [steamIds, lang, revision]);
   return {
     catalog,
     ready,

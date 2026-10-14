@@ -14,27 +14,42 @@ pub struct Entry {
     updated: u64,
     labels: Vec<String>,
 }
+/// One cache per store language: labels come localized from the store page.
 #[derive(Default)]
-pub struct CategoryCache(Mutex<Option<BTreeMap<String, Entry>>>);
+pub struct CategoryCache(Mutex<Option<(String, BTreeMap<String, Entry>)>>);
+
+/// Steam's `l` parameter for a UI language; anything else is rejected.
+fn steam_locale(lang: &str) -> Result<&'static str, String> {
+    match lang {
+        "en" => Ok("english"),
+        "pt-BR" => Ok("portuguese"),
+        "es" => Ok("spanish"),
+        _ => Err("invalidInput".into()),
+    }
+}
 fn timestamp() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
 }
-fn load(app: &tauri::AppHandle, cache: &CategoryCache) -> Result<BTreeMap<String, Entry>, String> {
+fn cache_file(locale: &str) -> String {
+    format!("categories-v1-{locale}.json")
+}
+fn load(app: &tauri::AppHandle, cache: &CategoryCache, locale: &str) -> Result<BTreeMap<String, Entry>, String> {
     let mut guard = cache.0.lock().map_err(|_| "serviceUnavailable")?;
-    Ok(guard
-        .get_or_insert_with(|| {
-            app.path()
-                .app_cache_dir()
-                .ok()
-                .and_then(|p| std::fs::read(p.join("categories-v1.json")).ok())
-                .filter(|bytes| bytes.len() <= 4 * 1024 * 1024)
-                .and_then(|bytes| serde_json::from_slice(&bytes).ok())
-                .unwrap_or_default()
-        })
-        .clone())
+    if guard.as_ref().is_none_or(|(l, _)| l != locale) {
+        let entries = app
+            .path()
+            .app_cache_dir()
+            .ok()
+            .and_then(|p| std::fs::read(p.join(cache_file(locale))).ok())
+            .filter(|bytes| bytes.len() <= 4 * 1024 * 1024)
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or_default();
+        *guard = Some((locale.to_owned(), entries));
+    }
+    Ok(guard.as_ref().map(|(_, e)| e.clone()).unwrap_or_default())
 }
 fn parse(html: &str) -> Vec<String> {
     let document = Html::parse_document(html);
@@ -61,19 +76,22 @@ fn parse(html: &str) -> Vec<String> {
 }
 #[tauri::command]
 pub fn cached_categories(
+    lang: String,
     app: tauri::AppHandle,
     cache: State<'_, CategoryCache>,
 ) -> Result<BTreeMap<String, Entry>, String> {
-    load(&app, &cache)
+    load(&app, &cache, steam_locale(&lang)?)
 }
 #[tauri::command]
 pub async fn game_categories(
     id: String,
+    lang: String,
     app: tauri::AppHandle,
     cache: State<'_, CategoryCache>,
 ) -> Result<Vec<String>, String> {
     let app_id = crate::library::steam_app_id(&id).ok_or("invalidGame")?;
-    let cached = load(&app, &cache)?;
+    let locale = steam_locale(&lang)?;
+    let cached = load(&app, &cache, locale)?;
     if let Some(entry) = cached.get(&id) {
         let ttl = if entry.labels.is_empty() {
             86400
@@ -90,12 +108,16 @@ pub async fn game_categories(
             .get(format!("https://store.steampowered.com/app/{app_id}/"))
             // Adult birth date so age-gated titles answer with their page, not an /agecheck redirect.
             .header("cookie", "birthtime=470703601; lastagecheckage=1-January-1985; wants_mature_content=1")
-            .query(&[("l", "english")]),
+            .query(&[("l", locale)]),
     )
     .await?;
     let labels = parse(&html);
     let mut guard = cache.0.lock().map_err(|_| "serviceUnavailable")?;
-    let entries = guard.get_or_insert_with(BTreeMap::new);
+    // Another language may have been loaded meanwhile; this result belongs to `locale`.
+    let entries = match guard.as_mut() {
+        Some((l, entries)) if l == locale => entries,
+        _ => &mut guard.insert((locale.to_owned(), BTreeMap::new())).1,
+    };
     if entries.len() >= 5000 && !entries.contains_key(&id) {
         if let Some(oldest) = entries
             .iter()
@@ -115,10 +137,10 @@ pub async fn game_categories(
     if let Ok(path) = app.path().app_cache_dir() {
         if std::fs::create_dir_all(&path).is_ok() {
             if let Ok(json) = serde_json::to_vec(entries) {
-                let temporary = path.join("categories-v1.tmp");
+                let temporary = path.join(format!("categories-v1-{locale}.tmp"));
                 if std::fs::write(&temporary, json).is_ok() {
                     // Windows rename cannot replace an existing file; keep the last valid cache on failure.
-                    let destination = path.join("categories-v1.json");
+                    let destination = path.join(cache_file(locale));
                     let _ = std::fs::remove_file(&destination);
                     let _ = std::fs::rename(temporary, destination);
                 }
@@ -135,6 +157,14 @@ pub async fn game_categories(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn store_language_follows_the_ui_language_only() {
+        assert_eq!(steam_locale("pt-BR"), Ok("portuguese"));
+        assert_eq!(steam_locale("es"), Ok("spanish"));
+        assert_eq!(steam_locale("en"), Ok("english"));
+        assert_eq!(steam_locale("fr"), Err("invalidInput".into()));
+    }
     #[test]
     fn genres_and_styles_are_real_catalog_labels_not_breadcrumbs_or_features() {
         let labels = parse(

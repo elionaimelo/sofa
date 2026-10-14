@@ -193,7 +193,7 @@ export default function App() {
   });
   const { update, install } = updates;
   const { games, loading, scanError } = library;
-  const categories = useCategories(games);
+  const categories = useCategories(games, lang);
   useEffect(() => saveLang(lang), [lang]);
   useEffect(() => {
     localStorage.setItem(preferencesKey, JSON.stringify(prefs));
