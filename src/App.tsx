@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { AnimatePresence } from "motion/react";
 import {
+  Fragment,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -21,6 +22,7 @@ import {
   type Game,
   hero,
   parsePreferences,
+  titleGroup,
 } from "./library";
 import { useInput } from "./useInput";
 import { useLibrary } from "./useLibrary";
@@ -259,17 +261,18 @@ export default function App() {
     () => setFocus((f) => Math.min(f, Math.max(0, visible.length - 1))),
     [visible.length],
   );
+  // Letter headings sit between tiles when sorting by title; index tiles, not children.
+  const tileAt = (i: number) =>
+    grid.current?.querySelectorAll<HTMLElement>(".tile")[i];
   // Hiding or uninstalling the focused game removes its tile (and the dialog's return
   // target); put controller focus back on the grid instead of losing it to <body>.
   useEffect(() => {
     if (document.activeElement !== document.body) return;
-    const tile = grid.current?.children[Math.min(focus, visible.length - 1)] as
-      | HTMLElement
-      | undefined;
+    const tile = tileAt(Math.min(focus, visible.length - 1));
     tile?.focus();
   }, [visible.length, focus]);
   useEffect(() => {
-    grid.current?.children[focus]?.scrollIntoView({
+    tileAt(focus)?.scrollIntoView({
       block: "nearest",
       inline: "nearest",
       behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -488,7 +491,7 @@ export default function App() {
     if (["up", "down", "left", "right", "a"].includes(a)) {
       const initial = (
         page === "home" || page === "library"
-          ? grid.current?.children[focus]
+          ? tileAt(focus)
           : document.querySelector("#content button")
       ) as HTMLElement | null;
       if (navigateSpatial(a, document.querySelector("main"), initial)) return;
@@ -1008,35 +1011,45 @@ export default function App() {
                     aria-label={t("library")}
                   >
                     {visible.map((g, i) => (
-                      <button
-                        key={g.id}
-                        className="tile"
-                        data-installed={g.installed}
-                        aria-current={i === focus}
-                        aria-label={`${g.title} · ${g.source} · ${t(g.installed ? "installed" : "availableToInstall")}`}
-                        onFocus={() => setFocus(i)}
-                        onMouseEnter={() => setFocus(i)}
-                        onClick={() => {
-                          setFocus(i);
-                          setDetails(g);
-                        }}
-                      >
-                        <Cover game={g} />
-                        {!g.installed && (
-                          <span className="install-mark">
-                            {t("installGame")}
-                          </span>
-                        )}
-                        {prefs.favorites.includes(g.id) && (
-                          <span
-                            className="favorite-mark"
-                            role="img"
-                            aria-label={t("favorite")}
-                          >
-                            <HeartIcon weight="fill" />
-                          </span>
-                        )}
-                      </button>
+                      <Fragment key={g.id}>
+                        {page === "library" &&
+                          prefs.sort === "title" &&
+                          (i === 0 ||
+                            titleGroup(visible[i - 1].title) !==
+                              titleGroup(g.title)) && (
+                            <h3 className="grid-letter">
+                              {titleGroup(g.title)}
+                            </h3>
+                          )}
+                        <button
+                          className="tile"
+                          data-installed={g.installed}
+                          aria-current={i === focus}
+                          aria-label={`${g.title} · ${g.source} · ${t(g.installed ? "installed" : "availableToInstall")}`}
+                          onFocus={() => setFocus(i)}
+                          onMouseEnter={() => setFocus(i)}
+                          onClick={() => {
+                            setFocus(i);
+                            setDetails(g);
+                          }}
+                        >
+                          <Cover game={g} />
+                          {!g.installed && (
+                            <span className="install-mark">
+                              {t("installGame")}
+                            </span>
+                          )}
+                          {prefs.favorites.includes(g.id) && (
+                            <span
+                              className="favorite-mark"
+                              role="img"
+                              aria-label={t("favorite")}
+                            >
+                              <HeartIcon weight="fill" />
+                            </span>
+                          )}
+                        </button>
+                      </Fragment>
                     ))}
                   </div>
                 </section>

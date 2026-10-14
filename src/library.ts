@@ -26,6 +26,11 @@ export function mergeLibrary(installed: Game[], owned: Game[]): Game[] {
   }
   return [...merged.values()].sort((a, b) => a.title.localeCompare(b.title));
 }
+/** Heading for a title-sorted group: its first letter, or "#" for digits and symbols. */
+export function titleGroup(title: string): string {
+  const first = title.trim().charAt(0).toLocaleUpperCase();
+  return /\p{L}/u.test(first) ? first : "#";
+}
 export type LibraryFilters = {
   categories: string[];
   favoritesOnly: boolean;

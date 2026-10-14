@@ -8,6 +8,7 @@ import {
   type Game,
   mergeLibrary,
   parsePreferences,
+  titleGroup,
 } from "../src/library.ts";
 
 const games: Game[] = [
@@ -264,4 +265,13 @@ test("category preferences validate and normalize repeated and invalid labels", 
   );
   assert.deepEqual(p.categories, { "gog:3": ["RPG"] });
   assert.deepEqual(p.filters.categories, ["soulslike"]);
+});
+
+test("title groups use the first letter and # for everything else", () => {
+  assert.equal(titleGroup("Hades"), "H");
+  assert.equal(titleGroup("élan"), "É");
+  assert.equal(titleGroup(" hollow knight"), "H");
+  assert.equal(titleGroup("1943"), "#");
+  assert.equal(titleGroup("'Tis"), "#");
+  assert.equal(titleGroup(""), "#");
 });
