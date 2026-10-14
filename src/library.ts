@@ -53,7 +53,10 @@ export function gameMeta(
   return [
     lastAt
       ? t("lastPlayed", { date: new Date(lastAt).toLocaleDateString(lang) })
-      : t("neverPlayed"),
+      : // An uninstalled game says what it is instead (`game_media`).
+        game.installed
+        ? t("neverPlayed")
+        : "",
     game.playtime
       ? t("hoursPlayed", { hours: hoursPlayed(game.playtime) })
       : "",

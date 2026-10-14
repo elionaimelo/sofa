@@ -522,6 +522,10 @@ button:active:not([aria-disabled="true"]) {
 .settings-body :is(label, .field) {
   max-width: 720px;
 }
+/* An uninstalled game with no play time has no facts line; don't leave a gap. */
+:is(.detail-meta-line, .hero-copy > p):empty {
+  display: none;
+}
 .detail-meta-line {
   margin: 0;
   color: var(--muted);
@@ -1018,7 +1022,7 @@ dialog::backdrop {
   color: var(--muted);
   font-size: 12px;
 }
-.store-about {
+.game-about {
   margin: 0;
   max-width: 70ch;
   color: #d6dae3;

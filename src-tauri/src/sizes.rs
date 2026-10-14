@@ -56,23 +56,10 @@ pub async fn game_size_estimate(
     if let Some(size) = cache.fresh(&key, crate::store::DAY)? {
         return Ok(size.as_u64());
     }
-    let app_id = match crate::library::steam_app_id(&id) {
-        Some(app_id) => app_id.to_owned(),
-        None => {
-            if !(id.starts_with("epic:") || id.starts_with("gog:")) {
-                return Err("invalidGame".into());
-            }
-            let title = title.filter(|t| !t.trim().is_empty() && t.len() <= 200).ok_or("invalidGame")?;
-            match crate::categories::steam_app_for_title(&title).await? {
-                Some(app_id) => app_id.to_string(),
-                None => {
-                    cache.keep(key, serde_json::Value::Null)?;
-                    return Ok(None);
-                }
-            }
-        }
+    let size = match crate::categories::steam_app_for_game(&id, title.as_deref(), &cache).await? {
+        Some(app_id) => steam_size(&app_id).await?,
+        None => None,
     };
-    let size = steam_size(&app_id).await?;
     cache.keep(key, size.into())?;
     Ok(size)
 }

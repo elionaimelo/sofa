@@ -337,7 +337,7 @@ pub struct Shot {
 }
 
 /// What Steam's page says about a game: its short description and its gallery.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct Media {
     description: String,
     /// Trailers first, then screenshots, in Steam's order.
@@ -390,8 +390,7 @@ fn parse_media(details: &Value, app_id: &str) -> Media {
 }
 
 /// A Steam title's short description, trailers and screenshots in the interface language,
-/// from the public `appdetails` API. Kept in memory and for 30 days on disk; an empty answer
-/// stays in memory only, so a title Steam lists later shows up the next day.
+/// from the public `appdetails` API.
 #[tauri::command]
 pub async fn store_media(
     app_id: String,
@@ -399,16 +398,37 @@ pub async fn store_media(
     app: tauri::AppHandle,
     cache: tauri::State<'_, StoreCache>,
 ) -> Result<Media, String> {
-    use tauri::Manager;
     let language = steam_language(&lang).ok_or("invalidInput")?;
     if !numeric_id(&app_id) {
         return Err("invalidInput".into());
     }
+    media(&app_id, language, &app, &cache).await
+}
+
+/// The same for a library game; Epic and GOG titles borrow the Steam page of the same name.
+#[tauri::command]
+pub async fn game_media(
+    id: String,
+    title: Option<String>,
+    lang: String,
+    app: tauri::AppHandle,
+    cache: tauri::State<'_, StoreCache>,
+) -> Result<Media, String> {
+    let language = steam_language(&lang).ok_or("invalidInput")?;
+    match crate::categories::steam_app_for_game(&id, title.as_deref(), &cache).await? {
+        Some(app_id) => media(&app_id, language, &app, &cache).await,
+        None => Ok(Media::default()),
+    }
+}
+
+/// Kept in memory and for 30 days on disk; an empty answer stays in memory only, so a title
+/// Steam lists later shows up the next day. `app_id` must be numeric: it names the file.
+async fn media(app_id: &str, language: &str, app: &tauri::AppHandle, cache: &StoreCache) -> Result<Media, String> {
+    use tauri::Manager;
     let key = format!("media:{app_id}:{language}");
     if let Some(media) = cache.fresh(&key, DAY)? {
         return serde_json::from_value(media).map_err(|_| "invalidResponse".into());
     }
-    // Both parts are validated above, so the file name is safe.
     let file = app.path().app_cache_dir().ok().map(|dir| dir.join("store-media").join(format!("{app_id}-{language}.json")));
     let media = match file.as_deref().and_then(read_media) {
         Some(media) => media,
@@ -416,10 +436,10 @@ pub async fn store_media(
             let details: Value = network::json(
                 network::client()?
                     .get("https://store.steampowered.com/api/appdetails")
-                    .query(&[("appids", app_id.as_str()), ("l", language), ("filters", "basic,screenshots,movies")]),
+                    .query(&[("appids", app_id), ("l", language), ("filters", "basic,screenshots,movies")]),
             )
             .await?;
-            let media = parse_media(&details, &app_id);
+            let media = parse_media(&details, app_id);
             if let Some(file) = &file
                 && !(media.description.is_empty() && media.gallery.is_empty())
                 && let (Some(dir), Ok(json)) = (file.parent(), serde_json::to_vec(&media))

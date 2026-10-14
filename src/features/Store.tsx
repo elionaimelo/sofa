@@ -5,7 +5,6 @@ import {
   CaretRightIcon,
   HeartIcon,
   MagnifyingGlassIcon,
-  PlayIcon,
 } from "@phosphor-icons/react";
 import {
   keepPreviousData,
@@ -16,6 +15,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Cover, CoverImage } from "../components/Cover";
 import { DetailFrame } from "../components/DetailFrame";
 import { SearchField } from "../components/SearchField";
+import { type Media, SteamMedia } from "../components/SteamMedia";
 import type { Lang, Translate } from "../i18n";
 import {
   byTaste,
@@ -60,14 +60,6 @@ type RegionalPrice = {
   final: number;
   discount: number;
 };
-/** A screenshot or trailer from the game's Steam page (`store_media`). */
-type Shot = { image: string; video: string | null };
-type Media = { description: string; gallery: Shot[] };
-/** Steam's trailers are HLS streams: WebView2 plays them natively since Chromium 142. */
-const playsHls =
-  document
-    .createElement("video")
-    .canPlayType("application/vnd.apple.mpegurl") !== "";
 /** A Steam title the store only knows by id: the comparison resolves it on open. */
 const fromSimilar = (s: Similar): Deal => ({
   gameID: "",
@@ -302,7 +294,6 @@ export function Store({
     // Store pages barely change; Rust keeps them on disk for 30 days.
     staleTime: Number.POSITIVE_INFINITY,
   });
-  const shots = (media.data?.gallery ?? []).filter((s) => playsHls || !s.video);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new tab or search starts at the first deal.
   useEffect(() => setFocus(0), [tab, search]);
   useEffect(() => {
@@ -604,16 +595,12 @@ export function Store({
             {selected.storeID ? ` · ${name(selected.storeID)}` : ""}
           </p>
           <h1>{selected.title}</h1>
-          {media.data?.description && (
-            <p className="store-about">{media.data.description}</p>
-          )}
-          {media.isLoading ? (
-            <div className="skeleton gallery-skeleton" aria-hidden />
-          ) : (
-            shots.length > 0 && (
-              <Gallery key={selected.steamAppID} shots={shots} t={t} />
-            )
-          )}
+          <SteamMedia
+            key={selected.steamAppID}
+            media={media.data}
+            loading={media.isLoading}
+            t={t}
+          />
           <div className="compare-summary">
             <p className="muted">{t(demo ? "demoPrices" : "storeNote")}</p>
             <button data-initial-focus onClick={() => toggle(selected)}>
@@ -741,78 +728,6 @@ export function Store({
           <p role="status">{status}</p>
         </DetailFrame>
       )}
-    </section>
-  );
-}
-
-/**
- * Steam's gallery: the picked shot large, thumbnails in a row below. Focusing or tapping a
- * thumbnail picks it; a trailer plays muted, and A (or a tap) on it turns the sound on or off.
- */
-function Gallery({ shots, t }: { shots: Shot[]; t: Translate }) {
-  const [picked, setPicked] = useState(0);
-  const video = useRef<HTMLVideoElement>(null);
-  const shown = shots[picked] ?? shots[0];
-  const label = (shot: Shot, i: number) =>
-    t(shot.video ? "trailerN" : "screenshotN", {
-      n: String(
-        shots.slice(0, i + 1).filter((s) => !s.video === !shot.video).length,
-      ),
-    });
-  const toggleSound = () => {
-    const v = video.current;
-    if (!v) return;
-    v.muted = !v.muted;
-    if (v.paused) void v.play();
-  };
-  return (
-    <section className="gallery" aria-label={t("gallery")}>
-      <div className="gallery-stage">
-        {shown.video ? (
-          <video
-            key={shown.video}
-            ref={video}
-            src={shown.video}
-            poster={shown.image}
-            controls
-            muted
-            playsInline
-            autoPlay={!matchMedia("(prefers-reduced-motion: reduce)").matches}
-          />
-        ) : (
-          <img
-            key={shown.image}
-            src={shown.image}
-            alt={label(shown, picked)}
-            width={600}
-            height={338}
-            decoding="async"
-          />
-        )}
-      </div>
-      <div className="gallery-strip">
-        {shots.map((shot, i) => (
-          <button
-            key={shot.image}
-            aria-label={label(shot, i)}
-            aria-current={i === picked}
-            onFocus={() => setPicked(i)}
-            onClick={() =>
-              i === picked && shot.video ? toggleSound() : setPicked(i)
-            }
-          >
-            <img
-              src={shot.image}
-              alt=""
-              width={600}
-              height={338}
-              loading="lazy"
-              decoding="async"
-            />
-            {shot.video && <PlayIcon weight="fill" aria-hidden />}
-          </button>
-        ))}
-      </div>
     </section>
   );
 }

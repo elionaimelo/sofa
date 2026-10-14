@@ -5,9 +5,12 @@ import {
   HeartIcon,
   PlayIcon,
 } from "@phosphor-icons/react";
+import { useQuery } from "@tanstack/react-query";
+import { isTauri } from "@tauri-apps/api/core";
 import type { Dispatch, SetStateAction } from "react";
 import { CoverImage } from "../components/Cover";
 import { DetailFrame } from "../components/DetailFrame";
+import { type Media, SteamMedia } from "../components/SteamMedia";
 import type { Lang, Translate } from "../i18n";
 import {
   type CategoryMap,
@@ -16,6 +19,7 @@ import {
   hero,
   type Preferences,
 } from "../library";
+import { commandQuery } from "../services";
 import { CategoryEditor } from "./Categories";
 import { Uninstall } from "./Uninstall";
 
@@ -53,6 +57,17 @@ export function GameDetails({
 }) {
   const favorite = prefs.favorites.includes(game.id);
   const hidden = prefs.hidden.includes(game.id);
+  // What an uninstalled game is, from its Steam page, to help decide on installing it.
+  const media = useQuery({
+    ...commandQuery<Media>("game_media", {
+      id: game.id,
+      title: game.title,
+      lang,
+    }),
+    enabled: !game.installed && isTauri(),
+    // Store pages barely change; Rust keeps them on disk for 30 days.
+    staleTime: Number.POSITIVE_INFINITY,
+  });
   return (
     <DetailFrame
       label={`${t("details")} · ${game.title}`}
@@ -116,6 +131,14 @@ export function GameDetails({
           {t(hidden ? "restoreGame" : "hideGame")}
         </button>
       </div>
+      {!game.installed && (
+        <SteamMedia
+          key={game.id}
+          media={media.data}
+          loading={media.isLoading}
+          t={t}
+        />
+      )}
       {game.installed && (
         <Uninstall
           key={game.id}

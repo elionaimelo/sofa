@@ -121,6 +121,29 @@ pub(crate) async fn steam_app_for_title(title: &str) -> Result<Option<u64>, Stri
     Ok(matching_app(&response, title))
 }
 
+/// Steam app id for a library game: its own for Steam titles, the exact-name match for Epic
+/// and GOG ones. The name lookup is cached for a day, misses too.
+pub(crate) async fn steam_app_for_game(
+    id: &str,
+    title: Option<&str>,
+    cache: &crate::store::StoreCache,
+) -> Result<Option<String>, String> {
+    if let Some(app_id) = crate::library::steam_app_id(id) {
+        return Ok(Some(app_id.to_owned()));
+    }
+    if !(id.starts_with("epic:") || id.starts_with("gog:")) {
+        return Err("invalidGame".into());
+    }
+    let title = title.filter(|t| !t.trim().is_empty() && t.len() <= 200).ok_or("invalidGame")?;
+    let key = format!("steam-app:{id}");
+    if let Some(app_id) = cache.fresh(&key, crate::store::DAY)? {
+        return Ok(app_id.as_u64().map(|id| id.to_string()));
+    }
+    let app_id = steam_app_for_title(title).await?;
+    cache.keep(key, app_id.into())?;
+    Ok(app_id.map(|id| id.to_string()))
+}
+
 /// Epic and GOG titles have no genre source of their own; Steam's page for the same
 /// title answers for them when the store search finds an exact name match.
 #[tauri::command]
