@@ -18,7 +18,7 @@ import {
   type Notify,
   serviceError,
 } from "../services";
-import type { useLibrary } from "../useLibrary";
+import { type Provider, providers, type useLibrary } from "../useLibrary";
 import type { useUpdates } from "../useUpdates";
 
 export type SettingsPanel = "library" | "appearance" | "updates";
@@ -62,6 +62,92 @@ export function SettingsDialog({
   );
 }
 
+/** Sign-in state and actions for one store account (Steam, Epic). */
+function AccountSection({
+  t,
+  provider,
+  account,
+}: {
+  t: Translate;
+  provider: Provider;
+  account: ReturnType<typeof useLibrary>["accounts"][Provider];
+}) {
+  // Signing out deletes the saved session; ask once, like power actions do.
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <section className="library-account">
+      <div>
+        <h2>{providerNames[provider]}</h2>
+        <p>{t(`${provider}LibraryDescription`)}</p>
+      </div>
+      {account.connected || demo ? (
+        <div className="library-account-connected">
+          <span>
+            {t(`${provider}LibraryConnected`, {
+              count: String(account.owned?.length ?? 0),
+            })}
+          </span>
+          <div className="detail-actions">
+            {!demo && !confirming && (
+              <button
+                aria-disabled={account.busy}
+                onClick={() => !account.busy && setConfirming(true)}
+              >
+                {t("disconnect")}
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <button
+          data-initial-focus={provider === "steam" ? true : undefined}
+          className="accent"
+          disabled={!isTauri()}
+          aria-disabled={account.busy}
+          aria-busy={account.busy}
+          onClick={() => !account.busy && account.connect()}
+        >
+          {t(account.busy ? "connecting" : `connect${providerNames[provider]}`)}
+        </button>
+      )}
+      {confirming && (
+        // biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>).
+        <div
+          className="detail-actions"
+          role="group"
+          aria-label={t("disconnect")}
+        >
+          <p>{t(`${provider}DisconnectConfirm`)}</p>
+          <button
+            data-initial-focus
+            // biome-ignore lint/a11y/noAutofocus: the controller needs focus on the safe choice when the confirmation appears.
+            autoFocus
+            onClick={() => setConfirming(false)}
+          >
+            {t("cancel")}
+          </button>
+          <button
+            className="accent"
+            onClick={() => {
+              setConfirming(false);
+              account.disconnect();
+            }}
+          >
+            {t("disconnect")}
+          </button>
+        </div>
+      )}
+      {account.error && (
+        <p className="inline-error" role="alert">
+          {t(account.error)}
+        </p>
+      )}
+      <p className="muted">{t(`${provider}LibraryPrivacy`)}</p>
+    </section>
+  );
+}
+const providerNames = { steam: "Steam", epic: "Epic" } as const;
+
 export function LibrarySettings({
   t,
   library,
@@ -73,81 +159,18 @@ export function LibrarySettings({
   prefs: Preferences;
   onShowHidden: () => void;
 }) {
-  // Signing out deletes the saved session; ask once, like power actions do.
-  const [confirming, setConfirming] = useState(false);
   return (
     <>
-      <section className="library-account">
-        <div>
-          <h2>Steam</h2>
-          <p>{t("steamLibraryDescription")}</p>
-        </div>
-        {library.steamConnected || demo ? (
-          <div className="library-account-connected">
-            <span>
-              {t("steamLibraryConnected", {
-                count: String(library.ownedCount),
-              })}
-            </span>
-            <div className="detail-actions">
-              {!demo && !confirming && (
-                <button
-                  aria-disabled={library.steamBusy}
-                  onClick={() => !library.steamBusy && setConfirming(true)}
-                >
-                  {t("disconnect")}
-                </button>
-              )}
-            </div>
-          </div>
-        ) : (
-          <button
-            data-initial-focus
-            className="accent"
-            disabled={!isTauri()}
-            aria-disabled={library.steamBusy}
-            aria-busy={library.steamBusy}
-            onClick={() => !library.steamBusy && library.connectSteam()}
-          >
-            {t(library.steamBusy ? "connecting" : "connectSteam")}
-          </button>
-        )}
-        {confirming && (
-          // biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>).
-          <div
-            className="detail-actions"
-            role="group"
-            aria-label={t("disconnect")}
-          >
-            <p>{t("steamDisconnectConfirm")}</p>
-            <button
-              data-initial-focus
-              // biome-ignore lint/a11y/noAutofocus: the controller needs focus on the safe choice when the confirmation appears.
-              autoFocus
-              onClick={() => setConfirming(false)}
-            >
-              {t("cancel")}
-            </button>
-            <button
-              className="accent"
-              onClick={() => {
-                setConfirming(false);
-                library.disconnectSteam();
-              }}
-            >
-              {t("disconnect")}
-            </button>
-          </div>
-        )}
-        {library.steamError && (
-          <p className="inline-error" role="alert">
-            {t(library.steamError)}
-          </p>
-        )}
-        <p className="muted">{t("steamLibraryPrivacy")}</p>
-      </section>
+      {providers.map((provider) => (
+        <AccountSection
+          key={provider}
+          t={t}
+          provider={provider}
+          account={library.accounts[provider]}
+        />
+      ))}
       <p className="muted">{t("otherSourcesInstalledOnly")}</p>
-      {/* The one place to rescan installed games and refresh owned Steam games. */}
+      {/* The one place to rescan installed games and refresh owned store games. */}
       <button
         aria-disabled={library.loading}
         aria-busy={library.loading}

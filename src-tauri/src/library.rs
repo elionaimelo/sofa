@@ -177,22 +177,21 @@ fn parse_epic_item(text: &str) -> Option<Game> {
     if v.get("bIsIncompleteInstall").and_then(|x| x.as_bool()) == Some(true) {
         return None;
     }
-    let app = s("AppName")?;
-    let launch = format!(
-        "com.epicgames.launcher://apps/{}%3A{}%3A{}?action=launch&silent=true",
-        s("CatalogNamespace")?,
-        s("CatalogItemId")?,
-        app
-    );
     Some(Game {
-        id: format!("epic:{app}"),
-        title: s("DisplayName")?,
-        source: "epic",
-        launch,
-        installed: true,
         size: v.get("InstallSize").and_then(|x| x.as_u64()).filter(|b| *b > 0),
-        ..Game::default()
+        ..epic_game(&s("CatalogNamespace")?, &s("CatalogItemId")?, &s("AppName")?, s("DisplayName")?, true)
     })
+}
+
+pub fn epic_game(namespace: &str, item_id: &str, app: &str, title: String, installed: bool) -> Game {
+    Game {
+        id: format!("epic:{app}"),
+        title,
+        source: "epic",
+        launch: format!("com.epicgames.launcher://apps/{namespace}%3A{item_id}%3A{app}?action=launch&silent=true"),
+        installed,
+        ..Game::default()
+    }
 }
 
 pub(crate) fn epic_manifests_dir() -> Option<PathBuf> {

@@ -343,7 +343,12 @@ export default function App() {
     try {
       await invoke("install_owned_game", { id: game.id });
       library.watchInstall(game.id);
-      setStatus(t("installRequested", { title: game.title }));
+      setStatus(
+        t("installRequested", {
+          title: game.title,
+          launcher: game.source === "epic" ? "Epic Games" : "Steam",
+        }),
+      );
     } catch (error) {
       setStatus(t(serviceError(error)));
     }

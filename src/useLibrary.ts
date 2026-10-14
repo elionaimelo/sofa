@@ -31,29 +31,82 @@ demoGames.push({
   installed: true,
 });
 
+export type Provider = "steam" | "epic";
+export const providers: Provider[] = ["steam", "epic"];
 /** Everything under "library" is refreshed together. */
 const keys = {
   all: ["library"] as const,
   installed: ["library", "installed"] as const,
-  steam: ["library", "steam"] as const,
+  owned: (provider: Provider) => ["library", provider] as const,
 };
 
-/** Owned Steam games from the saved session; null when Steam isn't connected. */
-async function steamLibrary(): Promise<Game[] | null> {
-  if (demo) return demoGames.filter((game) => game.source === "steam");
+/** Owned games from the provider's saved session; null when it isn't connected. */
+async function ownedLibrary(provider: Provider): Promise<Game[] | null> {
+  if (demo) return demoGames.filter((game) => game.source === provider);
   if (!isTauri()) return null;
   try {
-    return await invoke<Game[]>("connect_steam_library", { signIn: false });
+    return await invoke<Game[]>(`connect_${provider}_library`, {
+      signIn: false,
+    });
   } catch (error) {
-    if (["notConnected", "steamSessionExpired"].includes(serviceError(error)))
+    if (
+      ["notConnected", `${provider}SessionExpired`].includes(
+        serviceError(error),
+      )
+    )
       return null;
     throw error;
   }
 }
 
+/** One store account: owned games, sign-in on the store's own page and sign-out. */
+function useAccount(provider: Provider, onStatus: Notify) {
+  const queryClient = useQueryClient();
+  const owned = useQuery({
+    queryKey: keys.owned(provider),
+    queryFn: () => ownedLibrary(provider),
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+  const connect = useMutation({
+    mutationFn: () =>
+      invoke<Game[]>(`connect_${provider}_library`, { signIn: true }),
+    onSuccess: (games) => {
+      // Also clears any error from the startup restore attempt.
+      queryClient.setQueryData(keys.owned(provider), games);
+      onStatus(
+        games.length
+          ? `${provider}LibraryConnected`
+          : `${provider}NoOwnedGames`,
+        { count: String(games.length) },
+      );
+    },
+    onError: (error) => {
+      const status = httpStatus(error);
+      if (status) onStatus("serviceStatus", { status });
+      else onStatus(serviceError(error));
+    },
+  });
+  const disconnect = useMutation({
+    mutationFn: () => invoke(`disconnect_${provider}_library`),
+    onSuccess: () => {
+      queryClient.setQueryData(keys.owned(provider), null);
+      onStatus(`${provider}LibraryDisconnected`);
+    },
+    onError: (error) => onStatus(serviceError(error)),
+  });
+  return {
+    owned: owned.data ?? null,
+    connected: owned.data != null,
+    error: owned.error ? serviceError(owned.error) : null,
+    busy: connect.isPending || disconnect.isPending || owned.isPending,
+    connect: () => connect.mutate(),
+    disconnect: () => disconnect.mutate(),
+  };
+}
+
 /**
- * Installed games plus owned Steam games, with Steam sign-in and the polling that
- * confirms installs and uninstalls started in the launchers.
+ * Installed games plus owned Steam and Epic games, with store sign-in and the polling
+ * that confirms installs and uninstalls started in the launchers.
  */
 export function useLibrary(onStatus: Notify) {
   const queryClient = useQueryClient();
@@ -73,34 +126,8 @@ export function useLibrary(onStatus: Notify) {
     refetchInterval: pending ? 4000 : false,
     refetchOnWindowFocus: pending,
   });
-  const steam = useQuery({
-    queryKey: keys.steam,
-    queryFn: steamLibrary,
-    staleTime: Number.POSITIVE_INFINITY,
-  });
-  const connect = useMutation({
-    mutationFn: () => invoke<Game[]>("connect_steam_library", { signIn: true }),
-    onSuccess: (owned) => {
-      // Also clears any error from the startup restore attempt.
-      queryClient.setQueryData(keys.steam, owned);
-      onStatus(owned.length ? "steamLibraryConnected" : "steamNoOwnedGames", {
-        count: String(owned.length),
-      });
-    },
-    onError: (error) => {
-      const status = httpStatus(error);
-      if (status) onStatus("serviceStatus", { status });
-      else onStatus(serviceError(error));
-    },
-  });
-  const disconnect = useMutation({
-    mutationFn: () => invoke("disconnect_steam_library"),
-    onSuccess: () => {
-      queryClient.setQueryData(keys.steam, null);
-      onStatus("steamLibraryDisconnected");
-    },
-    onError: (error) => onStatus(serviceError(error)),
-  });
+  const steam = useAccount("steam", onStatus);
+  const epic = useAccount("epic", onStatus);
 
   // Each scan settles pending launcher work; never claim it before the scan shows it.
   const scanned = installed.data;
@@ -127,22 +154,20 @@ export function useLibrary(onStatus: Notify) {
     return () => clearTimeout(id);
   }, [pendingUninstall, onStatus]);
 
-  const owned = steam.data ?? null;
   const games = useMemo(
-    () => mergeLibrary(installed.data ?? [], owned ?? []),
-    [installed.data, owned],
+    () =>
+      mergeLibrary(installed.data ?? [], [
+        ...(steam.owned ?? []),
+        ...(epic.owned ?? []),
+      ]),
+    [installed.data, steam.owned, epic.owned],
   );
   return {
     games,
-    ownedCount: owned?.length ?? 0,
-    steamConnected: owned !== null,
-    steamError: steam.error ? serviceError(steam.error) : null,
-    steamBusy: connect.isPending || disconnect.isPending || steam.isPending,
+    accounts: { steam, epic },
     loading: installed.isFetching,
     scanError: installed.error ? serviceError(installed.error) : ("" as const),
     refresh: () => queryClient.invalidateQueries({ queryKey: keys.all }),
-    connectSteam: () => connect.mutate(),
-    disconnectSteam: () => disconnect.mutate(),
     watchUninstall: setPendingUninstall,
     watchInstall: (id: string) =>
       setPendingInstalls((ids) => (ids.includes(id) ? ids : [...ids, id])),

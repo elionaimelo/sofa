@@ -300,15 +300,20 @@ pub async fn disconnect_steam_library(
 pub fn install_owned_game(
     id: String,
     session: tauri::State<'_, SteamLibrarySession>,
+    epic: tauri::State<'_, crate::epic::EpicLibrarySession>,
 ) -> Result<(), String> {
-    let app_id = library::steam_app_id(&id).ok_or("installUnavailable")?;
-    let session = session.0.lock().map_err(|_| "serviceUnavailable")?;
-    let games = session.games.as_ref().ok_or("notConnected")?;
-    if !games.iter().any(|game| game.id == id) {
-        return Err("installUnavailable".into());
-    }
-    tauri_plugin_opener::open_url(&format!("steam://install/{app_id}"), None::<&str>)
-        .map_err(|_| "openFailed".to_string())
+    let uri = if id.starts_with("epic:") {
+        crate::epic::install_uri(&epic, &id)?
+    } else {
+        let app_id = library::steam_app_id(&id).ok_or("installUnavailable")?;
+        let session = session.0.lock().map_err(|_| "serviceUnavailable")?;
+        let games = session.games.as_ref().ok_or("notConnected")?;
+        if !games.iter().any(|game| game.id == id) {
+            return Err("installUnavailable".into());
+        }
+        format!("steam://install/{app_id}")
+    };
+    tauri_plugin_opener::open_url(&uri, None::<&str>).map_err(|_| "openFailed".to_string())
 }
 
 #[cfg(test)]

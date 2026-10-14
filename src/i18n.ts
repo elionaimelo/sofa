@@ -131,7 +131,7 @@ const en = {
   serviceUnavailable: "The service is unavailable. Try again later.",
   invalidResponse: "The service returned an unexpected response.",
   invalidInput: "Check the information you entered.",
-  notConnected: "Connect your Steam account first.",
+  notConnected: "Connect the store account for this game first.",
   openFailed: "Could not open the application or link.",
   connectSteam: "Connect Steam",
   disconnect: "Disconnect",
@@ -231,8 +231,19 @@ const en = {
     "Sign out of Steam on this device? Owned games that aren’t installed leave the library.",
   steamLoginCancelled: "Steam sign-in was cancelled.",
   steamSessionExpired: "Your Steam session expired. Connect again.",
-  otherSourcesInstalledOnly:
-    "Epic and GOG currently show installed games only.",
+  connectEpic: "Connect Epic",
+  epicLibraryDescription:
+    "Show games owned on your Epic Games account, including those not installed on this device.",
+  epicLibraryConnected: "{count} Epic games available",
+  epicLibraryDisconnected: "Epic library disconnected.",
+  epicNoOwnedGames: "Epic returned no owned games for this account.",
+  epicLibraryPrivacy:
+    "You sign in on Epic’s own page; Sofa never sees your password. The session stays saved on this device until you disconnect.",
+  epicDisconnectConfirm:
+    "Sign out of Epic on this device? Owned games that aren’t installed leave the library.",
+  epicLoginCancelled: "Epic sign-in was cancelled.",
+  epicSessionExpired: "Your Epic session expired. Connect again.",
+  otherSourcesInstalledOnly: "GOG currently shows installed games only.",
   neverPlayed: "Not played in Sofa yet",
   lastPlayed: "Last played: {date}",
   gamesCount: "{count} games",
@@ -419,7 +430,7 @@ const dicts = {
       "O serviço está indisponível. Tente novamente mais tarde.",
     invalidResponse: "O serviço retornou uma resposta inesperada.",
     invalidInput: "Verifique as informações preenchidas.",
-    notConnected: "Conecte sua conta Steam primeiro.",
+    notConnected: "Conecte a conta da loja deste jogo primeiro.",
     openFailed: "Não foi possível abrir o aplicativo ou link.",
     connectSteam: "Conectar Steam",
     disconnect: "Desconectar",
@@ -521,8 +532,20 @@ const dicts = {
       "Sair da Steam neste dispositivo? Os jogos não instalados saem da biblioteca.",
     steamLoginCancelled: "Login na Steam cancelado.",
     steamSessionExpired: "Sua sessão da Steam expirou. Conecte novamente.",
+    connectEpic: "Conectar Epic",
+    epicLibraryDescription:
+      "Mostre os jogos da sua conta Epic Games, inclusive os que ainda não estão instalados neste dispositivo.",
+    epicLibraryConnected: "{count} jogos da Epic disponíveis",
+    epicLibraryDisconnected: "Biblioteca Epic desconectada.",
+    epicNoOwnedGames: "A Epic não retornou jogos para esta conta.",
+    epicLibraryPrivacy:
+      "O login é feito na página oficial da Epic; o Sofa nunca vê sua senha. A sessão fica salva neste dispositivo até você desconectar.",
+    epicDisconnectConfirm:
+      "Sair da Epic neste dispositivo? Os jogos não instalados saem da biblioteca.",
+    epicLoginCancelled: "Login na Epic cancelado.",
+    epicSessionExpired: "Sua sessão da Epic expirou. Conecte novamente.",
     otherSourcesInstalledOnly:
-      "Epic e GOG mostram apenas jogos instalados por enquanto.",
+      "GOG mostra apenas jogos instalados por enquanto.",
     neverPlayed: "Ainda não jogado pelo Sofa",
     lastPlayed: "Última vez jogado: {date}",
     gamesCount: "{count} jogos",
@@ -703,7 +726,7 @@ const dicts = {
     serviceUnavailable: "El servicio no está disponible. Inténtalo más tarde.",
     invalidResponse: "El servicio devolvió una respuesta inesperada.",
     invalidInput: "Revisa la información introducida.",
-    notConnected: "Conecta tu cuenta de Steam primero.",
+    notConnected: "Conecta primero la cuenta de la tienda de este juego.",
     openFailed: "No se pudo abrir la aplicación o el enlace.",
     connectSteam: "Conectar Steam",
     disconnect: "Desconectar",
@@ -805,8 +828,19 @@ const dicts = {
       "¿Cerrar sesión de Steam en este dispositivo? Los juegos no instalados salen de la biblioteca.",
     steamLoginCancelled: "Inicio de sesión en Steam cancelado.",
     steamSessionExpired: "Tu sesión de Steam expiró. Conéctate de nuevo.",
-    otherSourcesInstalledOnly:
-      "Epic y GOG solo muestran juegos instalados por ahora.",
+    connectEpic: "Conectar Epic",
+    epicLibraryDescription:
+      "Muestra los juegos de tu cuenta de Epic Games, incluso los que aún no están instalados en este dispositivo.",
+    epicLibraryConnected: "{count} juegos de Epic disponibles",
+    epicLibraryDisconnected: "Biblioteca Epic desconectada.",
+    epicNoOwnedGames: "Epic no devolvió juegos para esta cuenta.",
+    epicLibraryPrivacy:
+      "Inicias sesión en la página oficial de Epic; Sofa nunca ve tu contraseña. La sesión queda guardada en este dispositivo hasta que te desconectes.",
+    epicDisconnectConfirm:
+      "¿Cerrar sesión de Epic en este dispositivo? Los juegos no instalados salen de la biblioteca.",
+    epicLoginCancelled: "Inicio de sesión en Epic cancelado.",
+    epicSessionExpired: "Tu sesión de Epic expiró. Conéctate de nuevo.",
+    otherSourcesInstalledOnly: "GOG solo muestra juegos instalados por ahora.",
     neverPlayed: "Aún no jugado en Sofa",
     lastPlayed: "Última vez jugado: {date}",
     gamesCount: "{count} juegos",

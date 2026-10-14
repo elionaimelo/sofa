@@ -163,6 +163,8 @@ const serviceErrors: MessageKey[] = [
   "installUnavailable",
   "steamLoginCancelled",
   "steamSessionExpired",
+  "epicLoginCancelled",
+  "epicSessionExpired",
   "settingUnavailable",
   "restartRequired",
 ];
