@@ -106,7 +106,9 @@ function Cover({ game }: { game: Game }) {
           onError={() => setFailed((n) => n + 1)}
         />
       )}
-      <span className="title">{game.title}</span>
+      <span className="title">
+        <span>{game.title}</span>
+      </span>
       <span className="badge">{game.source}</span>
     </>
   );

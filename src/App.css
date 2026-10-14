@@ -337,11 +337,14 @@ main::before {
   background: linear-gradient(transparent, rgb(0 0 0 / 0.88));
   font-size: 14px;
   font-weight: 650;
-  /* Long titles stop at two lines instead of covering the art. */
+}
+/* Long titles stop at three lines instead of covering the art. Clamped on an inner span:
+   on the padded box itself the next line bleeds into the padding and shows cut in half. */
+.tile .title > span {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   overflow: hidden;
   overflow-wrap: anywhere;
 }
