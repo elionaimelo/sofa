@@ -1,5 +1,5 @@
-//! Game Bar activation and installation of Sofa's widget package (`widget/`).
-use tauri::Manager;
+//! Xbox Game Bar activation. The widget package itself (`widget/`) is installed by the installer
+//! through `packaging/widget.ps1`.
 
 /// Win+G opens Game Bar; Win+Tab opens the task switcher of the Xbox full screen experience.
 #[cfg(windows)]
@@ -41,78 +41,4 @@ fn shortcut(app: &tauri::AppHandle, code: u16, name: &str) -> Result<(), String>
         return Err("hudOpenFailed".into());
     }
     Ok(())
-}
-
-/// Installed widget version, or None.
-#[tauri::command]
-pub async fn widget_status(app: tauri::AppHandle) -> Option<String> {
-    let version = tauri::async_runtime::spawn_blocking(installed_version)
-        .await
-        .ok()
-        .flatten();
-    crate::log::info(&app, format!("widget: installed {version:?}"));
-    version
-}
-
-/// Wait for UAC and the installer, then verify that this user has the widget registered.
-#[tauri::command]
-pub async fn install_widget(app: tauri::AppHandle) -> Result<(), String> {
-    let script = app
-        .path()
-        .resource_dir()
-        .map_err(|_| "hudWidgetInstallFailed")?
-        .join("packaging")
-        .join("widget.ps1");
-    if !script.is_file() {
-        crate::log::info(&app, "widget: install script missing");
-        return Err("hudWidgetInstallFailed".into());
-    }
-    crate::log::info(&app, format!("widget: install requested via {}", script.display()));
-    let result = tauri::async_runtime::spawn_blocking(move || {
-        start_elevated(&script)?;
-        installed_version().ok_or_else(|| "hudWidgetInstallFailed".to_string())
-    }).await.map_err(|_| "hudWidgetInstallFailed")?;
-    match result {
-        Ok(version) => {
-            crate::log::info(&app, format!("widget: installation verified {version}"));
-            Ok(())
-        }
-        Err(error) => {
-            crate::log::info(&app, "widget: installation failed, cancelled, or timed out; see script log");
-            Err(error)
-        }
-    }
-}
-
-#[cfg(windows)]
-fn installed_version() -> Option<String> {
-    let out = crate::ally::powershell(
-        "(Get-AppxPackage -Name Sofa.Widget | Select-Object -First 1).Version.ToString()",
-    )
-    .ok()?;
-    Some(out.trim().to_owned()).filter(|v| !v.is_empty())
-}
-
-#[cfg(windows)]
-fn start_elevated(script: &std::path::Path) -> Result<(), String> {
-    let powershell = crate::system_exe(r"WindowsPowerShell\v1.0\powershell.exe").ok_or("hudWidgetInstallFailed")?;
-    // Single-quoted PowerShell literal: double any quote in the path.
-    let path = script.display().to_string().replace('\'', "''");
-    let command = format!(
-        "$ErrorActionPreference = 'Stop'; $process = Start-Process -FilePath '{}' -Verb RunAs -WindowStyle Hidden -Wait -PassThru -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -File \"' + '{path}' + '\"'); exit $process.ExitCode",
-        powershell.display().to_string().replace('\'', "''"),
-    );
-    crate::ally::powershell_with_timeout(&command, std::time::Duration::from_secs(180))
-        .map(|_| ())
-        .map_err(|_| "hudWidgetInstallFailed".to_string())
-}
-
-#[cfg(not(windows))]
-fn installed_version() -> Option<String> {
-    None
-}
-
-#[cfg(not(windows))]
-fn start_elevated(_script: &std::path::Path) -> Result<(), String> {
-    Err("hudWidgetInstallFailed".into())
 }

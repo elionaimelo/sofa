@@ -49,7 +49,7 @@ import {
   categoryLabel,
   useCategories,
 } from "./features/Categories";
-import { HudPanel, WidgetStatus } from "./features/Performance";
+import { HudPanel } from "./features/Performance";
 import { PowerMenu, TopBatteries, usePower } from "./features/Power";
 import {
   AppearanceSettings,
@@ -1153,7 +1153,6 @@ export default function App() {
                   </span>
                 </button>
               </div>
-              {isTauri() && <WidgetStatus t={t} />}
             </section>
           )}
         </Scene>

@@ -622,37 +622,3 @@ function Options({
     </div>
   );
 }
-/** Game Bar widget install state, with a repair for when the installer couldn't add it. */
-export function WidgetStatus({ t }: { t: Translate }) {
-  const queryClient = useQueryClient();
-  const status = useQuery({
-    ...commandQuery<string | null>("widget_status"),
-    // The elevated install runs outside Sofa; look again when the user comes back.
-    refetchOnWindowFocus: true,
-  });
-  const install = useMutation({
-    mutationFn: () => desktop("install_widget"),
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: ["widget_status"] }),
-  });
-  if (status.isPending) return null;
-  return (
-    <section className="hud-widget" aria-label={t("hudWidget")}>
-      <h2>{t("hudWidget")}</h2>
-      <p className="muted">
-        {t(status.data ? "hudWidgetInstalled" : "hudWidgetMissing")}
-      </p>
-      <button
-        aria-disabled={install.isPending}
-        aria-busy={install.isPending}
-        onClick={() => !install.isPending && install.mutate()}
-      >
-        {t(status.data ? "hudWidgetRepair" : "hudWidgetInstall")}
-      </button>
-      <p role="status">{install.isPending ? t("hudWidgetInstalling") : ""}</p>
-      {(install.error || status.error) && (
-        <p role="alert">{t(serviceError(install.error || status.error))}</p>
-      )}
-    </section>
-  );
-}

@@ -84,7 +84,6 @@ function PickerList<V extends string>({
     else navigateControls(a, root.current);
   });
   return (
-    // biome-ignore lint/a11y/useSemanticElements: a listbox of option buttons; <select> can't open from the controller.
     <div
       ref={root}
       role="listbox"

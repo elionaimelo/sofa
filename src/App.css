@@ -2525,11 +2525,6 @@ footer kbd {
 .offer-row > span {
   min-width: 0;
 }
-.hud-widget {
-  display: grid;
-  gap: 8px;
-  justify-items: start;
-}
 /* Launch screen: the game's art behind a rumbling controller while the launcher starts it. */
 .launch-screen {
   position: fixed;

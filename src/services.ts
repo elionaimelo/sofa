@@ -153,7 +153,6 @@ const serviceErrors: MessageKey[] = [
   "notConnected",
   "openFailed",
   "hudOpenFailed",
-  "hudWidgetInstallFailed",
   "desktopRequired",
   "batteryUnavailable",
   "powerFailed",
