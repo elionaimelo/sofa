@@ -470,7 +470,25 @@ export default function App() {
     ) {
       if (a === "b") setFiltersOpen(false);
       else if (a === "y") setPrefs((p) => ({ ...p, filters: defaultFilters }));
-      else navigateSpatial(a, document.querySelector("[data-filter-panel]"));
+      else if (a === "lb" || a === "rb") {
+        // Shoulder buttons jump between the drawer's sections, so a long list of
+        // categories never has to be crossed to reach the fields or the actions below.
+        const sections = [
+          ...document.querySelectorAll<HTMLElement>(
+            "[data-filter-panel] [data-section]",
+          ),
+        ];
+        const current = sections.findIndex((section) =>
+          section.contains(document.activeElement),
+        );
+        const next =
+          (current + (a === "lb" ? -1 : 1) + sections.length) % sections.length;
+        const target = sections[next]?.querySelector<HTMLElement>(
+          "button:not(:disabled), input, [tabindex='0']",
+        );
+        target?.focus();
+        target?.scrollIntoView({ block: "nearest" });
+      } else navigateSpatial(a, document.querySelector("[data-filter-panel]"));
       return;
     }
     if (a === "b") {
@@ -590,6 +608,7 @@ export default function App() {
           : filtersOpen && page === "library"
             ? [
                 ["A", t("selectAction")],
+                ["LB/RB", t("sections")],
                 ["Y", t("clearFilters")],
                 ["B", t("close")],
               ]
@@ -788,6 +807,7 @@ export default function App() {
                   <section
                     className="category-filter"
                     aria-labelledby="category-filter-title"
+                    data-section
                   >
                     <div className="category-filter-heading">
                       <div>
@@ -857,7 +877,7 @@ export default function App() {
                           .includes(categoryQuery.toLocaleLowerCase()),
                       ) && <p className="muted">{t("noCategorySearch")}</p>}
                   </section>
-                  <div className="field">
+                  <div className="field" data-section>
                     {t("playedFilter")}
                     <Picker
                       label={t("playedFilter")}
@@ -876,7 +896,7 @@ export default function App() {
                       }
                     />
                   </div>
-                  <div className="field">
+                  <div className="field" data-section>
                     {t("artworkFilter")}
                     <Picker
                       label={t("artworkFilter")}
@@ -894,7 +914,7 @@ export default function App() {
                       }
                     />
                   </div>
-                  <label className="filter-checkbox">
+                  <label className="filter-checkbox" data-section>
                     <input
                       type="checkbox"
                       checked={prefs.filters.favoritesOnly}
@@ -910,7 +930,7 @@ export default function App() {
                     />
                     {t("favoritesOnly")}
                   </label>
-                  <div className="filter-actions">
+                  <div className="filter-actions" data-section>
                     <button
                       onClick={() =>
                         setPrefs((p) => ({ ...p, filters: defaultFilters }))
