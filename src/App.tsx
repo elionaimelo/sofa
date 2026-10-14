@@ -151,6 +151,7 @@ export default function App() {
   const tRef = useRef(t);
   tRef.current = t;
   const grid = useRef<HTMLDivElement>(null);
+  const sortSelect = useRef<HTMLSelectElement>(null);
   const featureInput: InputRef = useRef(null);
   const launchBusy = useRef(false);
   const notify = useCallback<Notify>(
@@ -486,6 +487,15 @@ export default function App() {
           : document.querySelector("#content button")
       ) as HTMLElement | null;
       if (navigateSpatial(a, document.querySelector("main"), initial)) return;
+      // Up from the library goes to the sort select if nothing above.
+      if (
+        a === "up" &&
+        (page === "home" || page === "library") &&
+        sortSelect.current
+      ) {
+        sortSelect.current.focus();
+        return;
+      }
     }
     if (page !== "home" && page !== "library" && !settings && !details) {
       featureInput.current?.(a);
@@ -970,8 +980,9 @@ export default function App() {
                             ),
                           })}
                         </span>
-                        {/* Sorting sits right above the list it orders; LB/RB change it when focused. */}
+                        {/* Sorting sits right above the list it orders; LB/RB change it when focused; UP from the list brings focus here. */}
                         <select
+                          ref={sortSelect}
                           value={prefs.sort}
                           aria-label={t("sort")}
                           title={t("sort")}
