@@ -209,9 +209,9 @@ export function LibrarySettings({
       <p className="muted">{t("otherSourcesInstalledOnly")}</p>
       {/* The one place to rescan installed games and refresh owned store games. */}
       <button
-        aria-disabled={library.loading}
-        aria-busy={library.loading}
-        onClick={() => !library.loading && void library.refresh()}
+        aria-disabled={library.refreshing}
+        aria-busy={library.refreshing}
+        onClick={() => !library.refreshing && void library.refresh()}
       >
         <ArrowClockwiseIcon />
         {t("refresh")}

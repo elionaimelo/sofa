@@ -197,6 +197,11 @@ export default function App() {
   const { update, install } = updates;
   const { games, loading, scanError } = library;
   const categories = useCategories(games, lang);
+  // A failed rescan keeps the games it already has; say so instead of hiding them.
+  useEffect(() => {
+    if (scanError && games.length > 0)
+      setStatus(tRef.current("scanFailed", { error: tRef.current(scanError) }));
+  }, [scanError, games.length]);
   // Percent per game being downloaded, for the tiles.
   const downloading = Object.fromEntries(
     library.downloads.map((d) => [d.game.id, d.percent]),
@@ -839,7 +844,7 @@ export default function App() {
                   <Loading label={t("scanning")} />
                 </div>
               )
-            ) : scanError ? (
+            ) : scanError && games.length === 0 ? (
               <div className="empty" role="alert">
                 <p>{t("scanFailed", { error: t(scanError) })}</p>
                 <button onClick={() => void library.refresh()}>

@@ -178,7 +178,10 @@ export function useLibrary(onStatus: Notify) {
   return {
     games,
     accounts: { steam, epic },
-    loading: installed.isFetching,
+    /** The first scan hasn't answered yet; later rescans keep the games on screen. */
+    loading: installed.isPending,
+    /** Any scan in flight, for the refresh button. */
+    refreshing: installed.isFetching,
     /** The first scan of installed games has finished. */
     scanned: installed.isSuccess,
     scanError: installed.error ? serviceError(installed.error) : ("" as const),
