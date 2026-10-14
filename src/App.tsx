@@ -14,6 +14,7 @@ import { Dialog } from "./components/Dialog";
 import { LaunchScreen } from "./components/LaunchScreen";
 import { Picker } from "./components/Picker";
 import { Scene } from "./components/Scene";
+import { SearchField } from "./components/SearchField";
 import { initialLang, type Lang, saveLang, translator } from "./i18n";
 import {
   activeFilters,
@@ -69,7 +70,6 @@ import {
   demo,
   desktop,
   type InputRef,
-  keyboardOnActivate,
   type Notify,
   navigateControls,
   navigateSpatial,
@@ -658,19 +658,18 @@ export default function App() {
             );
           })}
         </nav>
-        <input
-          {...keyboardOnActivate}
+        <SearchField
           className="header-search"
-          type="search"
           value={query}
           name="search"
-          autoComplete="off"
           enterKeyHint="search"
           onChange={(event) => {
             setQuery(event.target.value);
             setPage("library");
             setTab("all");
           }}
+          onClear={() => setQuery("")}
+          clearLabel={t("clearSearch")}
           placeholder={t("searchGames")}
           aria-label={t("searchGames")}
         />
@@ -730,11 +729,11 @@ export default function App() {
                 <kbd aria-hidden>RB</kbd>
               </div>
               <div className="tools">
-                <input
-                  {...keyboardOnActivate}
-                  type="search"
+                <SearchField
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
+                  onClear={() => setQuery("")}
+                  clearLabel={t("clearSearch")}
                   placeholder={t("searchHint")}
                   aria-label={t("searchGames")}
                 />
@@ -827,12 +826,13 @@ export default function App() {
                           <h2 id="category-filter-title">{t("categories")}</h2>
                           <p>{t("categoryMatchAny")}</p>
                         </div>
-                        <input
-                          {...keyboardOnActivate}
+                        <SearchField
                           aria-label={t("searchCategories")}
                           placeholder={t("searchCategories")}
                           value={categoryQuery}
                           onChange={(e) => setCategoryQuery(e.target.value)}
+                          onClear={() => setCategoryQuery("")}
+                          clearLabel={t("clearSearch")}
                         />
                       </div>
                       <div className="category-options">

@@ -184,8 +184,40 @@ main::before {
   flex: 0 1 300px;
   min-width: 150px;
   margin-left: auto;
+}
+.header-search input {
   min-height: 44px;
   background: rgb(255 255 255 / 0.075);
+}
+/* Search boxes carry their own clear button; the browser's tiny one is hidden. */
+.search-field {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+.search-field input {
+  width: 100%;
+  min-width: 0;
+  padding-right: 46px;
+}
+.search-field input::-webkit-search-cancel-button {
+  display: none;
+}
+.clear-field {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
 }
 .header-search + .system-bar {
   margin-left: 0;
@@ -417,7 +449,7 @@ main::before {
   gap: 12px;
   align-items: center;
 }
-.tools input {
+.tools .search-field {
   flex: 1;
   min-width: 0;
   max-width: 390px;

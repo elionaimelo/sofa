@@ -8,6 +8,7 @@ import {
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog } from "../components/Dialog";
+import { SearchField } from "../components/SearchField";
 import type { Lang, Translate } from "../i18n";
 import type { Region } from "../library";
 import {
@@ -18,7 +19,6 @@ import {
   demoDeals,
   desktop,
   type InputRef,
-  keyboardOnActivate,
   type MessageKey,
   money,
   navigateControls,
@@ -285,10 +285,15 @@ export function Store({
         }}
       >
         <MagnifyingGlassIcon aria-hidden />
-        <input
-          {...keyboardOnActivate}
+        <SearchField
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onClear={() => {
+            setQuery("");
+            setSearch("");
+            setPage(0);
+          }}
+          clearLabel={t("clearSearch")}
           placeholder={t("searchGames")}
           aria-label={t("searchGames")}
         />
