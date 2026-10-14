@@ -10,6 +10,8 @@ mod publisher;
 mod publisher_config;
 mod accounts;
 mod ally;
+#[cfg(any(windows, test))]
+mod ally_input;
 mod display;
 mod xbox_mode;
 mod hud_server;
@@ -94,7 +96,10 @@ pub fn run() {
         .manage(session::Playtime::default())
         .setup(|app| {
             #[cfg(windows)]
-            hud::watch_controller(app.handle().clone());
+            {
+                hud::watch_controller(app.handle().clone());
+                ally_input::watch(app.handle().clone());
+            }
             hud_server::start(app.handle().clone());
             session::watch(app.handle().clone());
             // Launched by the Xbox full screen experience (`--fse`, see packaging/AppxManifest.xml)

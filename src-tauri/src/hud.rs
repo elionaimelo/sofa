@@ -84,7 +84,7 @@ pub async fn open_hud(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 /// View + Menu opens Game Bar from Sofa or a game, just like Sofa's HUD buttons.
-/// The Xbox/Command Center buttons remain owned by Windows and the device software.
+/// The Ally Command Center button is handled separately by `ally_input`.
 #[cfg(windows)]
 pub fn watch_controller(app: tauri::AppHandle) {
     use windows_sys::Win32::UI::Input::XboxController::*;

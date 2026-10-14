@@ -14,7 +14,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { type ComponentType, useRef, useState } from "react";
+import { type ComponentType, useEffect, useRef, useState } from "react";
 import type { Translate } from "../i18n";
 import { initialLang, translator } from "../i18n";
 import type { Game } from "../library";
@@ -152,13 +152,22 @@ const inWidget = new URLSearchParams(location.search).get("widget") === "1";
 export function Hud() {
   const t = translator(initialLang());
   const inputRef: InputRef = useRef(null);
-  useInput((a) => inputRef.current?.(a));
+  useInput(
+    (a) => inputRef.current?.(a),
+    inWidget && new URLSearchParams(location.search).get("nativeInput") === "1",
+  );
   return (
     <HudPanel
       t={t}
       inputRef={inputRef}
       onClose={() => {
         if (isTauri()) void getCurrentWindow().close();
+        else if (inWidget) {
+          const host = window as Window & {
+            chrome?: { webview?: { postMessage: (message: string) => void } };
+          };
+          host.chrome?.webview?.postMessage("close");
+        }
       }}
     />
   );
@@ -179,6 +188,9 @@ export function HudPanel({
   embedded?: boolean;
 }) {
   const root = useRef<HTMLElement>(null);
+  useEffect(() => {
+    root.current?.querySelector<HTMLElement>("button:not(:disabled)")?.focus();
+  }, []);
   const metricsQuery = useQuery({
     ...commandQuery<Metrics>("system_metrics"),
     refetchInterval: 2000,
@@ -260,8 +272,21 @@ export function HudPanel({
   };
   const close = onClose;
   useFeatureInput(inputRef, (a) => {
-    if (a === "b") open ? setOpen(null) : close();
-    else navigateSpatial(a, root.current);
+    if (a === "b") {
+      if (open) {
+        root.current
+          ?.querySelector<HTMLElement>(".hud-tile[aria-expanded='true']")
+          ?.focus();
+        setOpen(null);
+      } else close();
+    } else {
+      const focused = document.activeElement;
+      navigateSpatial(a, root.current);
+      // Status text can extend below the last button. Keep scrolling at the
+      // navigation boundary so every part of a resized widget stays reachable.
+      if ((a === "up" || a === "down") && document.activeElement === focused)
+        root.current?.scrollBy({ top: a === "down" ? 96 : -96 });
+    }
   });
   const Root = embedded ? "div" : "main";
   const current = display?.current;

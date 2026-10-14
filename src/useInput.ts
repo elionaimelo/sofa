@@ -46,7 +46,10 @@ const buttons: [number, Action][] = [
   [14, "left"],
   [15, "right"],
 ];
-export function useInput(onAction: (action: Action) => void) {
+export function useInput(
+  onAction: (action: Action) => void,
+  nativeGamepad = false,
+) {
   const cb = useRef(onAction);
   cb.current = onAction;
   useEffect(() => {
@@ -74,6 +77,14 @@ export function useInput(onAction: (action: Action) => void) {
       document.documentElement.classList.add("gamepad-input");
       cb.current(a);
     };
+    // The UWP host forwards routed gamepad keys; polling the same controller
+    // here would execute every action twice and depends on WebView gamepad focus.
+    const onNativeGamepad = (event: Event) => {
+      const action = (event as CustomEvent<unknown>).detail;
+      if (["up", "down", "left", "right", "a", "b"].includes(action as string))
+        fire(action as Action);
+    };
+    if (nativeGamepad) window.addEventListener("sofa-gamepad", onNativeGamepad);
     let raf = 0;
     const poll = () => {
       if (!document.hasFocus()) {
@@ -110,10 +121,11 @@ export function useInput(onAction: (action: Action) => void) {
       }
       raf = requestAnimationFrame(poll);
     };
-    raf = requestAnimationFrame(poll);
+    if (!nativeGamepad) raf = requestAnimationFrame(poll);
     return () => {
       window.removeEventListener("keydown", onKey);
       cancelAnimationFrame(raf);
+      window.removeEventListener("sofa-gamepad", onNativeGamepad);
     };
-  }, []);
+  }, [nativeGamepad]);
 }

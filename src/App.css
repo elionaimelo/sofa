@@ -1144,11 +1144,29 @@ select:focus-visible,
   background: #3a242f;
 }
 .floating-hud {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   padding: 14px 16px 18px;
   background: #1b2029;
   height: 100%;
   gap: 14px;
   overflow-y: auto;
+  overflow-x: hidden;
+  scroll-padding-block: 14px 18px;
+  touch-action: pan-y;
+}
+/* Keep sections at their natural height so a short widget scrolls without overlap. */
+.floating-hud > * {
+  flex-shrink: 0;
+}
+.floating-hud::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+.floating-hud::-webkit-scrollbar-thumb {
+  background: #697180;
+  border-radius: 3px;
 }
 .floating-hud::before {
   display: none;
