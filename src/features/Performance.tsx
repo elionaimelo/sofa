@@ -456,6 +456,7 @@ export function HudPanel({
         />
       </div>
       <ControllerBatteries t={t} data={power.data} />
+      {embedded && <WidgetStatus t={t} />}
       {/* Live regions stay mounted so screen readers announce changes, not insertions. */}
       <p role="status">{message}</p>
       {metricsQuery.error && (
@@ -488,5 +489,38 @@ function Options({
         </button>
       ))}
     </div>
+  );
+}
+/** Game Bar widget install state, with a repair for when the installer couldn't add it. */
+function WidgetStatus({ t }: { t: Translate }) {
+  const status = useQuery({
+    ...commandQuery<string | null>("widget_status"),
+    // The elevated install runs outside Sofa; look again when the user comes back.
+    refetchOnWindowFocus: true,
+  });
+  const install = useMutation({
+    mutationFn: () => desktop("install_widget"),
+  });
+  if (status.isPending || status.error) return null;
+  return (
+    <section className="hud-widget" aria-label={t("hudWidget")}>
+      <h2>{t("hudWidget")}</h2>
+      {status.data ? (
+        <p className="muted">{t("hudWidgetInstalled")}</p>
+      ) : (
+        <>
+          <p className="muted">{t("hudWidgetMissing")}</p>
+          <button
+            aria-disabled={install.isPending}
+            onClick={() => !install.isPending && install.mutate()}
+          >
+            {t("hudWidgetInstall")}
+          </button>
+          {install.isSuccess && (
+            <p className="muted">{t("hudWidgetInstalling")}</p>
+          )}
+        </>
+      )}
+    </section>
   );
 }

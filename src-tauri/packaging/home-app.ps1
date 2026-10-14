@@ -36,18 +36,8 @@ if (-not (Get-ChildItem Cert:\LocalMachine\TrustedPeople | Where-Object Thumbpri
 Copy-Item "$PSScriptRoot\CustomCapability.SCCD" "$InstallDir\CustomCapability.SCCD" -Force
 Add-AppxPackage -Path "$PSScriptRoot\Sofa.Identity.msix" -ExternalLocation $InstallDir -ForceUpdateFromAnyVersion
 
-# Xbox Game Bar widget: shows the HUD that Sofa serves on 127.0.0.1:47811.
-# UWP apps can't reach loopback without an exemption (development-only per Microsoft; it works).
-if (Test-Path "$PSScriptRoot\widget\Sofa.Widget.msix") {
-  $deps = Get-ChildItem "$PSScriptRoot\widget\Dependencies\*.appx" -ErrorAction SilentlyContinue | ForEach-Object FullName
-  try {
-    Add-AppxPackage -Path "$PSScriptRoot\widget\Sofa.Widget.msix" -DependencyPath $deps -ForceUpdateFromAnyVersion
-    $widget = Get-AppxPackage -Name Sofa.Widget
-    CheckNetIsolation.exe LoopbackExempt -a -n="$($widget.PackageFamilyName)" | Out-Null
-  } catch {
-    Write-Warning "Game Bar widget not installed: $_"
-  }
-}
+# Xbox Game Bar widget: shows the HUD that Sofa serves on 127.0.0.1:47811 (logs to sofa.log).
+& "$PSScriptRoot\widget.ps1"
 
 # Only claim the home app slot when none is chosen; a user's later choice is kept across updates.
 $aumid = "$((Get-AppxPackage -Name Sofa).PackageFamilyName)!App"

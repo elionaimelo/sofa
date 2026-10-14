@@ -156,6 +156,12 @@ const en = {
   on: "On",
   off: "Off",
   hudNowPlaying: "Playing now",
+  hudWidget: "Xbox Game Bar widget",
+  hudWidgetInstalled:
+    "Installed: open the Game Bar (Xbox button) and pick Sofa.",
+  hudWidgetMissing: "Not installed, so Sofa doesn’t show up in the Game Bar.",
+  hudWidgetInstall: "Install widget",
+  hudWidgetInstalling: "Confirm the Windows prompt; then reopen the Game Bar.",
   hudTdp: "Power limit (TDP)",
   hudTdpNote: "Custom watts; a profile above resets it",
   hudSaveForGame: "Save for this game",
@@ -433,6 +439,13 @@ const dicts = {
     on: "Ligado",
     off: "Desligado",
     hudNowPlaying: "Jogando agora",
+    hudWidget: "Widget da Xbox Game Bar",
+    hudWidgetInstalled:
+      "Instalado: abra a Game Bar (botão Xbox) e escolha Sofa.",
+    hudWidgetMissing: "Não instalado, por isso o Sofa não aparece na Game Bar.",
+    hudWidgetInstall: "Instalar widget",
+    hudWidgetInstalling:
+      "Confirme o aviso do Windows e depois reabra a Game Bar.",
     hudTdp: "Limite de potência (TDP)",
     hudTdpNote: "Watts manuais; um perfil acima redefine",
     hudSaveForGame: "Salvar para este jogo",
@@ -707,6 +720,13 @@ const dicts = {
     on: "Activado",
     off: "Desactivado",
     hudNowPlaying: "Jugando ahora",
+    hudWidget: "Widget de la Xbox Game Bar",
+    hudWidgetInstalled:
+      "Instalado: abre la Game Bar (botón Xbox) y elige Sofa.",
+    hudWidgetMissing: "No instalado, por eso Sofa no aparece en la Game Bar.",
+    hudWidgetInstall: "Instalar widget",
+    hudWidgetInstalling:
+      "Confirma el aviso de Windows y vuelve a abrir la Game Bar.",
     hudTdp: "Límite de potencia (TDP)",
     hudTdpNote: "Vatios manuales; un perfil arriba lo restablece",
     hudSaveForGame: "Guardar para este juego",

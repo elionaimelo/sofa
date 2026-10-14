@@ -2429,3 +2429,8 @@ footer kbd {
 .offer-row > span {
   min-width: 0;
 }
+.hud-widget {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
