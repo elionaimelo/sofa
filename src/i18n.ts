@@ -124,7 +124,8 @@ const en = {
   discover: "Discover",
   wishlist: "Wishlist",
   storeIntro: "Find your next game.",
-  storeNote: "Prices in US dollars · provided by CheapShark",
+  storeNote:
+    "Store prices by CheapShark · ≈ marks a conversion from US dollars",
   compare: "Compare prices",
   buy: "View offer",
   addWishlist: "Save to wishlist",
@@ -481,7 +482,7 @@ const dicts = {
     discover: "Descobrir",
     wishlist: "Lista de desejos",
     storeIntro: "Encontre seu próximo jogo.",
-    storeNote: "Preços em dólares americanos · fornecidos pela CheapShark",
+    storeNote: "Preços das lojas pela CheapShark · ≈ indica conversão do dólar",
     compare: "Comparar preços",
     buy: "Ver oferta",
     addWishlist: "Salvar na lista de desejos",
@@ -840,7 +841,8 @@ const dicts = {
     discover: "Descubrir",
     wishlist: "Lista de deseos",
     storeIntro: "Encuentra tu próximo juego.",
-    storeNote: "Precios en dólares americanos · proporcionados por CheapShark",
+    storeNote:
+      "Precios de las tiendas por CheapShark · ≈ indica conversión del dólar",
     compare: "Comparar precios",
     buy: "Ver oferta",
     addWishlist: "Guardar en la lista de deseos",

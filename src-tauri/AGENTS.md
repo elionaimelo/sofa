@@ -20,6 +20,7 @@
 
 - Use `network::client()` (HTTPS only, no redirects, timeout, versioned user agent) and `network::json` / `network::text`, which map HTTP statuses to error keys.
 - Never log or return request URLs: Steam access tokens travel in the query string.
+- Cache every external API response here, behind the webview's TanStack Query cache: `store::StoreCache` (in memory, a TTL per kind: deals 5 min, exchange rate 6 h, similar games 1 day, tags 1 week) or a JSON file in the app cache dir for data that must survive restarts (categories, 30 days). Cache misses and empty answers too, with a shorter TTL, so a missing title isn't fetched on every render. Prefer one batch call over one request per item (Steam's `IStoreBrowseService/GetItems`, `appdetails` with `filters=price_overview`).
 
 ## Windows and capabilities
 

@@ -8,7 +8,10 @@
 - Effects need stable dependencies: derive a string/id key instead of depending on arrays that are recreated on every scan (see `useCategories`).
 - Async work must not restart when the language changes: read the translator through `tRef.current` instead of listing `t` as a dependency.
 - Backend data goes through TanStack Query (`QueryClient` in `main.tsx`): `useQuery(commandQuery<T>("command", args))` for reads, `refetchInterval` for polling, `staleTime` for cache, and `useMutation` for writes that `invalidateQueries` what they change. Map failures with `queryError(query.error)`. Don't hand-roll `alive`/`setTimeout` loops or busy refs.
-- The library scan and Steam owned games still use manual effects in `App.tsx`; move them to queries when you touch them.
+- Caching has two layers, and components never keep their own copies of fetched data:
+  - **Webview, TanStack Query**: dedupes requests and keeps results per query key (the command plus its arguments). Set `staleTime` by how fast the data changes: prices and deals 5 min, shops, similar games and tags 1 h, exchange rate 6 h, things that only change on user action (device model, owned games) `Infinity` plus `invalidateQueries` after the mutation. Poll with `refetchInterval`, never timers.
+  - **Backend, Rust**: every external API response is cached in Rust too (`StoreCache` with a TTL per kind, or a file in the app cache dir for data that should survive restarts, like categories), so restarts, the HUD widget and rate limits are covered. See `src-tauri/AGENTS.md`.
+- `useCategories` still runs a manual, throttled effect; move it to queries when you touch it.
 
 ## Controller-first UI
 

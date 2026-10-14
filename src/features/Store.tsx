@@ -8,11 +8,13 @@ import {
 } from "@phosphor-icons/react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Cover, CoverImage } from "../components/Cover";
 import { DetailFrame } from "../components/DetailFrame";
 import { SearchField } from "../components/SearchField";
 import type { Lang, Translate } from "../i18n";
 import {
   byTaste,
+  type Game,
   type Region,
   type Similar,
   type TagWeights,
@@ -66,6 +68,15 @@ const fromSimilar = (s: Similar): Deal => ({
   steamAppID: s.appId,
 });
 const tabs = ["discover", "wishlist"] as const;
+/** A store item as a library game, so its art gets the same fallbacks as library covers. */
+const asGame = (d: Pick<Deal, "steamAppID" | "thumb" | "title">): Game => ({
+  id: d.steamAppID ? `steam:${d.steamAppID}` : `deal:${d.title}`,
+  title: d.title,
+  source: "steam",
+  launch: "",
+  installed: false,
+  cover: dealArt(d),
+});
 export function Store({
   t,
   lang,
@@ -266,7 +277,7 @@ export function Store({
     }).data ?? []
   )
     .filter((s) => !owned.has(s.appId))
-    .slice(0, 8);
+    .slice(0, 6);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new tab or search starts at the first deal.
   useEffect(() => setFocus(0), [tab, search]);
   useEffect(() => {
@@ -472,14 +483,7 @@ export function Store({
               onClick={() => open(d)}
             >
               <div className="deal-art">
-                <img
-                  src={dealArt(d)}
-                  alt=""
-                  loading="lazy"
-                  onError={(e) => {
-                    e.currentTarget.style.visibility = "hidden";
-                  }}
-                />
+                <CoverImage game={asGame(d)} />
                 {discount(d) > 0 && (
                   <span className="discount">−{discount(d)}%</span>
                 )}
@@ -564,15 +568,7 @@ export function Store({
         <DetailFrame
           label={`${t("compare")} · ${selected.title}`}
           art={dealArt(selected, true)}
-          cover={
-            <img
-              src={dealArt(selected)}
-              alt=""
-              onError={(e) => {
-                e.currentTarget.style.visibility = "hidden";
-              }}
-            />
-          }
+          cover={<CoverImage key={selected.gameID} game={asGame(selected)} />}
           closeLabel={t("close")}
           onClose={() => setSelected(null)}
         >
@@ -688,17 +684,17 @@ export function Store({
                 {alsoLike.map((s) => (
                   <button
                     key={s.appId}
+                    className="tile"
                     aria-label={s.name}
                     title={s.name}
                     onClick={() => open(fromSimilar(s))}
                   >
-                    <img
-                      src={dealArt({ steamAppID: s.appId, thumb: "" })}
-                      alt=""
-                      loading="lazy"
-                      onError={(e) => {
-                        e.currentTarget.style.visibility = "hidden";
-                      }}
+                    <Cover
+                      game={asGame({
+                        steamAppID: s.appId,
+                        thumb: "",
+                        title: s.name,
+                      })}
                     />
                   </button>
                 ))}
