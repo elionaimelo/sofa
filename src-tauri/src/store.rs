@@ -336,12 +336,35 @@ pub struct Shot {
     video: Option<String>,
 }
 
-/// What Steam's page says about a game: its short description and its gallery.
+/// What Steam's page says about a game: its short description, its gallery and the facts a
+/// controller player checks before installing or buying it.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct Media {
     description: String,
     /// Trailers first, then screenshots, in Steam's order.
     gallery: Vec<Shot>,
+    /// "full" or "partial", as the store page lists it; None when it lists nothing.
+    controller: Option<String>,
+    /// Steam Deck compatibility: 1 unsupported, 2 playable, 3 verified.
+    deck: Option<u8>,
+    reviews: Option<Reviews>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Reviews {
+    positive: u64,
+    total: u64,
+}
+
+fn parse_deck(report: &Value) -> Option<u8> {
+    let category = report["results"]["resolved_category"].as_u64()?;
+    (1..=3).contains(&category).then_some(category as u8)
+}
+
+fn parse_reviews(response: &Value) -> Option<Reviews> {
+    let summary = &response["query_summary"];
+    let (positive, total) = (summary["total_positive"].as_u64()?, summary["total_reviews"].as_u64()?);
+    (total > 0 && positive <= total).then_some(Reviews { positive, total })
 }
 /// Store pages barely change: media stays on disk for 30 days, one file per title and language.
 const MEDIA_TTL: Duration = Duration::from_secs(30 * 24 * 3600);
@@ -386,7 +409,15 @@ fn parse_media(details: &Value, app_id: &str) -> Media {
     let screenshots = data["screenshots"].as_array().into_iter().flatten().filter_map(|s| {
         Some(Shot { image: steam_cdn(s["path_thumbnail"].as_str())?, video: None })
     });
-    Media { description, gallery: trailers.take(3).chain(screenshots.take(12)).collect() }
+    let controller =
+        data["controller_support"].as_str().filter(|c| ["full", "partial"].contains(c)).map(str::to_owned);
+    Media {
+        description,
+        gallery: trailers.take(3).chain(screenshots.take(12)).collect(),
+        controller,
+        deck: None,
+        reviews: None,
+    }
 }
 
 /// A Steam title's short description, trailers and screenshots in the interface language,
@@ -429,7 +460,7 @@ async fn media(app_id: &str, language: &str, app: &tauri::AppHandle, cache: &Sto
     if let Some(media) = cache.fresh(&key, DAY)? {
         return serde_json::from_value(media).map_err(|_| "invalidResponse".into());
     }
-    let file = app.path().app_cache_dir().ok().map(|dir| dir.join("store-media").join(format!("{app_id}-{language}.json")));
+    let file = app.path().app_cache_dir().ok().map(|dir| dir.join("store-media-v2").join(format!("{app_id}-{language}.json")));
     let media = match file.as_deref().and_then(read_media) {
         Some(media) => media,
         None => {
@@ -439,7 +470,26 @@ async fn media(app_id: &str, language: &str, app: &tauri::AppHandle, cache: &Sto
                     .query(&[("appids", app_id), ("l", language), ("filters", "basic,screenshots,movies")]),
             )
             .await?;
-            let media = parse_media(&details, app_id);
+            let mut media = parse_media(&details, app_id);
+            // Extras: a failure here leaves the badge out, not the description and gallery.
+            media.deck = network::json::<Value>(
+                network::client()?
+                    .get("https://store.steampowered.com/saleaction/ajaxgetdeckappcompatibilityreport")
+                    .query(&[("nAppID", app_id)]),
+            )
+            .await
+            .ok()
+            .as_ref()
+            .and_then(parse_deck);
+            media.reviews = network::json::<Value>(
+                network::client()?
+                    .get(format!("https://store.steampowered.com/appreviews/{app_id}"))
+                    .query(&[("json", "1"), ("language", "all"), ("purchase_type", "all"), ("num_per_page", "0")]),
+            )
+            .await
+            .ok()
+            .as_ref()
+            .and_then(parse_reviews);
             if let Some(file) = &file
                 && !(media.description.is_empty() && media.gallery.is_empty())
                 && let (Some(dir), Ok(json)) = (file.parent(), serde_json::to_vec(&media))
@@ -653,6 +703,7 @@ mod tests {
         }}});
         let media = parse_media(&details, "10");
         assert_eq!(media.description, "Escape the \"Underworld\" & more");
+        assert_eq!(media.controller, None);
         assert_eq!(
             media.gallery,
             vec![
@@ -662,6 +713,17 @@ mod tests {
         );
         assert_eq!(parse_media(&serde_json::json!({"10": {"success": false}}), "10").gallery, vec![]);
         assert_eq!(steam_language("pt-BR"), Some("brazilian"));
+        let full = serde_json::json!({"10": {"data": {"controller_support": "full"}}});
+        assert_eq!(parse_media(&full, "10").controller.as_deref(), Some("full"));
+        let odd = serde_json::json!({"10": {"data": {"controller_support": "<b>"}}});
+        assert_eq!(parse_media(&odd, "10").controller, None);
+        assert_eq!(parse_deck(&serde_json::json!({"results": {"resolved_category": 3}})), Some(3));
+        assert_eq!(parse_deck(&serde_json::json!({"results": {"resolved_category": 0}})), None);
+        assert_eq!(
+            parse_reviews(&serde_json::json!({"query_summary": {"total_positive": 90, "total_reviews": 100}})),
+            Some(Reviews { positive: 90, total: 100 })
+        );
+        assert_eq!(parse_reviews(&serde_json::json!({"query_summary": {"total_positive": 0, "total_reviews": 0}})), None);
         assert_eq!(steam_language("de"), None);
     }
 

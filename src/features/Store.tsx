@@ -600,6 +600,7 @@ export function Store({
             media={media.data}
             loading={media.isLoading}
             t={t}
+            lang={lang}
           />
           <div className="compare-summary">
             <p className="muted">{t(demo ? "demoPrices" : "storeNote")}</p>

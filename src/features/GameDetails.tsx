@@ -137,6 +137,7 @@ export function GameDetails({
           media={media.data}
           loading={media.isLoading}
           t={t}
+          lang={lang}
         />
       )}
       {game.installed && (

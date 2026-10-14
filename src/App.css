@@ -1022,6 +1022,33 @@ dialog::backdrop {
   color: var(--muted);
   font-size: 12px;
 }
+/* What a controller player checks first, as small chips above the description. */
+.game-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.game-badges li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass);
+  font-size: 15px;
+}
+.game-badges li[data-good] {
+  border-color: rgb(110 220 160 / 0.55);
+  color: #b9f2d2;
+}
+.game-badges li[data-bad] {
+  border-color: #b95871;
+  color: #ffc1d0;
+}
 .game-about {
   margin: 0;
   max-width: 70ch;
