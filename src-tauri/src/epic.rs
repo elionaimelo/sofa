@@ -171,7 +171,9 @@ async fn catalog_game(token: String, asset: Asset) -> Option<library::Game> {
     }
     let title = item["title"].as_str()?.trim().to_owned();
     let images = item["keyImages"].as_array();
-    let cover = ["DieselGameBoxTall", "DieselGameBox", "Thumbnail"].iter().find_map(|kind| {
+    // Older catalog entries carry the launcher box art; newer ones only the store offer images.
+    let kinds = ["DieselGameBoxTall", "DieselStoreFrontTall", "OfferImageTall", "DieselGameBox", "OfferImageWide", "Thumbnail"];
+    let cover = kinds.iter().find_map(|kind| {
         images?
             .iter()
             .find(|i| i["type"] == *kind)

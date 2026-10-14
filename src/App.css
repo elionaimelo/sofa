@@ -325,6 +325,11 @@ main::before {
   height: 100%;
   object-fit: cover;
 }
+/* A landscape fallback is shown whole instead of cropped to a sliver. */
+.tile img[data-fallback] {
+  object-fit: contain;
+  background: #10141b;
+}
 .tile .title {
   position: absolute;
   inset: auto 0 0;

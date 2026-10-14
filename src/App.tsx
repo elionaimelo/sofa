@@ -77,16 +77,29 @@ const pageIcons = {
 };
 const TABS = ["all", "favorites", "steam", "epic", "gog", "hidden"] as const;
 const preferencesKey = demo ? "sofa.demo.preferences" : "sofa.preferences";
+/** Steam's portrait art is missing for some titles; its landscape header rarely is. */
+function coverSources(game: Game): string[] {
+  const sources = game.cover ? [game.cover] : [];
+  const appId = game.id.startsWith("steam:") ? game.id.slice(6) : "";
+  if (/^\d+$/.test(appId))
+    sources.push(
+      `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`,
+    );
+  return sources.filter((source, i) => sources.indexOf(source) === i);
+}
 function Cover({ game }: { game: Game }) {
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState(0);
+  const sources = coverSources(game);
+  const src = sources[failed];
   return (
     <>
-      {game.cover && !failed && (
+      {src && (
         <img
-          src={game.cover}
+          src={src}
           alt=""
           loading="lazy"
-          onError={() => setFailed(true)}
+          data-fallback={failed > 0 || undefined}
+          onError={() => setFailed((n) => n + 1)}
         />
       )}
       <span className="title">{game.title}</span>
