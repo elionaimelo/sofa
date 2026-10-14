@@ -9,6 +9,7 @@ import {
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DetailFrame } from "../components/DetailFrame";
+import { Loading } from "../components/Loading";
 import { SearchField } from "../components/SearchField";
 import type { Lang, Translate } from "../i18n";
 import type { Region } from "../library";
@@ -313,15 +314,8 @@ export function Store({
         <p className="inline-note">{t("wishlistPriceNote")}</p>
       )}
       {loading && tab === "discover" ? (
-        <div
-          className="store-grid skeleton-grid"
-          aria-label={t("loadingOffers")}
-          role="status"
-        >
-          {Array.from({ length: 6 }, (_, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: fixed, identical loading placeholders.
-            <div className="skeleton" key={i} />
-          ))}
+        <div className="feature-empty">
+          <Loading label={t("loadingOffers")} />
         </div>
       ) : error && tab === "discover" ? (
         <div className="feature-empty" role="alert">
@@ -478,11 +472,7 @@ export function Store({
               </button>
             </div>
           ) : !comparison ? (
-            <div
-              className="skeleton offer-skeleton"
-              role="status"
-              aria-label={t("loadingOffers")}
-            />
+            <Loading label={t("loadingOffers")} size={48} />
           ) : (
             <>
               <div className="offer-list">

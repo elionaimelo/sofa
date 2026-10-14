@@ -14,6 +14,7 @@ import {
 import { Cover } from "./components/Cover";
 import { Dialog } from "./components/Dialog";
 import { LaunchScreen } from "./components/LaunchScreen";
+import { Loading } from "./components/Loading";
 import { Picker } from "./components/Picker";
 import { Scene } from "./components/Scene";
 import { SearchField } from "./components/SearchField";
@@ -760,8 +761,8 @@ export default function App() {
           {demo && <span className="preview-label">{t("preview")}</span>}
           {(page === "home" || page === "library") &&
             (loading ? (
-              <div className="empty" role="status">
-                {t("scanning")}
+              <div className="empty">
+                <Loading label={t("scanning")} />
               </div>
             ) : scanError ? (
               <div className="empty" role="alert">

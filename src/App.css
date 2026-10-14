@@ -2968,6 +2968,17 @@ footer kbd {
 .launch-content p {
   color: var(--muted);
 }
+.loading {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 24px;
+  color: var(--muted);
+  text-align: center;
+}
+.loading p {
+  margin: 0;
+}
 .launch-icon {
   position: relative;
   display: grid;
