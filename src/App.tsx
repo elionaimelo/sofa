@@ -743,6 +743,13 @@ export default function App() {
                 </div>
               )}
               {filtersOpen && (
+                <button
+                  className="drawer-backdrop"
+                  aria-label={t("close")}
+                  onClick={() => setFiltersOpen(false)}
+                />
+              )}
+              {filtersOpen && (
                 <div
                   className="library-filters"
                   id="library-filters"
