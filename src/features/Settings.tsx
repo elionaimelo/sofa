@@ -11,8 +11,10 @@ import {
   FileTextIcon,
   FolderIcon,
   MagnifyingGlassIcon,
+  MonitorPlayIcon,
   PlayIcon,
   PlusIcon,
+  PowerIcon,
   SignInIcon,
   SignOutIcon,
   TrashIcon,
@@ -356,6 +358,7 @@ export function AppearanceSettings({
               !toggleStartup.isPending && toggleStartup.mutate(!startup)
             }
           >
+            <PowerIcon />
             {t("xboxModeStartup")}: {t(startup ? "on" : "off")}
           </button>
           <p className="muted">{t("xboxModeStartupNote")}</p>
@@ -371,6 +374,7 @@ export function AppearanceSettings({
                   )
                 }
               >
+                <MonitorPlayIcon />
                 {t("enterXboxMode")}
               </button>
             )
@@ -513,6 +517,15 @@ export function AppsSettings({ t, notify }: { t: Translate; notify: Notify }) {
         <ul className="item-list">
           {apps.data.map((app) => (
             <ItemRow key={app.id} name={app.name}>
+              {/* Open first: Right from the name reaches it, Remove sits after. */}
+              <button
+                className="accent"
+                aria-disabled={busy}
+                onClick={() => !busy && launch.mutate(app)}
+              >
+                <PlayIcon weight="fill" />
+                {t("openApp")}
+              </button>
               {app.kind === "custom" && (
                 <button
                   aria-disabled={busy}
@@ -522,14 +535,6 @@ export function AppsSettings({ t, notify }: { t: Translate; notify: Notify }) {
                   {t("removeApp")}
                 </button>
               )}
-              <button
-                className="accent"
-                aria-disabled={busy}
-                onClick={() => !busy && launch.mutate(app)}
-              >
-                <PlayIcon weight="fill" />
-                {t("openApp")}
-              </button>
             </ItemRow>
           ))}
         </ul>

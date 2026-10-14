@@ -152,6 +152,7 @@ export function PowerMenu({
       setBusy(false);
     }
   };
+  const ActionIcon = action ? actionIcons[action] : null;
   return (
     <Dialog label={t("powerMenu")} onClose={close}>
       <div className="settings-head">
@@ -181,6 +182,7 @@ export function PowerMenu({
                 aria-disabled={busy}
                 aria-busy={busy}
               >
+                {ActionIcon && <ActionIcon />}
                 {t(action)}
               </button>
             </div>
@@ -211,7 +213,8 @@ export function PowerMenu({
                 );
               })}
             </div>
-            {!data?.actions.shutdown && (
+            {/* Only once the status answered: not while it's still loading. */}
+            {data && !data.actions.shutdown && (
               <p className="muted">{t("powerUnavailable")}</p>
             )}
             {data?.actions.shutdown && !data.actions.hibernate && (
