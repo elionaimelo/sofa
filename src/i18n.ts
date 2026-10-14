@@ -145,6 +145,19 @@ const en = {
   settingsPerformanceDescription:
     "In the Game Bar (Xbox button), with View + Menu, or tap here",
   settingsUpdatesDescription: "Check for a new Sofa version",
+  controllers: "Controllers",
+  settingsControllersDescription: "Pair a Bluetooth controller",
+  bluetoothIntro:
+    "Put the controller in pairing mode (hold its pairing button until it blinks), then search.",
+  bluetoothScan: "Search for devices",
+  bluetoothScanning: "Searching…",
+  bluetoothNoneFound: "No device in pairing mode was found.",
+  bluetoothPair: "Pair",
+  bluetoothPairing: "Pairing…",
+  bluetoothPaired: "{name} paired.",
+  bluetoothPairFailed:
+    "Pairing failed. Put the controller back in pairing mode and try again.",
+  bluetoothWindowsSettings: "Windows Bluetooth settings",
   ally_silent: "Silent",
   ally_balanced: "Balanced",
   ally_turbo: "Turbo",
@@ -453,6 +466,20 @@ const dicts = {
     settingsPerformanceDescription:
       "Na Game Bar (botão Xbox), com View + Menu ou tocando aqui",
     settingsUpdatesDescription: "Verificar novas versões do Sofa",
+    controllers: "Controles",
+    settingsControllersDescription: "Parear um controle Bluetooth",
+    bluetoothIntro:
+      "Coloque o controle em modo de pareamento (segure o botão de pareamento até piscar) e procure.",
+    bluetoothScan: "Procurar dispositivos",
+    bluetoothScanning: "Procurando…",
+    bluetoothNoneFound:
+      "Nenhum dispositivo em modo de pareamento foi encontrado.",
+    bluetoothPair: "Parear",
+    bluetoothPairing: "Pareando…",
+    bluetoothPaired: "{name} pareado.",
+    bluetoothPairFailed:
+      "O pareamento falhou. Coloque o controle em modo de pareamento de novo e tente outra vez.",
+    bluetoothWindowsSettings: "Bluetooth do Windows",
     ally_silent: "Silencioso",
     ally_balanced: "Equilibrado",
     ally_turbo: "Turbo",
@@ -758,6 +785,20 @@ const dicts = {
     settingsPerformanceDescription:
       "En la Game Bar (botón Xbox), con View + Menu o toca aquí",
     settingsUpdatesDescription: "Buscar nuevas versiones de Sofa",
+    controllers: "Mandos",
+    settingsControllersDescription: "Emparejar un mando Bluetooth",
+    bluetoothIntro:
+      "Pon el mando en modo de emparejamiento (mantén su botón de emparejamiento hasta que parpadee) y busca.",
+    bluetoothScan: "Buscar dispositivos",
+    bluetoothScanning: "Buscando…",
+    bluetoothNoneFound:
+      "No se encontró ningún dispositivo en modo de emparejamiento.",
+    bluetoothPair: "Emparejar",
+    bluetoothPairing: "Emparejando…",
+    bluetoothPaired: "{name} emparejado.",
+    bluetoothPairFailed:
+      "El emparejamiento falló. Vuelve a poner el mando en modo de emparejamiento e inténtalo de nuevo.",
+    bluetoothWindowsSettings: "Bluetooth de Windows",
     ally_silent: "Silencioso",
     ally_balanced: "Equilibrado",
     ally_turbo: "Turbo",

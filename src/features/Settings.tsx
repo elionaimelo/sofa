@@ -22,12 +22,17 @@ import {
 import { type Provider, providers, type useLibrary } from "../useLibrary";
 import type { useUpdates } from "../useUpdates";
 
-export type SettingsPanel = "library" | "appearance" | "updates";
+export type SettingsPanel =
+  | "library"
+  | "appearance"
+  | "controllers"
+  | "updates";
 type SetPrefs = Dispatch<SetStateAction<Preferences>>;
 
 const titles: Record<SettingsPanel, MessageKey> = {
   library: "librarySettings",
   appearance: "appearance",
+  controllers: "controllers",
   updates: "updates",
 };
 
@@ -305,6 +310,81 @@ export function AppearanceSettings({
           )}
         </>
       )}
+    </>
+  );
+}
+
+type Found = { id: string; name: string };
+
+/** Bluetooth pairing through Windows' device enumeration; the controller must be in pairing mode. */
+export function ControllerSettings({
+  t,
+  notify,
+}: {
+  t: Translate;
+  notify: Notify;
+}) {
+  const scan = useMutation({
+    mutationFn: () => invoke<Found[]>("bluetooth_scan"),
+    onError: (error) => notify(serviceError(error)),
+  });
+  const pair = useMutation({
+    mutationFn: (device: Found) =>
+      invoke("bluetooth_pair", { id: device.id }).then(() => device),
+    onSuccess: (device) => {
+      notify("bluetoothPaired", { name: device.name });
+      scan.reset();
+    },
+    onError: (error) => notify(serviceError(error)),
+  });
+  const busy = scan.isPending || pair.isPending;
+  return (
+    <>
+      <p className="muted">{t("bluetoothIntro")}</p>
+      <button
+        data-initial-focus
+        className="accent"
+        disabled={!isTauri()}
+        aria-disabled={busy}
+        aria-busy={scan.isPending}
+        onClick={() => !busy && scan.mutate()}
+      >
+        {t(scan.isPending ? "bluetoothScanning" : "bluetoothScan")}
+      </button>
+      {scan.data && scan.data.length === 0 && (
+        <p className="muted" role="status">
+          {t("bluetoothNoneFound")}
+        </p>
+      )}
+      {scan.data && scan.data.length > 0 && (
+        <ul className="device-list">
+          {scan.data.map((device) => (
+            <li key={device.id}>
+              <span>{device.name}</span>
+              <button
+                aria-disabled={busy}
+                aria-busy={pair.isPending && pair.variables?.id === device.id}
+                onClick={() => !busy && pair.mutate(device)}
+              >
+                {t(
+                  pair.isPending && pair.variables?.id === device.id
+                    ? "bluetoothPairing"
+                    : "bluetoothPair",
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <button
+        onClick={() =>
+          void invoke("open_bluetooth_settings").catch((error) =>
+            notify(serviceError(error)),
+          )
+        }
+      >
+        {t("bluetoothWindowsSettings")}
+      </button>
     </>
   );
 }

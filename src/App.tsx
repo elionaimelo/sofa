@@ -32,6 +32,7 @@ import "./App.css";
 import "@fontsource-variable/outfit";
 import {
   ArrowRightIcon,
+  BluetoothIcon,
   GaugeIcon,
   GearSixIcon,
   HardDrivesIcon,
@@ -53,6 +54,7 @@ import { HudPanel } from "./features/Performance";
 import { PowerMenu, TopBatteries, usePower } from "./features/Power";
 import {
   AppearanceSettings,
+  ControllerSettings,
   LibrarySettings,
   SettingsDialog,
   type SettingsPanel,
@@ -1122,6 +1124,15 @@ export default function App() {
                   <span>{t("settingsPerformanceDescription")}</span>
                 </button>
                 <button
+                  onClick={() => {
+                    setSettings("controllers");
+                  }}
+                >
+                  <BluetoothIcon aria-hidden />
+                  <strong>{t("controllers")}</strong>
+                  <span>{t("settingsControllersDescription")}</span>
+                </button>
+                <button
                   onClick={() =>
                     void desktop("open_storage_settings").catch((error) =>
                       notify(serviceError(error)),
@@ -1332,6 +1343,9 @@ export default function App() {
               setPrefs={setPrefs}
               notify={notify}
             />
+          )}
+          {settings === "controllers" && (
+            <ControllerSettings t={t} notify={notify} />
           )}
           {settings === "updates" && <UpdateSettings t={t} updates={updates} />}
         </SettingsDialog>

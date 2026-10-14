@@ -652,6 +652,22 @@ dialog::backdrop {
 .settings-body > button {
   align-self: flex-start;
 }
+.device-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.device-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 12px;
+}
 .settings-status {
   color: var(--muted);
   font-size: 13px;

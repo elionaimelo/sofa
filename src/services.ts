@@ -167,6 +167,7 @@ const serviceErrors: MessageKey[] = [
   "epicLoginCancelled",
   "epicSessionExpired",
   "settingUnavailable",
+  "bluetoothPairFailed",
   "restartRequired",
 ];
 /** Message key for a backend error; anything else (URLs, OS text) becomes serviceUnavailable. */

@@ -18,6 +18,7 @@ mod storage;
 mod ally_input;
 mod display;
 mod audio;
+mod bluetooth;
 mod xbox_mode;
 mod hud_server;
 mod session;
@@ -99,6 +100,7 @@ pub fn run() {
         .manage(accounts::SteamLibrarySession::default())
         .manage(epic::EpicLibrarySession::default())
         .manage(ally_pad::PadState::default())
+        .manage(bluetooth::Scan::default())
         .manage(session::Playtime::default())
         .setup(|app| {
             #[cfg(windows)]
@@ -127,7 +129,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![scan_library, launch, uninstall::uninstall_game, categories::cached_categories, categories::game_categories, store::store_deals, store::store_shops, store::store_game, store::open_deal, hud::open_hud, hud::language, hud::set_language, session::current_session, session::playtimes, log::open_log, storage::storage_status, storage::open_storage_settings, game_settings::game_settings, game_settings::set_game_settings, power::power_status, power::perform_power, ally::ally_status, ally::set_ally_profile, ally::set_tdp, ally::set_fan_curve, ally_pad::set_controller_lighting, ally_pad::set_controller_mode, ally_pad::builtin_controller, ally_pad::set_builtin_controller, rtss::framerate_status, rtss::set_framerate_limit, display::set_auto_hdr, audio::volume_status, audio::set_volume, publisher::publisher_status, publisher::partner_offers, publisher::open_partner_offer, accounts::connect_steam_library, accounts::disconnect_steam_library, accounts::install_owned_game, epic::connect_epic_library, epic::disconnect_epic_library, display::display_status, display::set_display_mode, display::set_brightness, display::set_cpu_boost, xbox_mode::xbox_mode_status, xbox_mode::set_xbox_mode_startup, xbox_mode::enter_xbox_mode])
+        .invoke_handler(tauri::generate_handler![scan_library, launch, uninstall::uninstall_game, categories::cached_categories, categories::game_categories, store::store_deals, store::store_shops, store::store_game, store::open_deal, hud::open_hud, hud::language, hud::set_language, session::current_session, session::playtimes, log::open_log, storage::storage_status, storage::open_storage_settings, game_settings::game_settings, game_settings::set_game_settings, power::power_status, power::perform_power, ally::ally_status, ally::set_ally_profile, ally::set_tdp, ally::set_fan_curve, ally_pad::set_controller_lighting, ally_pad::set_controller_mode, ally_pad::builtin_controller, ally_pad::set_builtin_controller, rtss::framerate_status, rtss::set_framerate_limit, display::set_auto_hdr, audio::volume_status, audio::set_volume, bluetooth::bluetooth_scan, bluetooth::bluetooth_pair, bluetooth::open_bluetooth_settings, publisher::publisher_status, publisher::partner_offers, publisher::open_partner_offer, accounts::connect_steam_library, accounts::disconnect_steam_library, accounts::install_owned_game, epic::connect_epic_library, epic::disconnect_epic_library, display::display_status, display::set_display_mode, display::set_brightness, display::set_cpu_boost, xbox_mode::xbox_mode_status, xbox_mode::set_xbox_mode_startup, xbox_mode::enter_xbox_mode])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
