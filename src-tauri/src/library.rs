@@ -2,7 +2,7 @@ use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-#[derive(Serialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Debug, PartialEq, Clone, Default)]
 pub struct Game {
     pub id: String,
     pub title: String,
@@ -11,6 +11,15 @@ pub struct Game {
     pub launch: String,
     pub cover: Option<String>,
     pub installed: bool,
+    /// Unix seconds of the last session the launcher recorded (Steam), for sorting.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_played: Option<u64>,
+    /// Total minutes played, as Steam counts it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub playtime: Option<u32>,
+    /// Bytes on disk, when the launcher's manifest records it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<u64>,
 }
 
 pub fn scan() -> Vec<Game> {
@@ -35,16 +44,24 @@ fn vdf_pairs(text: &str) -> impl Iterator<Item = (&str, String)> {
     })
 }
 
-fn parse_acf(text: &str) -> Option<(String, String)> {
-    let (mut id, mut name) = (None, None);
+/// An installed Steam game from its appmanifest. Only the first value of each key counts:
+/// nested sections (UserConfig) repeat names.
+fn parse_acf(text: &str) -> Option<Game> {
+    let (mut id, mut name, mut last_played, mut size) = (None, None, None, None);
     for (k, v) in vdf_pairs(text) {
         match k {
             "appid" if id.is_none() => id = Some(v),
             "name" if name.is_none() => name = Some(v),
+            "LastPlayed" if last_played.is_none() => last_played = v.parse().ok().filter(|t| *t > 0),
+            "SizeOnDisk" if size.is_none() => size = v.parse().ok().filter(|b| *b > 0),
             _ => {}
         }
     }
-    Some((id?, name?))
+    Some(Game {
+        last_played,
+        size,
+        ..steam_game(id?, name?, true)
+    })
 }
 
 /// Numeric app id from a `steam:<appid>` game id; the webview only ever sends ids.
@@ -61,6 +78,7 @@ pub fn steam_game(app_id: impl std::fmt::Display, title: String, installed: bool
         title,
         source: "steam",
         installed,
+        ..Game::default()
     }
 }
 
@@ -119,8 +137,7 @@ fn steam() -> Vec<Game> {
         .flatten()
         .filter(|e| e.file_name().to_string_lossy().starts_with("appmanifest_"))
         .filter_map(|e| parse_acf(&fs::read_to_string(e.path()).ok()?))
-        .filter(|(id, _)| !STEAM_SKIP.contains(&id.as_str()))
-        .map(|(id, title)| steam_game(id, title, true))
+        .filter(|game| !STEAM_SKIP.iter().any(|skip| game.id == format!("steam:{skip}")))
         .collect()
 }
 
@@ -139,7 +156,15 @@ fn parse_epic_item(text: &str) -> Option<Game> {
         s("CatalogItemId")?,
         app
     );
-    Some(Game { id: format!("epic:{app}"), title: s("DisplayName")?, source: "epic", launch, cover: None, installed: true })
+    Some(Game {
+        id: format!("epic:{app}"),
+        title: s("DisplayName")?,
+        source: "epic",
+        launch,
+        installed: true,
+        size: v.get("InstallSize").and_then(|x| x.as_u64()).filter(|b| *b > 0),
+        ..Game::default()
+    })
 }
 
 pub(crate) fn epic_manifests_dir() -> Option<PathBuf> {
@@ -185,7 +210,7 @@ fn gog() -> Vec<Game> {
                 id: format!("gog:{id}"),
                 source: "gog",
                 installed: true,
-                cover: None,
+                ..Game::default()
             })
         })
         .collect()
@@ -202,8 +227,10 @@ mod tests {
 
     #[test]
     fn parses_acf() {
-        let acf = "\"AppState\"\n{\n\t\"appid\"\t\t\"1245620\"\n\t\"name\"\t\t\"ELDEN RING\"\n\t\"UserConfig\"\n\t{\n\t\t\"name\"\t\t\"x\"\n\t}\n}";
-        assert_eq!(parse_acf(acf), Some(("1245620".into(), "ELDEN RING".into())));
+        let acf = "\"AppState\"\n{\n\t\"appid\"\t\t\"1245620\"\n\t\"name\"\t\t\"ELDEN RING\"\n\t\"LastPlayed\"\t\t\"1700000000\"\n\t\"SizeOnDisk\"\t\t\"52000000000\"\n\t\"UserConfig\"\n\t{\n\t\t\"name\"\t\t\"x\"\n\t}\n}";
+        let game = parse_acf(acf).unwrap();
+        assert_eq!((game.id.as_str(), game.title.as_str()), ("steam:1245620", "ELDEN RING"));
+        assert_eq!((game.last_played, game.size), (Some(1_700_000_000), Some(52_000_000_000)));
     }
 
     #[test]
@@ -217,7 +244,7 @@ mod tests {
     fn dedupes_same_game_from_two_library_paths() {
         let mut games: Vec<Game> = ["steam:1", "steam:1", "epic:a"]
             .iter()
-            .map(|id| Game { id: id.to_string(), title: "x".into(), source: "steam", launch: String::new(), cover: None, installed: true })
+            .map(|id| Game { id: id.to_string(), title: "x".into(), source: "steam", installed: true, ..Game::default() })
             .collect();
         games.sort_by(|a, b| a.id.cmp(&b.id));
         games.dedup_by(|a, b| a.id == b.id);

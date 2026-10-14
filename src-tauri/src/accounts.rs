@@ -43,6 +43,10 @@ struct OwnedGames {
 struct OwnedApp {
     appid: u32,
     name: Option<String>,
+    #[serde(default)]
+    playtime_forever: u32,
+    #[serde(default)]
+    rtime_last_played: u64,
 }
 
 // steamLoginSecure is "<SteamID64>%7C%7C<token>".
@@ -154,9 +158,14 @@ async fn fetch_owned(app: &tauri::AppHandle, token: &str, steam_id: &str) -> Res
         .response
         .games
         .into_iter()
-        .filter_map(|app| app.name.map(|name| (app.appid, name.trim().to_owned())))
-        .filter(|(_, name)| !name.is_empty())
-        .map(|(appid, name)| library::steam_game(appid, name, false))
+        .filter_map(|app| {
+            let name = app.name.as_deref()?.trim().to_owned();
+            (!name.is_empty()).then(|| library::Game {
+                playtime: (app.playtime_forever > 0).then_some(app.playtime_forever),
+                last_played: (app.rtime_last_played > 0).then_some(app.rtime_last_played),
+                ..library::steam_game(app.appid, name, false)
+            })
+        })
         .collect();
     games.sort_by(|a, b| a.id.cmp(&b.id));
     games.dedup_by(|a, b| a.id == b.id);

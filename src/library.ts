@@ -5,6 +5,12 @@ export type Game = {
   launch: string;
   cover: string | null;
   installed: boolean;
+  /** Unix seconds of the launcher's last recorded session (Steam). */
+  last_played?: number;
+  /** Total minutes played, as Steam counts it. */
+  playtime?: number;
+  /** Bytes on disk, when the launcher's manifest records it. */
+  size?: number;
 };
 export function mergeLibrary(installed: Game[], owned: Game[]): Game[] {
   const merged = new Map<string, Game>();
@@ -30,11 +36,18 @@ export type Preferences = {
   favorites: string[];
   hidden: string[];
   recent: Record<string, number>;
-  sort: "recent" | "title" | "titleDesc";
+  sort: "recent" | "mostPlayed" | "installed" | "title" | "size";
   density: "comfortable" | "compact";
   filters: LibraryFilters;
   categories: Record<string, string[]>;
 };
+const sorts: Preferences["sort"][] = [
+  "recent",
+  "mostPlayed",
+  "installed",
+  "title",
+  "size",
+];
 export const defaultFilters: LibraryFilters = {
   categories: [],
   favoritesOnly: false,
@@ -83,7 +96,7 @@ export function parsePreferences(
         ([, v]) => typeof v === "number" && Number.isFinite(v) && v > 0,
       ),
     ),
-    sort: p.sort === "title" || p.sort === "titleDesc" ? p.sort : "recent",
+    sort: sorts.find((sort) => sort === p.sort) ?? "recent",
     density: p.density === "compact" ? "compact" : "comfortable",
     categories: Object.fromEntries(
       Object.entries(
@@ -147,7 +160,7 @@ export function filterGames(
       )
         return false;
       if (f.favoritesOnly && !favorites.has(g.id)) return false;
-      const played = p.recent[g.id];
+      const played = lastPlayed(g, p);
       if (f.played === "never" && played) return false;
       if (f.played === "recent7" || f.played === "recent30") {
         const days = f.played === "recent7" ? 7 : 30;
@@ -161,15 +174,26 @@ export function filterGames(
         return false;
       return true;
     })
-    .sort(
-      (a, b) =>
-        (home || p.sort === "recent"
-          ? (p.recent[b.id] ?? 0) - (p.recent[a.id] ?? 0)
-          : 0) ||
-        (!home && p.sort === "titleDesc" ? -1 : 1) *
-          a.title.localeCompare(b.title),
-    );
+    .sort((a, b) => {
+      const byTitle = a.title.localeCompare(b.title);
+      if (home || p.sort === "recent")
+        return lastPlayed(b, p) - lastPlayed(a, p) || byTitle;
+      switch (p.sort) {
+        case "mostPlayed":
+          return (b.playtime ?? 0) - (a.playtime ?? 0) || byTitle;
+        case "installed":
+          return Number(b.installed) - Number(a.installed) || byTitle;
+        // Biggest first, to free space; games without a known size go last.
+        case "size":
+          return (b.size ?? -1) - (a.size ?? -1) || byTitle;
+        default:
+          return byTitle;
+      }
+    });
 }
+/** Milliseconds of the latest session: a launch from Sofa or one the launcher recorded. */
+export const lastPlayed = (g: Game, p: Preferences) =>
+  Math.max(p.recent[g.id] ?? 0, (g.last_played ?? 0) * 1000);
 export function hero(g: Game | undefined): string | undefined {
   if (!g) return;
   return g.source === "steam"

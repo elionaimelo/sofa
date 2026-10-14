@@ -10,7 +10,7 @@ import {
   gameCategories,
   type Preferences,
 } from "../library";
-import { demo } from "../services";
+import { demo, keyboardOnActivate } from "../services";
 
 // Demonstration data stays in the explicitly labeled browser demo.
 const demoCategories: CategoryMap = {
@@ -290,6 +290,7 @@ export function CategoryEditor({
             <label htmlFor="new-category">{t("addCategory")}</label>
             <div>
               <input
+                {...keyboardOnActivate}
                 id="new-category"
                 value={draft}
                 maxLength={60}

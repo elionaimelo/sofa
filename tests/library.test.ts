@@ -150,7 +150,7 @@ test("never played and artwork filters do not fabricate metadata", () => {
     ["epic:2"],
   );
 });
-test("search ignores accents, sort supports descending, invalid filters recover", () => {
+test("search ignores accents, sorts use launcher data, invalid filters recover", () => {
   assert.equal(
     filterGames(
       [{ ...games[0], title: "Café Simulator" }],
@@ -160,11 +160,27 @@ test("search ignores accents, sort supports descending, invalid filters recover"
     ).length,
     1,
   );
+  const played = [
+    { ...games[0], title: "Portal", playtime: 30, size: 8e9, last_played: 100 },
+    { ...games[1], title: "Hades", playtime: 900, size: 2e9 },
+    { ...games[2], title: "Cyberpunk", last_played: 200 },
+  ];
+  const titles = (sort: (typeof defaults)["sort"]) =>
+    filterGames(played, { ...defaults, sort }, "all", "").map((g) => g.title);
+  assert.deepEqual(titles("mostPlayed"), ["Hades", "Portal", "Cyberpunk"]);
+  assert.deepEqual(titles("size"), ["Portal", "Hades", "Cyberpunk"]);
+  // Steam's last session counts even for games never launched from Sofa.
+  assert.deepEqual(titles("recent"), ["Cyberpunk", "Portal", "Hades"]);
+  const mixed = [
+    { ...games[0], title: "Zelda", installed: false },
+    { ...games[1], title: "Alan Wake", installed: true },
+    { ...games[2], title: "Braid", installed: false },
+  ];
   assert.deepEqual(
-    filterGames(games, { ...defaults, sort: "titleDesc" }, "all", "").map(
+    filterGames(mixed, { ...defaults, sort: "installed" }, "all", "").map(
       (g) => g.title,
     ),
-    ["Portal", "Hades", "Cyberpunk"],
+    ["Alan Wake", "Braid", "Zelda"],
   );
   assert.deepEqual(
     parsePreferences(

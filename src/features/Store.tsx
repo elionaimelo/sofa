@@ -17,6 +17,7 @@ import {
   demoDeals,
   desktop,
   type InputRef,
+  keyboardOnActivate,
   type MessageKey,
   navigateControls,
   type PartnerOffer,
@@ -232,6 +233,7 @@ export function Store({
       >
         <MagnifyingGlassIcon aria-hidden />
         <input
+          {...keyboardOnActivate}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("searchGames")}

@@ -191,6 +191,19 @@ const servedBySofa = () =>
   typeof location !== "undefined" &&
   location.hostname === "127.0.0.1" &&
   location.port === "47811";
+type VirtualKeyboard = { show(): void };
+/**
+ * Spread on text fields. Moving focus onto a field with the controller must not pop the
+ * touch keyboard; it opens when the field is activated (A, or a tap). Chromium's
+ * VirtualKeyboard API; where it's missing the browser keeps its default behaviour.
+ */
+export const keyboardOnActivate = {
+  virtualkeyboardpolicy: "manual",
+  onClick: () =>
+    (
+      navigator as Navigator & { virtualKeyboard?: VirtualKeyboard }
+    ).virtualKeyboard?.show(),
+};
 export async function desktop<T>(
   command: string,
   args?: Record<string, unknown>,

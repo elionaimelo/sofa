@@ -58,6 +58,7 @@ import { Uninstall } from "./features/Uninstall";
 import {
   demo,
   type InputRef,
+  keyboardOnActivate,
   type Notify,
   navigateControls,
   navigateSpatial,
@@ -548,6 +549,7 @@ export default function App() {
           })}
         </nav>
         <input
+          {...keyboardOnActivate}
           className="header-search"
           type="search"
           value={query}
@@ -619,28 +621,13 @@ export default function App() {
               </div>
               <div className="tools">
                 <input
+                  {...keyboardOnActivate}
                   type="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={t("searchHint")}
                   aria-label={t("searchGames")}
                 />
-                {/* Sorting sits with the list it orders; LB/RB change it when focused. */}
-                <select
-                  value={prefs.sort}
-                  aria-label={t("sort")}
-                  title={t("sort")}
-                  onChange={(e) =>
-                    setPrefs((p) => ({
-                      ...p,
-                      sort: e.target.value as typeof p.sort,
-                    }))
-                  }
-                >
-                  <option value="recent">{t("recent")}</option>
-                  <option value="title">{t("titleAsc")}</option>
-                  <option value="titleDesc">{t("titleDesc")}</option>
-                </select>
                 <button
                   className="filter-toggle"
                   aria-expanded={filtersOpen}
@@ -693,6 +680,7 @@ export default function App() {
                         <p>{t("categoryMatchAny")}</p>
                       </div>
                       <input
+                        {...keyboardOnActivate}
                         aria-label={t("searchCategories")}
                         placeholder={t("searchCategories")}
                         value={categoryQuery}
@@ -754,22 +742,6 @@ export default function App() {
                           .includes(categoryQuery.toLocaleLowerCase()),
                       ) && <p className="muted">{t("noCategorySearch")}</p>}
                   </section>
-                  <label>
-                    {t("sort")}
-                    <select
-                      value={prefs.sort}
-                      onChange={(e) =>
-                        setPrefs((p) => ({
-                          ...p,
-                          sort: e.target.value as typeof p.sort,
-                        }))
-                      }
-                    >
-                      <option value="recent">{t("recent")}</option>
-                      <option value="title">{t("titleAsc")}</option>
-                      <option value="titleDesc">{t("titleDesc")}</option>
-                    </select>
-                  </label>
                   <label>
                     {t("playedFilter")}
                     <select
@@ -956,16 +928,40 @@ export default function App() {
                           })}
                     </CollectionHeading>
                     {page === "library" && (
-                      <span className="library-stats">
-                        {t("availabilitySummary", {
-                          installed: String(
-                            visible.filter((game) => game.installed).length,
-                          ),
-                          available: String(
-                            visible.filter((game) => !game.installed).length,
-                          ),
-                        })}
-                      </span>
+                      <div className="collection-actions">
+                        <span className="library-stats">
+                          {t("availabilitySummary", {
+                            installed: String(
+                              visible.filter((game) => game.installed).length,
+                            ),
+                            available: String(
+                              visible.filter((game) => !game.installed).length,
+                            ),
+                          })}
+                        </span>
+                        {/* Sorting sits right above the list it orders; LB/RB change it when focused. */}
+                        <select
+                          value={prefs.sort}
+                          aria-label={t("sort")}
+                          title={t("sort")}
+                          onChange={(e) =>
+                            setPrefs((p) => ({
+                              ...p,
+                              sort: e.target.value as typeof p.sort,
+                            }))
+                          }
+                        >
+                          <option value="recent">{t("recent")}</option>
+                          <option value="mostPlayed">
+                            {t("sortMostPlayed")}
+                          </option>
+                          <option value="installed">
+                            {t("sortInstalled")}
+                          </option>
+                          <option value="title">{t("titleAsc")}</option>
+                          <option value="size">{t("sortSize")}</option>
+                        </select>
+                      </div>
                     )}
                     {page === "home" && (
                       <button onClick={() => setPage("library")}>

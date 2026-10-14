@@ -405,12 +405,17 @@ main::before {
   min-width: 0;
   max-width: 390px;
 }
-.tools button,
-.tools select {
+.tools button {
   font-size: 13px;
 }
-.tools select {
+.collection-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.collection-actions select {
   min-height: 44px;
+  font-size: 14px;
 }
 .empty {
   margin: auto;
