@@ -5,9 +5,12 @@ import {
   CaretRightIcon,
   HeartIcon,
   MagnifyingGlassIcon,
+  SteamLogoIcon,
+  TrendDownIcon,
 } from "@phosphor-icons/react";
 import {
   keepPreviousData,
+  useMutation,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -38,7 +41,6 @@ import {
   navigateControls,
   navigateSpatial,
   type PartnerOffer,
-  parseWishlist,
   queryError,
   type Shop,
   type StoreGame,
@@ -46,6 +48,7 @@ import {
   usd,
   useFeatureInput,
 } from "../services";
+import type { Wishlist } from "../useWishlist";
 
 const demoShops: Shop[] = [
   { storeID: "1", storeName: "Steam", isActive: 1 },
@@ -88,6 +91,8 @@ export function Store({
   region,
   owned,
   taste,
+  saved,
+  steamConnected,
   input,
   onBack,
 }: {
@@ -98,6 +103,9 @@ export function Store({
   owned: Set<string>;
   /** The player's Steam titles and how much each says about their taste (`tasteWeights`). */
   taste: { appId: string; weight: number }[];
+  /** The wishlist with today's prices and Epic's free games (`useWishlist`). */
+  saved: Wishlist;
+  steamConnected: boolean;
   input: InputRef;
   onBack: () => void;
 }) {
@@ -106,18 +114,12 @@ export function Store({
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
-  const storageKey = demo ? "sofa.demo.wishlist" : "sofa.wishlist";
-  const [wishlist, setWishlist] = useState(() =>
-    parseWishlist(localStorage.getItem(storageKey)),
-  );
+  const { wishlist, setWishlist } = saved;
   const [selected, setSelected] = useState<Deal | null>(null);
   // CheapShark pages of 48; a new search starts over.
   const [page, setPage] = useState(0);
   const [focus, setFocus] = useState(0);
   const grid = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(wishlist));
-  }, [wishlist, storageKey]);
   // Prices move slowly; revisiting the store or a game within 5 minutes reuses the cache.
   const dealsQuery = useQuery({
     queryKey: ["store_deals", search, page],
@@ -219,11 +221,40 @@ export function Store({
     () =>
       tab === "discover"
         ? deals
-        : wishlist.filter((d) =>
-            d.title.toLowerCase().includes(query.toLowerCase()),
-          ),
-    [deals, wishlist, tab, query],
+        : wishlist
+            .filter((d) => d.title.toLowerCase().includes(query.toLowerCase()))
+            // Saved games show today's cheapest offer, not the one from when they were saved.
+            .map((d) => {
+              const today = saved.prices[d.gameID];
+              return today
+                ? {
+                    ...d,
+                    storeID: today.storeID,
+                    dealID: today.dealID,
+                    salePrice: today.price,
+                    normalPrice: today.retailPrice,
+                    savings: today.savings,
+                  }
+                : d;
+            }),
+    [deals, wishlist, tab, query, saved.prices],
   );
+  // The connected Steam account's wishlist, added to Sofa's; Rust paces the lookups.
+  const importSteam = useMutation({
+    mutationFn: () => desktop<Deal[]>("import_steam_wishlist"),
+    onMutate: () => setStatus(t("importingWishlist")),
+    onSuccess: (imported) => {
+      const fresh = imported.filter(
+        (d) => !wishlist.some((g) => g.gameID === d.gameID),
+      );
+      setWishlist((list) => [
+        ...list,
+        ...fresh.filter((d) => !list.some((g) => g.gameID === d.gameID)),
+      ]);
+      setStatus(t("wishlistImported", { count: String(fresh.length) }));
+    },
+    onError: (e) => setStatus(t(serviceError(e))),
+  });
   // Steam's own price in the region, for Steam offers and the selected game.
   const steamIds = [
     ...new Set(
@@ -466,7 +497,62 @@ export function Store({
         </button>
       </form>
       {tab === "wishlist" && (
-        <p className="inline-note">{t("wishlistPriceNote")}</p>
+        <div className="wishlist-bar">
+          <p className="inline-note">{t("wishlistPriceNote")}</p>
+          {steamConnected && !demo && (
+            <button
+              aria-busy={importSteam.isPending}
+              onClick={() => !importSteam.isPending && importSteam.mutate()}
+            >
+              <SteamLogoIcon />
+              {t(
+                importSteam.isPending
+                  ? "importingWishlist"
+                  : "importSteamWishlist",
+              )}
+            </button>
+          )}
+        </div>
+      )}
+      {tab === "discover" && !search && page === 0 && saved.free.length > 0 && (
+        <section className="free-games" aria-label={t("freeOnEpic")}>
+          <h2>{t("freeOnEpic")}</h2>
+          <div className="free-row">
+            {saved.free.map((g) => (
+              <button
+                key={g.id}
+                className="free-card"
+                onClick={() =>
+                  void desktop("open_epic_free", { id: g.id }).catch((e) =>
+                    setStatus(t(serviceError(e))),
+                  )
+                }
+              >
+                {g.image && (
+                  <img
+                    src={g.image}
+                    alt=""
+                    width={640}
+                    height={360}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                )}
+                <span>
+                  <strong>{g.title}</strong>
+                  <small>
+                    {t("freeUntil", {
+                      date: new Intl.DateTimeFormat(lang, {
+                        dateStyle: "medium",
+                      }).format(new Date(g.ends)),
+                    })}
+                  </small>
+                </span>
+                <ArrowUpRightIcon />
+              </button>
+            ))}
+          </div>
+        </section>
       )}
       {loading && tab === "discover" ? (
         <div
@@ -504,6 +590,12 @@ export function Store({
                 <CoverImage game={asGame(d)} />
                 {discount(d) > 0 && (
                   <span className="discount">−{discount(d)}%</span>
+                )}
+                {tab === "wishlist" && saved.dropped.has(d.gameID) && (
+                  <span className="price-drop">
+                    <TrendDownIcon weight="bold" />
+                    {t("priceDropped")}
+                  </span>
                 )}
                 {wishlist.some((g) => g.gameID === d.gameID) && (
                   <HeartIcon

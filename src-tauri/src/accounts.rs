@@ -184,6 +184,46 @@ async fn fetch_owned(app: &tauri::AppHandle, token: &str, steam_id: &str) -> Res
     Ok(games)
 }
 
+fn parse_wishlist(response: &serde_json::Value) -> Vec<u32> {
+    let mut items: Vec<(u64, u32)> = response["response"]["items"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|item| Some((item["priority"].as_u64().unwrap_or(0), u32::try_from(item["appid"].as_u64()?).ok()?)))
+        .collect();
+    // Ranked games first (1 is the top); 0 means unranked.
+    items.sort_by_key(|(priority, _)| (*priority == 0, *priority));
+    items.into_iter().map(|(_, app_id)| app_id).collect()
+}
+
+/// App ids on the connected account's Steam wishlist, highest priority first. Private
+/// wishlists work too: the request carries the session's own token.
+pub(crate) async fn wishlist(app: &tauri::AppHandle, session: &SteamLibrarySession) -> Result<Vec<u32>, String> {
+    if !has_session(app) {
+        return Err("notConnected".into());
+    }
+    let steam_id = saved_cookie(app).as_deref().and_then(steam_id_from_cookie).ok_or("notConnected")?;
+    let cached = session
+        .0
+        .lock()
+        .map_err(|_| "serviceUnavailable")?
+        .token
+        .clone()
+        .filter(|(_, at)| at.elapsed() < TOKEN_REUSE)
+        .map(|(token, _)| token);
+    let token = match cached {
+        Some(token) => token,
+        None => steam_token(app, false).await?.ok_or("steamSessionExpired")?,
+    };
+    let response: serde_json::Value = network::json(
+        network::client()?
+            .get("https://api.steampowered.com/IWishlistService/GetWishlist/v1/")
+            .query(&[("access_token", token.as_str()), ("steamid", steam_id.as_str())]),
+    )
+    .await?;
+    Ok(parse_wishlist(&response))
+}
+
 /// Owned games for the saved session. Reuses a recent token, reads a new one from a hidden
 /// Steam window otherwise, and with `sign_in` falls back to Steam's login page.
 async fn owned_games(
@@ -318,6 +358,15 @@ pub fn install_owned_game(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wishlist_lists_ranked_games_first() {
+        let response = serde_json::json!({"response": {"items": [
+            {"appid": 30, "priority": 0}, {"appid": 20, "priority": 2}, {"appid": 10, "priority": 1}, {"priority": 3}
+        ]}});
+        assert_eq!(parse_wishlist(&response), vec![10, 20, 30]);
+        assert_eq!(parse_wishlist(&serde_json::json!({"response": {}})), Vec::<u32>::new());
+    }
 
     #[test]
     fn reads_steam_id_from_login_cookie() {

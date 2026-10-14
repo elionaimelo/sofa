@@ -519,17 +519,22 @@ struct CheapSharkGame {
 /// The CheapShark entry of a Steam title, as a deal the comparison can open; None when
 /// CheapShark doesn't list it.
 #[tauri::command]
-pub async fn store_lookup(app_id: String) -> Result<Option<Deal>, String> {
+pub async fn store_lookup(app_id: String, cache: tauri::State<'_, StoreCache>) -> Result<Option<Deal>, String> {
     if !numeric_id(&app_id) {
         return Err("invalidInput".into());
     }
-    let games: Vec<CheapSharkGame> = network::json(
-        network::client()?
-            .get(format!("{BASE}/games"))
-            .query(&[("steamAppID", app_id.as_str())]),
-    )
-    .await?;
-    Ok(games.into_iter().find(|g| valid_game_id(&g.game_id)).map(|g| Deal {
+    lookup(&app_id, &cache).await
+}
+
+/// Cached for a day, misses too. `app_id` must be numeric.
+async fn lookup(app_id: &str, cache: &StoreCache) -> Result<Option<Deal>, String> {
+    let key = format!("lookup:{app_id}");
+    if let Some(deal) = cache.fresh(&key, DAY)? {
+        return serde_json::from_value(deal).map_err(|_| "invalidResponse".into());
+    }
+    let games: Vec<CheapSharkGame> =
+        network::json(network::client()?.get(format!("{BASE}/games")).query(&[("steamAppID", app_id)])).await?;
+    let deal = games.into_iter().find(|g| valid_game_id(&g.game_id)).map(|g| Deal {
         game_id: g.game_id,
         deal_id: g.cheapest_deal_id,
         store_id: String::new(),
@@ -538,8 +543,157 @@ pub async fn store_lookup(app_id: String) -> Result<Option<Deal>, String> {
         normal_price: g.cheapest,
         savings: "0".into(),
         thumb: g.thumb,
-        steam_app_id: Some(app_id),
-    }))
+        steam_app_id: Some(app_id.to_owned()),
+    });
+    cache.keep(key, serde_json::to_value(&deal).map_err(|_| "invalidResponse")?)?;
+    Ok(deal)
+}
+
+/// The connected account's Steam wishlist as deals the store can compare, highest priority
+/// first. Titles CheapShark doesn't list are left out; at most 60, and uncached lookups are
+/// paced so CheapShark isn't flooded.
+#[tauri::command]
+pub async fn import_steam_wishlist(
+    app: tauri::AppHandle,
+    session: tauri::State<'_, crate::accounts::SteamLibrarySession>,
+    cache: tauri::State<'_, StoreCache>,
+) -> Result<Vec<Deal>, String> {
+    let app_ids = crate::accounts::wishlist(&app, &session).await?;
+    let mut deals = Vec::new();
+    for app_id in app_ids.iter().take(60).map(u32::to_string) {
+        let known = cache.fresh(&format!("lookup:{app_id}"), DAY)?.is_some();
+        if let Ok(Some(deal)) = lookup(&app_id, &cache).await {
+            deals.push(deal);
+        }
+        if !known {
+            tokio::time::sleep(Duration::from_millis(250)).await;
+        }
+    }
+    crate::log::info(&app, format!("store: imported {} of {} wishlist games", deals.len(), app_ids.len()));
+    Ok(deals)
+}
+
+/// The cheapest offer per CheapShark game in a `/games?ids=` answer.
+fn parse_cheapest(value: &Value) -> HashMap<String, Offer> {
+    let price = |o: &Offer| o.price.parse::<f64>().unwrap_or(f64::MAX);
+    value
+        .as_object()
+        .into_iter()
+        .flatten()
+        .filter_map(|(id, game)| {
+            let deals: Vec<Offer> = serde_json::from_value(game["deals"].clone()).ok()?;
+            Some((id.clone(), deals.into_iter().min_by(|a, b| price(a).total_cmp(&price(b)))?))
+        })
+        .collect()
+}
+
+/// Today's cheapest offer for each wishlist game, in batches of 25 (CheapShark's limit).
+#[tauri::command]
+pub async fn wishlist_prices(
+    ids: Vec<String>,
+    cache: tauri::State<'_, StoreCache>,
+) -> Result<HashMap<String, Offer>, String> {
+    if ids.len() > 200 || ids.iter().any(|id| !valid_game_id(id)) {
+        return Err("invalidInput".into());
+    }
+    let mut found = HashMap::new();
+    for chunk in ids.chunks(25) {
+        let joined = chunk.join(",");
+        found.extend(parse_cheapest(&cached(&cache, &format!("prices:{joined}"), "games", &[("ids", &joined)]).await?));
+    }
+    Ok(found)
+}
+
+/// A game Epic gives away this week.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct FreeGame {
+    id: String,
+    title: String,
+    image: Option<String>,
+    /// When the offer ends, as Epic writes it (ISO 8601).
+    ends: String,
+    slug: String,
+}
+
+fn epic_slug(slug: &str) -> Option<String> {
+    let slug = slug.trim_end_matches("/home");
+    (!slug.is_empty() && slug.len() <= 120 && slug.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-'))
+        .then(|| slug.to_owned())
+}
+
+fn parse_free(feed: &Value) -> Vec<FreeGame> {
+    let list = |v: &Value| v.as_array().cloned().unwrap_or_default();
+    list(&feed["data"]["Catalog"]["searchStore"]["elements"])
+        .iter()
+        .filter_map(|game| {
+            let offer = list(&game["promotions"]["promotionalOffers"])
+                .iter()
+                .flat_map(|group| list(&group["promotionalOffers"]))
+                .find(|o| o["discountSetting"]["discountPercentage"] == 0)?;
+            if game["price"]["totalPrice"]["discountPrice"] != 0 {
+                return None;
+            }
+            let id = game["id"].as_str().filter(|id| id.len() <= 64 && id.bytes().all(|b| b.is_ascii_alphanumeric()))?;
+            let slug = [&game["offerMappings"][0]["pageSlug"], &game["catalogNs"]["mappings"][0]["pageSlug"], &game["productSlug"]]
+                .into_iter()
+                .find_map(|s| s.as_str().and_then(epic_slug))?;
+            let image = ["OfferImageWide", "Thumbnail"].iter().find_map(|kind| {
+                list(&game["keyImages"]).iter().find(|i| i["type"] == *kind).and_then(|i| {
+                    let url = reqwest::Url::parse(i["url"].as_str()?).ok()?;
+                    (url.scheme() == "https" && url.host_str()?.ends_with(".epicgames.com")).then(|| url.into())
+                })
+            });
+            Some(FreeGame {
+                id: id.to_owned(),
+                title: game["title"].as_str()?.trim().to_owned(),
+                image,
+                ends: offer["endDate"].as_str()?.to_owned(),
+                slug,
+            })
+        })
+        .collect()
+}
+
+/// Epic's free games this week, from the store's public promotions feed. Cached for an hour.
+#[tauri::command]
+pub async fn epic_free_games(
+    region: String,
+    lang: String,
+    cache: tauri::State<'_, StoreCache>,
+) -> Result<Vec<FreeGame>, String> {
+    if !REGIONS.contains(&region.as_str()) {
+        return Err("invalidInput".into());
+    }
+    let country = region.to_ascii_uppercase();
+    let locale = match lang.as_str() {
+        "pt-BR" => "pt-BR",
+        "es" => "es-ES",
+        _ => "en-US",
+    };
+    let key = format!("epicfree:{country}:{locale}");
+    if let Some(games) = cache.fresh(&key, Duration::from_secs(3600))? {
+        return serde_json::from_value(games).map_err(|_| "invalidResponse".into());
+    }
+    let feed: Value = network::json(
+        network::client()?
+            .get("https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions")
+            .query(&[("locale", locale), ("country", country.as_str()), ("allowCountries", country.as_str())]),
+    )
+    .await?;
+    let games = parse_free(&feed);
+    for game in &games {
+        cache.keep(format!("epicslug:{}", game.id), game.slug.clone().into())?;
+    }
+    cache.keep(key, serde_json::to_value(&games).map_err(|_| "invalidResponse")?)?;
+    Ok(games)
+}
+
+/// Opens a free game's Epic store page; the page is looked up from the feed by id.
+#[tauri::command]
+pub fn open_epic_free(id: String, cache: tauri::State<'_, StoreCache>) -> Result<(), String> {
+    let slug = cache.fresh(&format!("epicslug:{id}"), DAY)?.and_then(|s| s.as_str().and_then(epic_slug)).ok_or("invalidInput")?;
+    tauri_plugin_opener::open_url(format!("https://store.epicgames.com/p/{slug}"), None::<&str>)
+        .map_err(|_| "openFailed".into())
 }
 
 /// One of a Steam title's user tags and how strongly players applied it.
@@ -725,6 +879,49 @@ mod tests {
         );
         assert_eq!(parse_reviews(&serde_json::json!({"query_summary": {"total_positive": 0, "total_reviews": 0}})), None);
         assert_eq!(steam_language("de"), None);
+    }
+
+    #[test]
+    fn wishlist_prices_keep_the_cheapest_offer_per_game() {
+        let answer = serde_json::json!({
+            "612": {"deals": [
+                {"storeID": "1", "dealID": "a", "price": "9.99", "retailPrice": "19.99", "savings": "50"},
+                {"storeID": "7", "dealID": "b", "price": "7.49", "retailPrice": "19.99", "savings": "62"}
+            ]},
+            "613": {"deals": []},
+            "614": {}
+        });
+        let prices = parse_cheapest(&answer);
+        assert_eq!(prices.len(), 1);
+        assert_eq!(prices["612"].deal_id, "b");
+    }
+
+    #[test]
+    fn free_games_are_the_current_full_discounts_with_a_safe_page() {
+        let offer = |percent: u32| serde_json::json!([{"promotionalOffers": [{"endDate": "2026-10-15T15:00:00.000Z", "discountSetting": {"discountPercentage": percent}}]}]);
+        let feed = serde_json::json!({"data": {"Catalog": {"searchStore": {"elements": [
+            {"id": "abc123", "title": " Out of Sight ", "price": {"totalPrice": {"discountPrice": 0}},
+             "promotions": {"promotionalOffers": offer(0)},
+             "offerMappings": [{"pageSlug": "out-of-sight-b96ca8"}],
+             "keyImages": [{"type": "Thumbnail", "url": "https://cdn1.epicgames.com/x.jpg"}, {"type": "OfferImageWide", "url": "https://evil.example/w.jpg"}]},
+            {"id": "def456", "title": "Half off", "price": {"totalPrice": {"discountPrice": 1999}},
+             "promotions": {"promotionalOffers": offer(50)}, "productSlug": "half-off"},
+            {"id": "ghi789", "title": "Bad page", "price": {"totalPrice": {"discountPrice": 0}},
+             "promotions": {"promotionalOffers": offer(0)}, "productSlug": "../../x"},
+            {"id": "jkl012", "title": "Upcoming", "price": {"totalPrice": {"discountPrice": 0}},
+             "promotions": {"promotionalOffers": []}, "productSlug": "upcoming"}
+        ]}}}});
+        assert_eq!(
+            parse_free(&feed),
+            vec![FreeGame {
+                id: "abc123".into(),
+                title: "Out of Sight".into(),
+                image: Some("https://cdn1.epicgames.com/x.jpg".into()),
+                ends: "2026-10-15T15:00:00.000Z".into(),
+                slug: "out-of-sight-b96ca8".into(),
+            }]
+        );
+        assert_eq!(epic_slug("thems-fightin-herds/home").as_deref(), Some("thems-fightin-herds"));
     }
 
     #[test]

@@ -36,6 +36,7 @@ import {
 import { useInput } from "./useInput";
 import { useLibrary } from "./useLibrary";
 import { useUpdates } from "./useUpdates";
+import { useWishlist } from "./useWishlist";
 import "./App.css";
 import "@fontsource-variable/outfit";
 import {
@@ -248,6 +249,8 @@ export default function App() {
   // Store prices follow the language unless the user picked a region.
   const region =
     prefs.region ?? (lang === "pt-BR" ? "br" : lang === "es" ? "es" : "us");
+  // Lives here, not in the Store: the Store's dot announces its price drops and free games.
+  const wishlist = useWishlist(region, lang, page === "store");
   useEffect(() => saveLang(lang), [lang]);
   useEffect(() => {
     localStorage.setItem(preferencesKey, JSON.stringify(prefs));
@@ -676,8 +679,15 @@ export default function App() {
             return (
               <button
                 key={p}
+                className={
+                  p === "store" && wishlist.unseen ? "has-update" : undefined
+                }
                 title={t(p)}
-                aria-label={t(p)}
+                aria-label={
+                  p === "store" && wishlist.unseen
+                    ? `${t(p)} · ${t("storeNews")}`
+                    : t(p)
+                }
                 aria-current={page === p ? "page" : undefined}
                 onClick={() => setPage(p)}
               >
@@ -1061,6 +1071,8 @@ export default function App() {
               region={region}
               owned={ownedSteam}
               taste={taste}
+              saved={wishlist}
+              steamConnected={library.accounts.steam.connected}
               input={featureInput}
               onBack={() => setPage("home")}
             />

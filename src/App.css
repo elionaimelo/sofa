@@ -1128,6 +1128,72 @@ dialog::backdrop {
   padding: 24px 8px 8px;
   font-size: 12px;
 }
+.wishlist-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.wishlist-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.price-drop {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #1f7a4d;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 650;
+}
+/* Epic's giveaways sit above the deals: wide art, the title and when the offer ends. */
+.free-games h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+.free-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.free-card {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  padding: 0;
+  overflow: hidden;
+  text-align: start;
+  border-radius: 14px;
+}
+.free-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+.free-card span {
+  display: grid;
+  gap: 2px;
+  padding: 10px 40px 12px 12px;
+}
+.free-card small {
+  color: var(--muted);
+  font-size: 14px;
+}
+.free-card > svg {
+  position: absolute;
+  right: 12px;
+  bottom: 14px;
+}
 .store-pager {
   display: flex;
   align-items: center;
