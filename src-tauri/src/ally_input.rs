@@ -5,8 +5,10 @@
 /// 0xa6 the Command Center (QAM) key, 0xa7 the ROG key held, 0xa5 a back paddle.
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum OemAction {
-    /// Command Center or Armoury Crate tapped.
+    /// Armoury Crate tapped: Game Bar, where Sofa's HUD widget lives.
     GameBar,
+    /// Command Center: Sofa in front with its quick settings (the power panel).
+    QuickSettings,
     /// Armoury Crate held.
     TaskSwitcher,
 }
@@ -26,7 +28,8 @@ impl OemButtons {
         let rising = key != self.held;
         self.held = key;
         match key {
-            0x38 | 0xa6 if rising => Some(OemAction::GameBar),
+            0x38 if rising => Some(OemAction::GameBar),
+            0xa6 if rising => Some(OemAction::QuickSettings),
             0xa7 if rising => Some(OemAction::TaskSwitcher),
             _ => None,
         }
@@ -108,6 +111,7 @@ fn read_keys(app: &tauri::AppHandle, device: &hidapi::HidDevice, page: u16, usag
                 if let Some(action) = buttons.update(report).filter(|_| first_press()) {
                     let result = match action {
                         OemAction::GameBar => crate::widget::open_game_bar(app),
+                        OemAction::QuickSettings => crate::show_quick_settings(app),
                         OemAction::TaskSwitcher => crate::widget::open_task_switcher(app),
                     };
                     if let Err(error) = result {
@@ -144,12 +148,12 @@ mod tests {
     #[test]
     fn command_center_opens_once_per_press_and_rearms_on_release() {
         let mut buttons = OemButtons::default();
-        assert_eq!(buttons.update(&[0x5a, 0xa6]), Some(OemAction::GameBar));
+        assert_eq!(buttons.update(&[0x5a, 0xa6]), Some(OemAction::QuickSettings));
         assert_eq!(buttons.update(&[0x5a, 0xa6]), None);
         assert_eq!(buttons.update(&[0x5d, 0]), None);
         assert_eq!(buttons.update(&[0x5a, 0xa6]), None);
         assert_eq!(buttons.update(&[0x5a, 0]), None);
-        assert_eq!(buttons.update(&[0x5a, 0xa6]), Some(OemAction::GameBar));
+        assert_eq!(buttons.update(&[0x5a, 0xa6]), Some(OemAction::QuickSettings));
     }
 
     #[test]

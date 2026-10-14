@@ -80,9 +80,7 @@ async fn install_progress(ids: Vec<String>) -> std::collections::HashMap<String,
     .unwrap_or_default()
 }
 
-/// Brings Sofa back in front once the launcher no longer needs the user (download started).
-#[tauri::command]
-async fn focus_main(app: tauri::AppHandle) -> Result<(), String> {
+fn bring_to_front(app: &tauri::AppHandle) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or("serviceUnavailable")?;
     let _ = window.unminimize();
     // Windows only hands the foreground to a topmost window reliably; drop it right after.
@@ -90,6 +88,20 @@ async fn focus_main(app: tauri::AppHandle) -> Result<(), String> {
     let _ = window.set_focus();
     let _ = window.set_always_on_top(false);
     Ok(())
+}
+
+/// Brings Sofa back in front once the launcher no longer needs the user (download started).
+#[tauri::command]
+async fn focus_main(app: tauri::AppHandle) -> Result<(), String> {
+    bring_to_front(&app)
+}
+
+/// The Command Center button: Sofa in front with its power panel open.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) fn show_quick_settings(app: &tauri::AppHandle) -> Result<(), String> {
+    use tauri::Emitter;
+    bring_to_front(app)?;
+    app.emit_to("main", "quick-settings", ()).map_err(|_| "serviceUnavailable".to_string())
 }
 
 /// Takes a game id, never a raw path: the webview can only start things the scan found.

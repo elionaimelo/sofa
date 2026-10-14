@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { AnimatePresence } from "motion/react";
 import {
   type CSSProperties,
@@ -135,6 +136,14 @@ export default function App() {
   const [settings, setSettings] = useState<SettingsPanel | null>(null);
   const [powerMenu, setPowerMenu] = useState(false);
   const [hudOpen, setHudOpen] = useState(false);
+  // The Ally's Command Center button brings Sofa forward with the power panel open.
+  useEffect(() => {
+    if (!isTauri()) return;
+    const stop = listen("quick-settings", () => setHudOpen(true));
+    return () => {
+      void stop.then((unlisten) => unlisten());
+    };
+  }, []);
   const [launchScreen, setLaunchScreen] = useState<Game | null>(null);
   const hudInput: InputRef = useRef(null);
   // The launch screen stays until the game takes focus; launchers can take a while.
