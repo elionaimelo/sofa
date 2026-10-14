@@ -347,6 +347,9 @@ pub struct Media {
     controller: Option<String>,
     /// Steam Deck compatibility: 1 unsupported, 2 playable, 3 verified.
     deck: Option<u8>,
+    /// Steam had no description in the asked language and answered in English.
+    #[serde(default)]
+    english_only: bool,
     reviews: Option<Reviews>,
 }
 
@@ -394,15 +397,19 @@ fn steam_cdn(url: Option<&str>) -> Option<String> {
     (url.scheme() == "https" && url.host_str()?.ends_with(".steamstatic.com")).then(|| url.into())
 }
 
-fn parse_media(details: &Value, app_id: &str) -> Media {
-    let data = &details[app_id]["data"];
-    // Plain text, but Steam escapes it as HTML (`&quot;`).
-    let description = scraper::Html::parse_fragment(data["short_description"].as_str().unwrap_or_default())
+/// Plain text, but Steam escapes it as HTML (`&quot;`).
+fn parse_description(details: &Value, app_id: &str) -> String {
+    scraper::Html::parse_fragment(details[app_id]["data"]["short_description"].as_str().unwrap_or_default())
         .root_element()
         .text()
         .collect::<String>()
         .trim()
-        .to_owned();
+        .to_owned()
+}
+
+fn parse_media(details: &Value, app_id: &str) -> Media {
+    let data = &details[app_id]["data"];
+    let description = parse_description(details, app_id);
     let trailers = data["movies"].as_array().into_iter().flatten().filter_map(|m| {
         Some(Shot { image: steam_cdn(m["thumbnail"].as_str())?, video: Some(steam_cdn(m["hls_h264"].as_str())?) })
     });
@@ -416,6 +423,7 @@ fn parse_media(details: &Value, app_id: &str) -> Media {
         gallery: trailers.take(3).chain(screenshots.take(12)).collect(),
         controller,
         deck: None,
+        english_only: false,
         reviews: None,
     }
 }
@@ -460,7 +468,7 @@ async fn media(app_id: &str, language: &str, app: &tauri::AppHandle, cache: &Sto
     if let Some(media) = cache.fresh(&key, DAY)? {
         return serde_json::from_value(media).map_err(|_| "invalidResponse".into());
     }
-    let file = app.path().app_cache_dir().ok().map(|dir| dir.join("store-media-v2").join(format!("{app_id}-{language}.json")));
+    let file = app.path().app_cache_dir().ok().map(|dir| dir.join("store-media-v3").join(format!("{app_id}-{language}.json")));
     let media = match file.as_deref().and_then(read_media) {
         Some(media) => media,
         None => {
@@ -490,6 +498,17 @@ async fn media(app_id: &str, language: &str, app: &tauri::AppHandle, cache: &Sto
             .ok()
             .as_ref()
             .and_then(parse_reviews);
+            // Steam answers in English when a game has no description in the asked language;
+            // the same text in English says so.
+            if language != "english" && !media.description.is_empty() {
+                let english = network::json::<Value>(
+                    network::client()?
+                        .get("https://store.steampowered.com/api/appdetails")
+                        .query(&[("appids", app_id), ("l", "english"), ("filters", "basic")]),
+                )
+                .await;
+                media.english_only = english.is_ok_and(|e| parse_description(&e, app_id) == media.description);
+            }
             if let Some(file) = &file
                 && !(media.description.is_empty() && media.gallery.is_empty())
                 && let (Some(dir), Ok(json)) = (file.parent(), serde_json::to_vec(&media))

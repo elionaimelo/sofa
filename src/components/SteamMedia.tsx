@@ -16,6 +16,8 @@ export type Media = {
   /** Steam Deck compatibility: 1 unsupported, 2 playable, 3 verified. */
   deck: number | null;
   reviews: { positive: number; total: number } | null;
+  /** Steam had no description in Sofa's language and answered in English. */
+  english_only: boolean;
 };
 const deckLabels = {
   1: "deckUnsupported",
@@ -89,7 +91,19 @@ export function SteamMedia({
           )}
         </ul>
       )}
-      {media?.description && <p className="game-about">{media.description}</p>}
+      {media?.description && (
+        <>
+          {media.english_only && !lang.startsWith("en") && (
+            <p className="game-about-note">{t("descriptionEnglishOnly")}</p>
+          )}
+          <p
+            className="game-about"
+            lang={media.english_only ? "en" : undefined}
+          >
+            {media.description}
+          </p>
+        </>
+      )}
       {shots.length > 0 && <Gallery shots={shots} t={t} />}
     </>
   );
