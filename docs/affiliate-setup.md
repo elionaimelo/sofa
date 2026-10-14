@@ -40,8 +40,6 @@ Esta etapa aceita links por produto. A importação automática de feeds da rede
 
 ## Comparação e atribuição
 
-Os dados da CheapShark continuam com seus redirecionamentos originais. Seus links próprios aparecem em uma seção de parceiros, com aviso de afiliados e sem reutilizar preços de outro vendedor. Os links da CheapShark **não** geram comissão para o publicador do Sofa.
-
-A [documentação da CheapShark](https://apidocs.cheapshark.com/) solicita usar seus redirecionamentos para os negócios da API. A [API do IsThereAnyDeal](https://docs.isthereanydeal.com/) também não permite alterar os dados e as tags de afiliado fornecidos; portanto, migrar para ela não resolve a atribuição ao seu ID.
+Seus links próprios aparecem em uma seção de parceiros, com aviso de afiliados e sem reutilizar preços de outro vendedor. As ofertas listadas na loja do Sofa vêm de agregadores com redirecionamentos próprios e não geram comissão para o publicador; só os links desta seção contam.
 
 Após ativar um programa, confirme a atribuição no painel da rede. Clique não equivale a venda; pedidos, aprovação da comissão, cancelamentos e pagamentos são tratados pelo programa parceiro.
