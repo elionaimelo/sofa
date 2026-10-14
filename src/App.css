@@ -65,7 +65,7 @@ select:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 4px;
 }
-.gamepad-input :is(button, input, select, a[href]):focus {
+.gamepad-input :is(button, input, select, a[href], [tabindex="0"]):focus {
   outline: 3px solid var(--focus, var(--accent));
   outline-offset: 4px;
 }
@@ -776,7 +776,7 @@ button svg {
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
-.gamepad-input :is(button, input, select, a[href]):focus {
+.gamepad-input :is(button, input, select, a[href], [tabindex="0"]):focus {
   outline-color: var(--focus);
   /* Dark halo in the offset gap keeps the ring readable on any surface, accent included. */
   box-shadow: 0 0 0 4px #111318;

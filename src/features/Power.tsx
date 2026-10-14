@@ -62,7 +62,12 @@ export function ControllerBatteries({
   data: PowerStatus | null;
 }) {
   return (
-    <section className="battery-section">
+    <section
+      className="battery-section"
+      aria-label={t("controllerBattery")}
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: the HUD's spatial navigation must reach this card below the tiles.
+      tabIndex={0}
+    >
       <h2>{t("controllerBattery")}</h2>
       {!data?.controllers.length ? (
         <p className="muted">

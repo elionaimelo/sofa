@@ -57,8 +57,9 @@ export function navigateControls(a: Action, root: Element | null): boolean {
   }
   return false;
 }
+// The skip link is for keyboard users; it sits off screen until Tab focuses it.
 const focusableSelector =
-  "button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]";
+  'button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]:not(.skip-link), [tabindex="0"]';
 
 export function navigateSpatial(
   a: Action,
