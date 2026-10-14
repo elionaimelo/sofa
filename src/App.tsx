@@ -458,6 +458,12 @@ export default function App() {
       return;
     }
     if (a === "lb" || a === "rb") {
+      // Select elements handle LB/RB themselves via navigateControls.
+      if (
+        document.activeElement instanceof HTMLSelectElement &&
+        navigateControls(a, document.querySelector("main"))
+      )
+        return;
       if (navigateSpatial(a, document.querySelector("main"))) return;
       if (page === "home" || page === "library") {
         setPage("library");
