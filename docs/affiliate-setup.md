@@ -4,7 +4,7 @@ O Sofa encaminha a compra para a loja parceira. Ele não recebe o pagamento, nã
 
 ## Cadastro do publicador
 
-1. Cadastre o Sofa como canal/app e solicite aprovação em uma loja ou rede. Programas oficiais: [GOG](https://affiliate.gog.com/) e [Fanatical](https://www.fanatical.com/en/affiliates).
+1. Cadastre o Sofa como canal/app e solicite aprovação em uma loja ou rede. Programas oficiais: [GOG](https://affiliate.gog.com/), [Fanatical](https://www.fanatical.com/en/affiliates), [Green Man Gaming](https://www.greenmangaming.com/affiliates/) e [Nuuvem](https://secure.nuuvem.com/lp/pt/nuuvem-coop). Detalhes de cada um em "Programas por loja".
 2. Depois da aprovação, obtenha seu ID público e os links de rastreamento aprovados para cada produto. Informe que o canal é um aplicativo distribuído para Windows.
 3. Copie `src-tauri/publisher.example.json` para `src-tauri/publisher.local.json`. Esse arquivo fica fora do Git e só contém IDs públicos e links, nunca chaves de API, senhas ou credenciais de pagamento.
 4. Preencha `publisher_id`, `program`, os domínios exatos aprovados em `allowed_tracking_hosts` e os produtos em `offers`. Faça um novo build para distribuir sua configuração. O usuário final não pode trocar o ID pelo menu do app.
@@ -12,6 +12,21 @@ O Sofa encaminha a compra para a loja parceira. Ele não recebe o pagamento, nã
 Para releases no GitHub Actions, crie a variável de repositório `SOFA_PUBLISHER_CONFIG` com o JSON público completo. O workflow passa essa variável ao build. Sem ela, o CI usa o exemplo desativado; seu arquivo local ignorado pelo Git não é enviado automaticamente. JSON inválido ou campos desconhecidos interrompem o build.
 
 O exemplo distribuído está desativado porque ainda não há conta de afiliado aprovada. Nenhum ID ou receita foi inventado.
+
+## Programas por loja
+
+Status em 14/10/2026, conforme as páginas oficiais; porcentagens e prazos de cookie mudam, confira no painel antes de contar com eles.
+
+| Loja | Programa | Como entra | Comissão publicada | Preços regionais | Status no Sofa |
+| --- | --- | --- | --- | --- | --- |
+| GOG | [GOG Affiliate](https://affiliate.gog.com/) | inscrição na própria GOG | não publicada na página | sim | não tem (exemplo desativado) |
+| Fanatical | [Fanatical Affiliates](https://www.fanatical.com/en/affiliates) | inscrição na própria loja | não publicada na página | sim | não tem |
+| Green Man Gaming | [Business Affiliate Program](https://www.greenmangaming.com/affiliates/) | inscrição como site/app ("Business"); a via "Ambassador" é só para redes sociais | até 5% por venda, 10% em bundles; a aprovação dá acesso a uma API de catálogo com mais de 7.000 jogos | sim | não tem |
+| Nuuvem | [Nuuvem Co-Op](https://secure.nuuvem.com/lp/pt/nuuvem-coop) | inscrição gratuita, operada pela rede Rakuten (links, relatórios e saque ficam lá); pessoa física maior de 18 anos ou empresa, no Brasil ou fora | não publicada; a página diz que o programa está em fase final de testes | sim, em reais | não tem |
+| Epic Games Store | Support-A-Creator (código de criador) | criado pela própria loja | definida pela Epic por produto | sim | não tem |
+| Steam | não existe programa de afiliados para compra de jogos | — | — | — | — |
+
+Regras que valem para todas: o link vem pronto do programa (`url` em `offers`), com os domínios de rastreamento aprovados em `allowed_tracking_hosts`; o Sofa não monta parâmetros de afiliado por conta própria. GMG e Nuuvem publicam preços regionais, então as ofertas delas podem trazer `quote` em reais quando o programa fornecer o preço.
 
 ## Formato de cada link aprovado
 
