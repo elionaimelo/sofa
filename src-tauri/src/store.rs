@@ -9,6 +9,18 @@ use std::{
 const BASE: &str = "https://www.cheapshark.com/api/1.0";
 #[derive(Default)]
 pub struct StoreCache(Mutex<HashMap<String, (Instant, Value)>>);
+const DAY: Duration = Duration::from_secs(24 * 3600);
+impl StoreCache {
+    /// The value kept under `key`, when it is younger than `ttl`.
+    fn fresh(&self, key: &str, ttl: Duration) -> Result<Option<Value>, String> {
+        let entries = self.0.lock().map_err(|_| "serviceUnavailable")?;
+        Ok(entries.get(key).filter(|(at, _)| at.elapsed() < ttl).map(|(_, v)| v.clone()))
+    }
+    fn keep(&self, key: String, value: Value) -> Result<(), String> {
+        self.0.lock().map_err(|_| "serviceUnavailable")?.insert(key, (Instant::now(), value));
+        Ok(())
+    }
+}
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Deal {
@@ -300,14 +312,7 @@ pub async fn store_similar(app_id: String, cache: tauri::State<'_, StoreCache>) 
         return Err("invalidInput".into());
     }
     let key = format!("similar:{app_id}");
-    let cached_list = cache
-        .0
-        .lock()
-        .map_err(|_| "serviceUnavailable")?
-        .get(&key)
-        .filter(|(at, _)| at.elapsed() < Duration::from_secs(24 * 3600))
-        .map(|(_, v)| v.clone());
-    if let Some(list) = cached_list {
+    if let Some(list) = cache.fresh(&key, DAY)? {
         return serde_json::from_value(list).map_err(|_| "invalidResponse".into());
     }
     let html = network::text(
@@ -317,9 +322,116 @@ pub async fn store_similar(app_id: String, cache: tauri::State<'_, StoreCache>) 
     )
     .await?;
     let list = parse_similar(&html, &app_id);
-    let value = serde_json::to_value(&list).map_err(|_| "invalidResponse")?;
-    cache.0.lock().map_err(|_| "serviceUnavailable")?.insert(key, (Instant::now(), value));
+    cache.keep(key, serde_json::to_value(&list).map_err(|_| "invalidResponse")?)?;
     Ok(list)
+}
+
+/// A screenshot or trailer from a game's Steam page.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Shot {
+    /// The 600×338 screenshot, or a trailer's poster. The strip and the stage share it, as on
+    /// Steam's own page, so picking a shot downloads nothing new.
+    image: String,
+    /// The trailer's HLS stream.
+    video: Option<String>,
+}
+
+/// What Steam's page says about a game: its short description and its gallery.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Media {
+    description: String,
+    /// Trailers first, then screenshots, in Steam's order.
+    gallery: Vec<Shot>,
+}
+/// Store pages barely change: media stays on disk for 30 days, one file per title and language.
+const MEDIA_TTL: Duration = Duration::from_secs(30 * 24 * 3600);
+
+fn read_media(path: &std::path::Path) -> Option<Media> {
+    let meta = std::fs::metadata(path).ok()?;
+    if meta.len() > 256 * 1024 || meta.modified().ok()?.elapsed().ok()? > MEDIA_TTL {
+        return None;
+    }
+    // A torn write fails to parse and is fetched again.
+    serde_json::from_slice(&std::fs::read(path).ok()?).ok()
+}
+
+/// Steam's name for an interface language.
+fn steam_language(lang: &str) -> Option<&'static str> {
+    match lang {
+        "en" => Some("english"),
+        "pt-BR" => Some("brazilian"),
+        "es" => Some("spanish"),
+        _ => None,
+    }
+}
+
+/// Only HTTPS addresses on Steam's own CDN reach an image or a video in the webview.
+fn steam_cdn(url: Option<&str>) -> Option<String> {
+    let url = reqwest::Url::parse(url?).ok()?;
+    (url.scheme() == "https" && url.host_str()?.ends_with(".steamstatic.com")).then(|| url.into())
+}
+
+fn parse_media(details: &Value, app_id: &str) -> Media {
+    let data = &details[app_id]["data"];
+    // Plain text, but Steam escapes it as HTML (`&quot;`).
+    let description = scraper::Html::parse_fragment(data["short_description"].as_str().unwrap_or_default())
+        .root_element()
+        .text()
+        .collect::<String>()
+        .trim()
+        .to_owned();
+    let trailers = data["movies"].as_array().into_iter().flatten().filter_map(|m| {
+        Some(Shot { image: steam_cdn(m["thumbnail"].as_str())?, video: Some(steam_cdn(m["hls_h264"].as_str())?) })
+    });
+    let screenshots = data["screenshots"].as_array().into_iter().flatten().filter_map(|s| {
+        Some(Shot { image: steam_cdn(s["path_thumbnail"].as_str())?, video: None })
+    });
+    Media { description, gallery: trailers.take(3).chain(screenshots.take(12)).collect() }
+}
+
+/// A Steam title's short description, trailers and screenshots in the interface language,
+/// from the public `appdetails` API. Kept in memory and for 30 days on disk; an empty answer
+/// stays in memory only, so a title Steam lists later shows up the next day.
+#[tauri::command]
+pub async fn store_media(
+    app_id: String,
+    lang: String,
+    app: tauri::AppHandle,
+    cache: tauri::State<'_, StoreCache>,
+) -> Result<Media, String> {
+    use tauri::Manager;
+    let language = steam_language(&lang).ok_or("invalidInput")?;
+    if !numeric_id(&app_id) {
+        return Err("invalidInput".into());
+    }
+    let key = format!("media:{app_id}:{language}");
+    if let Some(media) = cache.fresh(&key, DAY)? {
+        return serde_json::from_value(media).map_err(|_| "invalidResponse".into());
+    }
+    // Both parts are validated above, so the file name is safe.
+    let file = app.path().app_cache_dir().ok().map(|dir| dir.join("store-media").join(format!("{app_id}-{language}.json")));
+    let media = match file.as_deref().and_then(read_media) {
+        Some(media) => media,
+        None => {
+            let details: Value = network::json(
+                network::client()?
+                    .get("https://store.steampowered.com/api/appdetails")
+                    .query(&[("appids", app_id.as_str()), ("l", language), ("filters", "basic,screenshots,movies")]),
+            )
+            .await?;
+            let media = parse_media(&details, &app_id);
+            if let Some(file) = &file
+                && !(media.description.is_empty() && media.gallery.is_empty())
+                && let (Some(dir), Ok(json)) = (file.parent(), serde_json::to_vec(&media))
+            {
+                let _ = std::fs::create_dir_all(dir);
+                let _ = std::fs::write(file, json);
+            }
+            media
+        }
+    };
+    cache.keep(key, serde_json::to_value(&media).map_err(|_| "invalidResponse")?)?;
+    Ok(media)
 }
 
 #[derive(Deserialize)]
@@ -469,14 +581,7 @@ pub async fn usd_rate(region: String, cache: tauri::State<'_, StoreCache>) -> Re
         return Ok(UsdRate { currency, per_usd: Some(1.0) });
     }
     let key = format!("fx:{currency}");
-    let cached_rate = cache
-        .0
-        .lock()
-        .map_err(|_| "serviceUnavailable")?
-        .get(&key)
-        .filter(|(at, _)| at.elapsed() < Duration::from_secs(6 * 3600))
-        .map(|(_, v)| v.clone());
-    let rates = match cached_rate {
+    let rates = match cache.fresh(&key, Duration::from_secs(6 * 3600))? {
         Some(rates) => rates,
         None => {
             let rates: Value = network::json(
@@ -485,11 +590,7 @@ pub async fn usd_rate(region: String, cache: tauri::State<'_, StoreCache>) -> Re
                     .query(&[("base", "USD"), ("symbols", currency)]),
             )
             .await?;
-            cache
-                .0
-                .lock()
-                .map_err(|_| "serviceUnavailable")?
-                .insert(key, (Instant::now(), rates.clone()));
+            cache.keep(key, rates.clone())?;
             rates
         }
     };
@@ -512,6 +613,36 @@ mod tests {
             parse_similar(html, "1145360"),
             vec![Similar { app_id: "1280930".into(), name: "Astral Ascent".into() }]
         );
+    }
+
+    #[test]
+    fn media_keeps_steam_cdn_items_trailers_first_and_unescapes_the_description() {
+        let cdn = "https://shared.akamai.steamstatic.com/a";
+        let details = serde_json::json!({"10": {"success": true, "data": {
+            "short_description": " Escape the &quot;Underworld&quot; &amp; more ",
+            "screenshots": [
+                {"path_thumbnail": format!("{cdn}/1t.jpg"), "path_full": format!("{cdn}/1.jpg")},
+                {"path_thumbnail": "http://shared.akamai.steamstatic.com/a/2t.jpg", "path_full": format!("{cdn}/2.jpg")},
+                {"path_thumbnail": "https://evil.example/3t.jpg", "path_full": format!("{cdn}/3.jpg")},
+                {"path_thumbnail": "https://steamstatic.com.evil.example/4t.jpg", "path_full": format!("{cdn}/4.jpg")}
+            ],
+            "movies": [
+                {"thumbnail": format!("{cdn}/m.jpg"), "hls_h264": "https://video.akamai.steamstatic.com/m.m3u8"},
+                {"thumbnail": format!("{cdn}/n.jpg")}
+            ]
+        }}});
+        let media = parse_media(&details, "10");
+        assert_eq!(media.description, "Escape the \"Underworld\" & more");
+        assert_eq!(
+            media.gallery,
+            vec![
+                Shot { image: format!("{cdn}/m.jpg"), video: Some("https://video.akamai.steamstatic.com/m.m3u8".into()) },
+                Shot { image: format!("{cdn}/1t.jpg"), video: None },
+            ]
+        );
+        assert_eq!(parse_media(&serde_json::json!({"10": {"success": false}}), "10").gallery, vec![]);
+        assert_eq!(steam_language("pt-BR"), Some("brazilian"));
+        assert_eq!(steam_language("de"), None);
     }
 
     #[test]

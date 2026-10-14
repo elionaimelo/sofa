@@ -1018,6 +1018,66 @@ dialog::backdrop {
   color: var(--muted);
   font-size: 12px;
 }
+.store-about {
+  margin: 0;
+  max-width: 70ch;
+  color: #d6dae3;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+/* Steam's gallery: the picked shot large, thumbnails in one scrolling row below. */
+.gallery {
+  display: grid;
+  gap: 8px;
+}
+.gallery-stage,
+.gallery-skeleton {
+  width: min(100%, 560px);
+  aspect-ratio: 16 / 9;
+  flex: none;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #000;
+}
+.gallery-stage :is(img, video) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.gallery-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.gallery-strip button {
+  position: relative;
+  flex: none;
+  width: 112px;
+  aspect-ratio: 16 / 9;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+.gallery-strip button:is([aria-current="true"], :focus-visible, :hover) {
+  opacity: 1;
+}
+.gallery-strip img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.gallery-strip svg {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  font-size: 26px;
+  filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.8));
+}
 .also-like {
   margin-top: 6px;
 }
@@ -1275,8 +1335,14 @@ select:focus-visible,
   box-shadow: 0 0 0 4px #111318;
 }
 /* Inside scrolling rows an outside ring is clipped; draw it inward there. */
-:is(.hud-options, .source-tabs, .category-options, .primary-nav, .segmented)
-:is(button, select):is(:focus-visible, .gamepad-input *:focus) {
+:is(
+  .hud-options,
+  .source-tabs,
+  .category-options,
+  .primary-nav,
+  .segmented,
+  .gallery-strip
+) :is(button, select):is(:focus-visible, .gamepad-input *:focus) {
   outline-offset: -3px;
   box-shadow: none;
 }
@@ -3059,7 +3125,8 @@ footer kbd {
   .floating-hud,
   dialog,
   .settings-hub,
-  .library-filters
+  .library-filters,
+  .gallery-strip
 ) {
   scrollbar-width: thin;
   overscroll-behavior: contain;
