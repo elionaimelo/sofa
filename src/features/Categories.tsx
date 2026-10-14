@@ -52,13 +52,13 @@ export function useCategories(games: Game[], lang: Lang) {
   const [ready, setReady] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const [revision, setRevision] = useState(0);
-  // Rescans hand over a new array every few seconds; only a different set of Steam ids (or
-  // language: labels come localized from the store) restarts the fetch.
-  const steamIds = games
-    .filter((g) => g.source === "steam")
-    .map((g) => g.id)
+  // Rescans hand over a new array every few seconds; only a different set of games (or
+  // language: labels come localized from the store) restarts the fetch. Epic and GOG titles
+  // are looked up on Steam by name, so the title travels with the id.
+  const wanted = games
+    .map((g) => `${g.id}\t${g.title}`)
     .sort()
-    .join(",");
+    .join("\n");
   // biome-ignore lint/correctness/useExhaustiveDependencies: `revision` is the retry trigger.
   useEffect(() => {
     if (demo) {
@@ -66,7 +66,11 @@ export function useCategories(games: Game[], lang: Lang) {
       setReady(true);
       return;
     }
-    const ids = steamIds ? steamIds.split(",") : [];
+    const entries = wanted
+      ? wanted.split("\n").map((line) => line.split("\t") as [string, string])
+      : [];
+    const ids = entries.map(([id]) => id);
+    const titles = Object.fromEntries(entries);
     if (!isTauri() || !ids.length) return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -100,7 +104,11 @@ export function useCategories(games: Game[], lang: Lang) {
         if (!alive) break;
         try {
           const result = cleanCategories(
-            await invoke<string[]>("game_categories", { id, lang }),
+            await invoke<string[]>("game_categories", {
+              id,
+              lang,
+              title: titles[id],
+            }),
           );
           if (alive) setCatalog((previous) => ({ ...previous, [id]: result }));
         } catch (e) {
@@ -126,7 +134,7 @@ export function useCategories(games: Game[], lang: Lang) {
       clearTimeout(timer);
       wake?.();
     };
-  }, [steamIds, lang, revision]);
+  }, [wanted, lang, revision]);
   return {
     catalog,
     ready,

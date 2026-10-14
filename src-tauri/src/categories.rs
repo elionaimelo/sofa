@@ -82,15 +82,72 @@ pub fn cached_categories(
 ) -> Result<BTreeMap<String, Entry>, String> {
     load(&app, &cache, steam_locale(&lang)?)
 }
+/// Title comparison for the store search: case, accents-insensitive-ish and punctuation-free.
+fn same_title(a: &str, b: &str) -> bool {
+    let key = |s: &str| {
+        s.chars()
+            .filter(|c| c.is_alphanumeric())
+            .flat_map(char::to_lowercase)
+            .collect::<String>()
+    };
+    let (a, b) = (key(a), key(b));
+    !a.is_empty() && a == b
+}
+
+/// Steam app id whose name is exactly this title, from the store's public search.
+#[derive(Deserialize)]
+struct SearchResponse {
+    #[serde(default)]
+    items: Vec<SearchItem>,
+}
+#[derive(Deserialize)]
+struct SearchItem {
+    name: String,
+    id: u64,
+}
+fn matching_app(response: &SearchResponse, title: &str) -> Option<u64> {
+    response.items.iter().find(|item| same_title(&item.name, title)).map(|item| item.id)
+}
+
+/// Epic and GOG titles have no genre source of their own; Steam's page for the same
+/// title answers for them when the store search finds an exact name match.
 #[tauri::command]
 pub async fn game_categories(
     id: String,
     lang: String,
+    title: Option<String>,
     app: tauri::AppHandle,
     cache: State<'_, CategoryCache>,
 ) -> Result<Vec<String>, String> {
-    let app_id = crate::library::steam_app_id(&id).ok_or("invalidGame")?;
     let locale = steam_locale(&lang)?;
+    let app_id = match crate::library::steam_app_id(&id) {
+        Some(app_id) => app_id.to_owned(),
+        None => {
+            if !(id.starts_with("epic:") || id.starts_with("gog:")) {
+                return Err("invalidGame".into());
+            }
+            let title = title.filter(|t| !t.trim().is_empty() && t.len() <= 200).ok_or("invalidGame")?;
+            let cached = load(&app, &cache, locale)?;
+            if let Some(entry) = cached.get(&id) {
+                if timestamp().saturating_sub(entry.updated) < 30 * 86400 {
+                    return entry_labels(entry);
+                }
+            }
+            let response: SearchResponse = network::json(
+                network::client()?
+                    .get("https://store.steampowered.com/api/storesearch/")
+                    .query(&[("term", title.trim()), ("l", locale), ("cc", "US")]),
+            )
+            .await?;
+            match matching_app(&response, &title) {
+                Some(app_id) => app_id.to_string(),
+                None => {
+                    store(&app, &cache, locale, id, Vec::new());
+                    return Err("categoriesUnavailable".into());
+                }
+            }
+        }
+    };
     let cached = load(&app, &cache, locale)?;
     if let Some(entry) = cached.get(&id) {
         let ttl = if entry.labels.is_empty() {
@@ -112,7 +169,25 @@ pub async fn game_categories(
     )
     .await?;
     let labels = parse(&html);
-    let mut guard = cache.0.lock().map_err(|_| "serviceUnavailable")?;
+    store(&app, &cache, locale, id, labels.clone());
+    // Removed games and markup changes are unknown, not an empty classification.
+    // Cached anyway (1-day TTL above) so the same title isn't fetched on every run.
+    if labels.is_empty() {
+        return Err("categoriesUnavailable".into());
+    }
+    Ok(labels)
+}
+
+fn entry_labels(entry: &Entry) -> Result<Vec<String>, String> {
+    if entry.labels.is_empty() {
+        return Err("categoriesUnavailable".into());
+    }
+    Ok(entry.labels.clone())
+}
+
+/// Remembers labels (or their absence) for `id` and writes the per-language cache file.
+fn store(app: &tauri::AppHandle, cache: &CategoryCache, locale: &str, id: String, labels: Vec<String>) {
+    let Ok(mut guard) = cache.0.lock() else { return };
     // Another language may have been loaded meanwhile; this result belongs to `locale`.
     let entries = match guard.as_mut() {
         Some((l, entries)) if l == locale => entries,
@@ -127,13 +202,7 @@ pub async fn game_categories(
             entries.remove(&oldest);
         }
     }
-    entries.insert(
-        id,
-        Entry {
-            updated: timestamp(),
-            labels: labels.clone(),
-        },
-    );
+    entries.insert(id, Entry { updated: timestamp(), labels });
     if let Ok(path) = app.path().app_cache_dir() {
         if std::fs::create_dir_all(&path).is_ok() {
             if let Ok(json) = serde_json::to_vec(entries) {
@@ -147,16 +216,22 @@ pub async fn game_categories(
             }
         }
     }
-    // Removed games and markup changes are unknown, not an empty classification.
-    // Cached anyway (1-day TTL above) so the same title isn't fetched on every run.
-    if labels.is_empty() {
-        return Err("categoriesUnavailable".into());
-    }
-    Ok(labels)
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn store_search_only_accepts_an_exact_title() {
+        let response: SearchResponse = serde_json::from_str(
+            r#"{"items":[{"name":"Hades II","id":1145350},{"name":"Hades","id":1145360},{"name":"Hades: Soundtrack","id":1}]}"#,
+        )
+        .unwrap();
+        assert_eq!(matching_app(&response, "HADES"), Some(1145360));
+        assert_eq!(matching_app(&response, "Hades 2"), None);
+        assert!(same_title("A Plague Tale: Innocence", "a plague tale innocence"));
+        assert!(!same_title("", ""));
+    }
 
     #[test]
     fn store_language_follows_the_ui_language_only() {
