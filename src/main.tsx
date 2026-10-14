@@ -2,7 +2,7 @@ import { IconContext } from "@phosphor-icons/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
-import { SofaIcon } from "./components/SofaIcon";
+import { SofaLoadingIcon } from "./components/SofaLoadingIcon";
 import { initialLang } from "./i18n";
 import { serviceError } from "./services";
 import "./App.css";
@@ -42,7 +42,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
         <Suspense
           fallback={
             <div className="app-loading" role="status" aria-label="Sofa">
-              <SofaIcon size={96} />
+              <SofaLoadingIcon size={96} />
             </div>
           }
         >

@@ -3438,69 +3438,121 @@ footer kbd {
   margin: 0;
 }
 .launch-icon {
-  position: relative;
   display: grid;
   place-items: center;
   width: 128px;
   height: 128px;
-  border-radius: 50%;
-  background: rgb(255 255 255 / 0.08);
-  color: #fff;
 }
-.launch-icon .sofa-icon {
-  animation: rumble 1.3s ease-in-out infinite;
+.sofa-loading-icon {
+  display: block;
+  flex-shrink: 0;
 }
-.launch-icon::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 2px solid var(--accent);
-  border-radius: 50%;
-  animation: rumble-ring 1.3s ease-out infinite;
+.sofa-loading-fill {
+  animation: sofa-fill 0.4s ease-out 0.48s both;
 }
-/* Two short bursts, then rest: reads as a controller's vibration motor. */
-@keyframes rumble {
-  0%,
-  42%,
-  100% {
-    transform: translate(0, 0) rotate(0);
-  }
-  4% {
-    transform: translate(-3px, 1px) rotate(-7deg);
-  }
-  8% {
-    transform: translate(3px, -1px) rotate(7deg);
-  }
-  12% {
-    transform: translate(-3px, -1px) rotate(-6deg);
-  }
-  16% {
-    transform: translate(3px, 1px) rotate(6deg);
-  }
-  20% {
-    transform: translate(0, 0) rotate(0);
-  }
-  26% {
-    transform: translate(-2px, 1px) rotate(-4deg);
-  }
-  30% {
-    transform: translate(2px, -1px) rotate(4deg);
-  }
-  34% {
-    transform: translate(-2px, 0) rotate(-3deg);
-  }
-  38% {
-    transform: translate(2px, 0) rotate(3deg);
-  }
+.sofa-loading-outline {
+  opacity: 0;
+  animation: sofa-outline 1s ease-out both;
 }
-@keyframes rumble-ring {
+.sofa-loading-outline path {
+  /* A one-time stroke reveal; the repeating motion only uses transforms. */
+  stroke-dasharray: 1;
+  animation: sofa-draw 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.sofa-loading-cushions,
+.sofa-loading-arm,
+.sofa-loading-buttons > g {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.sofa-loading-cushions {
+  transform-origin: center bottom;
+  animation: sofa-settle 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) 0.88s both;
+}
+.sofa-loading-arm {
+  transform-origin: center 85%;
+  animation: sofa-rumble 3.2s linear 1.3s infinite;
+}
+.sofa-loading-buttons > g {
+  animation: sofa-button-wake 0.32s ease-out 0.95s both;
+}
+.sofa-loading-buttons > g:nth-child(2) {
+  animation-delay: 1.03s;
+}
+.sofa-loading-buttons > g:nth-child(3) {
+  animation-delay: 1.11s;
+}
+.sofa-loading-buttons > g:nth-child(4) {
+  animation-delay: 1.19s;
+}
+@keyframes sofa-draw {
   from {
-    transform: scale(1);
-    opacity: 0.8;
+    stroke-dashoffset: 1;
   }
   to {
-    transform: scale(1.7);
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes sofa-outline {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  100% {
     opacity: 0;
+  }
+}
+@keyframes sofa-fill {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes sofa-settle {
+  0%,
+  100% {
+    transform: none;
+  }
+  40% {
+    transform: translateY(2px) scale(1.012, 0.96);
+  }
+  72% {
+    transform: translateY(-0.5px) scale(0.998, 1.008);
+  }
+}
+/* A brief motor pulse, then a long rest; only the controller arms move. */
+@keyframes sofa-rumble {
+  0%,
+  12%,
+  100% {
+    transform: none;
+  }
+  2%,
+  6% {
+    transform: translateX(-0.8px) rotate(-1deg);
+  }
+  4%,
+  8% {
+    transform: translateX(0.8px) rotate(1deg);
+  }
+  10% {
+    transform: translateX(-0.4px) rotate(-0.5deg);
+  }
+}
+@keyframes sofa-button-wake {
+  0% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
   }
 }
 @keyframes launch-in {
@@ -3509,8 +3561,12 @@ footer kbd {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .launch-icon .sofa-icon,
-  .launch-icon::after,
+  .sofa-loading-fill,
+  .sofa-loading-outline,
+  .sofa-loading-outline path,
+  .sofa-loading-cushions,
+  .sofa-loading-arm,
+  .sofa-loading-buttons > g,
   .launch-screen {
     animation: none;
   }

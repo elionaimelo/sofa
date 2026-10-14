@@ -1,6 +1,6 @@
-import { SofaIcon } from "./SofaIcon";
+import { SofaLoadingIcon } from "./SofaLoadingIcon";
 
-/** Every wait in Sofa looks the same: the Sofa icon rumbling, with one line saying what for. */
+/** Every wait shares the animated Sofa and one line saying what for. */
 export function Loading({
   label,
   size = 72,
@@ -14,7 +14,7 @@ export function Loading({
         className="launch-icon"
         style={{ width: size * 1.35, height: size * 1.35 }}
       >
-        <SofaIcon size={size} />
+        <SofaLoadingIcon size={size} />
       </span>
       <p>{label}</p>
     </div>
