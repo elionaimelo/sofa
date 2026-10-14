@@ -3,17 +3,14 @@ import {
   ArrowUpRightIcon,
   CaretLeftIcon,
   CaretRightIcon,
+  CompassIcon,
   HeartIcon,
   MagnifyingGlassIcon,
   SteamLogoIcon,
   TrendDownIcon,
+  XIcon,
 } from "@phosphor-icons/react";
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Cover, CoverImage } from "../components/Cover";
 import { DetailFrame } from "../components/DetailFrame";
@@ -38,8 +35,8 @@ import {
   type InputRef,
   type MessageKey,
   money,
+  type Notify,
   navigateControls,
-  navigateSpatial,
   type PartnerOffer,
   queryError,
   type Shop,
@@ -94,6 +91,7 @@ export function Store({
   saved,
   steamConnected,
   onModal,
+  notify,
   input,
   onBack,
 }: {
@@ -109,6 +107,8 @@ export function Store({
   steamConnected: boolean;
   /** Tells App the comparison dialog is open, for the button hints. */
   onModal: (open: boolean) => void;
+  /** App's status line, shown in the footer and inside the comparison dialog. */
+  notify: Notify;
   input: InputRef;
   onBack: () => void;
 }) {
@@ -116,7 +116,6 @@ export function Store({
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
   const { wishlist, setWishlist } = saved;
   const [selected, setSelected] = useState<Deal | null>(null);
   useEffect(() => {
@@ -140,7 +139,6 @@ export function Store({
           }
         : desktop<DealsPage>("store_deals", { query: search, page }),
     staleTime: 5 * 60_000,
-    placeholderData: keepPreviousData,
   });
   const shopsQuery = useQuery({
     queryKey: ["store_shops"],
@@ -214,6 +212,21 @@ export function Store({
     staleTime: 5 * 60_000,
   });
   const comparison = compareQuery.data ?? null;
+  // A new game in the same dialog ("You may also like") starts at the top.
+  useEffect(() => {
+    if (!selected) return;
+    document.querySelector("dialog[open] .detail-body")?.scrollTo({ top: 0 });
+    document
+      .querySelector<HTMLElement>("dialog[open] [data-wishlist-toggle]")
+      ?.focus();
+  }, [selected]);
+  // When the offers arrive, the controller starts on the best one's Buy, unless it moved.
+  useEffect(() => {
+    if (!comparison) return;
+    const active = document.activeElement;
+    if (active === document.body || active?.matches("[data-wishlist-toggle]"))
+      document.querySelector<HTMLElement>("dialog[open] [data-best]")?.focus();
+  }, [comparison]);
   const compareError = queryError(compareQuery.error);
   // Partner offers are optional extras: failures just hide them.
   const partners =
@@ -249,7 +262,7 @@ export function Store({
   // The connected Steam account's wishlist, added to Sofa's; Rust paces the lookups.
   const importSteam = useMutation({
     mutationFn: () => desktop<Deal[]>("import_steam_wishlist"),
-    onMutate: () => setStatus(t("importingWishlist")),
+    onMutate: () => notify("importingWishlist"),
     onSuccess: (imported) => {
       const fresh = imported.filter(
         (d) => !wishlist.some((g) => g.gameID === d.gameID),
@@ -258,9 +271,9 @@ export function Store({
         ...list,
         ...fresh.filter((d) => !list.some((g) => g.gameID === d.gameID)),
       ]);
-      setStatus(t("wishlistImported", { count: String(fresh.length) }));
+      notify("wishlistImported", { count: String(fresh.length) });
     },
-    onError: (e) => setStatus(t(serviceError(e))),
+    onError: (e) => notify(serviceError(e)),
   });
   // Steam's own price in the region, for Steam offers and the selected game.
   const steamIds = [
@@ -305,6 +318,18 @@ export function Store({
   /** Steam's own price in the region, for a Steam offer of the selected game. */
   const steamPrice = (d: Deal | null) =>
     d?.steamAppID ? regional[d.steamAppID] : undefined;
+  const converted = !!rate?.per_usd && rate.currency !== "USD";
+  /**
+   * An offer in the money the row shows: Steam's regional price, or the dollars converted.
+   * Steam's price joins the comparison only when it is in that same currency.
+   */
+  const localAmount = (offer: StoreGame["deals"][number]) => {
+    const steam =
+      offer.storeID === STEAM_STORE ? steamPrice(selected) : undefined;
+    if (steam && steam.currency === (converted ? rate?.currency : "USD"))
+      return steam.final / 100;
+    return Number(offer.price) * (converted ? (rate?.per_usd ?? 1) : 1);
+  };
   /** The deal's own discount, or Steam's for Steam offers. */
   const discount = (d: Deal) =>
     d.storeID === STEAM_STORE && steamPrice(d)
@@ -346,16 +371,17 @@ export function Store({
   /** A recommendation only has a Steam id; CheapShark's entry gives it offers to compare. */
   const resolve = async (d: Deal): Promise<Deal | null> => {
     if (d.gameID || !d.steamAppID) return d;
+    notify("loadingOffers");
     try {
       // Through the query cache: opening the same recommendation again doesn't refetch.
       const found = await queryClient.fetchQuery({
         ...commandQuery<Deal | null>("store_lookup", { appId: d.steamAppID }),
         staleTime: 60 * 60_000,
       });
-      if (!found) setStatus(t("noOffers"));
+      if (!found) notify("noOffers");
       return found;
     } catch (e) {
-      setStatus(t(serviceError(e)));
+      notify(serviceError(e));
       return null;
     }
   };
@@ -372,15 +398,14 @@ export function Store({
         ),
     );
   const buy = async (id: string) => {
-    setStatus("");
     if (demo) {
-      setStatus(t("demoPrices"));
+      notify("demoPrices");
       return;
     }
     try {
       await desktop("open_deal", { id });
     } catch (e) {
-      setStatus(t(serviceError(e)));
+      notify(serviceError(e));
     }
   };
   useFeatureInput(input, (a) => {
@@ -404,43 +429,48 @@ export function Store({
       );
       return;
     }
-    // The pager below the grid: DOWN from the last row reaches it, UP returns to the tiles.
-    const pager = document.querySelector<HTMLElement>(".store-pager");
-    if (pager?.contains(document.activeElement)) {
-      if (a === "up") (document.activeElement as HTMLElement).blur();
-      else navigateSpatial(a, pager);
+    // LT/RT page through Discover without scrolling down to the pager.
+    if ((a === "lt" || a === "rt") && tab === "discover" && !loading) {
+      const next = page + (a === "lt" ? -1 : 1);
+      if (next >= 0 && next < pages) goToPage(next);
       return;
     }
-    if (a === "a" && visible[focus]) open(visible[focus]);
-    if (a === "x" && visible[focus]) toggle(visible[focus]);
+    // X saves the focused deal only; on the search field or the tabs it does nothing.
+    if (
+      a === "x" &&
+      document.activeElement?.classList.contains("deal-card") &&
+      visible[focus]
+    )
+      toggle(visible[focus]);
     if (a === "y") refresh();
-    const cols = grid.current
-      ? getComputedStyle(grid.current).gridTemplateColumns.split(" ").length
-      : 1;
-    const delta =
-      a === "left"
-        ? -1
-        : a === "right"
-          ? 1
-          : a === "up"
-            ? -cols
-            : a === "down"
-              ? cols
-              : 0;
-    if (delta) {
-      if (a === "down" && pager && focus + cols >= visible.length) {
-        pager.querySelector<HTMLElement>("button:not(:disabled)")?.focus();
-        return;
-      }
-      (document.activeElement as HTMLElement)?.blur();
-      setFocus((f) => Math.max(0, Math.min(visible.length - 1, f + delta)));
-    }
   });
+  // After paging, the controller lands on the first deal of the new page.
+  const landOnFirst = useRef(false);
   const goToPage = (next: number) => {
     setPage(next);
     setFocus(0);
-    (document.activeElement as HTMLElement)?.blur();
+    landOnFirst.current = true;
   };
+  useEffect(() => {
+    if (loading || !landOnFirst.current) return;
+    landOnFirst.current = false;
+    grid.current?.querySelector<HTMLElement>(".deal-card")?.focus();
+  }, [loading]);
+  const clearSearch = () => {
+    setQuery("");
+    setSearch("");
+    setPage(0);
+  };
+  // Search as you type, a moment after the last key; Enter searches at once.
+  useEffect(() => {
+    const next = query.trim();
+    if (next === search) return;
+    const id = setTimeout(() => {
+      setSearch(next);
+      setPage(0);
+    }, 500);
+    return () => clearTimeout(id);
+  }, [query, search]);
   const name = (id: string) =>
     shops.find((s) => s.storeID === id)?.storeName ?? `${t("store")} ${id}`;
   return (
@@ -459,6 +489,7 @@ export function Store({
             aria-pressed={tab === "discover"}
             onClick={() => setTab("discover")}
           >
+            <CompassIcon />
             {t("discover")}
           </button>
           <button
@@ -482,11 +513,7 @@ export function Store({
         <SearchField
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onClear={() => {
-            setQuery("");
-            setSearch("");
-            setPage(0);
-          }}
+          onClear={clearSearch}
           clearLabel={t("clearSearch")}
           placeholder={t("searchGames")}
           aria-label={t("searchGames")}
@@ -496,9 +523,11 @@ export function Store({
         </button>
         <button
           type="button"
-          onClick={refresh}
-          disabled={loading}
-          aria-label={t("refresh")}
+          onClick={() => !loading && refresh()}
+          aria-disabled={loading}
+          aria-busy={loading}
+          aria-label={t("refreshDeals")}
+          title={t("refreshDeals")}
         >
           <ArrowClockwiseIcon />
         </button>
@@ -531,7 +560,7 @@ export function Store({
                 className="free-card"
                 onClick={() =>
                   void desktop("open_epic_free", { id: g.id }).catch((e) =>
-                    setStatus(t(serviceError(e))),
+                    notify(serviceError(e)),
                   )
                 }
               >
@@ -575,12 +604,34 @@ export function Store({
       ) : error && tab === "discover" ? (
         <div className="feature-empty" role="alert">
           <h2>{t(error as MessageKey)}</h2>
-          <button onClick={refresh}>{t("retry")}</button>
+          <button data-initial-focus onClick={refresh}>
+            <ArrowClockwiseIcon />
+            {t("retry")}
+          </button>
         </div>
       ) : !visible.length ? (
         <div className="feature-empty">
-          <HeartIcon size={42} />
-          <h2>{t(tab === "wishlist" ? "emptyWishlist" : "noMatches")}</h2>
+          {tab === "wishlist" && !query ? (
+            <HeartIcon size={42} aria-hidden />
+          ) : (
+            <MagnifyingGlassIcon size={42} aria-hidden />
+          )}
+          <h2>
+            {t(tab === "wishlist" && !query ? "emptyWishlist" : "noMatches")}
+          </h2>
+          {query ? (
+            <button data-initial-focus onClick={clearSearch}>
+              <XIcon />
+              {t("clearSearch")}
+            </button>
+          ) : (
+            tab === "wishlist" && (
+              <button data-initial-focus onClick={() => setTab("discover")}>
+                <CompassIcon />
+                {t("discover")}
+              </button>
+            )
+          )}
         </div>
       ) : (
         <div className="store-grid" ref={grid}>
@@ -678,9 +729,6 @@ export function Store({
           </button>
         </nav>
       )}
-      <p className="feature-status" role="status">
-        {status}
-      </p>
       {selected && (
         <DetailFrame
           label={`${t("compare")} · ${selected.title}`}
@@ -694,16 +742,9 @@ export function Store({
             {selected.storeID ? ` · ${name(selected.storeID)}` : ""}
           </p>
           <h1>{selected.title}</h1>
-          <SteamMedia
-            key={selected.steamAppID}
-            media={media.data}
-            loading={media.isLoading}
-            t={t}
-            lang={lang}
-          />
           <div className="compare-summary">
             <p className="muted">{t(demo ? "demoPrices" : "storeNote")}</p>
-            <button data-initial-focus onClick={() => toggle(selected)}>
+            <button data-wishlist-toggle onClick={() => toggle(selected)}>
               <HeartIcon
                 weight={
                   wishlist.some((g) => g.gameID === selected.gameID)
@@ -735,41 +776,79 @@ export function Store({
             <>
               <div className="offer-list">
                 {[...comparison.deals]
-                  .sort((a, b) => Number(a.price) - Number(b.price))
-                  .map((offer, i) => (
-                    <div
-                      className={`offer-row ${i === 0 ? "best-offer" : ""}`}
-                      key={offer.dealID}
-                    >
-                      <span>{name(offer.storeID)}</span>
-                      <strong>
-                        {offer.storeID === STEAM_STORE && steamPrice(selected)
-                          ? money(
-                              steamPrice(selected)?.final ?? 0,
-                              steamPrice(selected)?.currency ?? "USD",
-                              lang,
-                            )
-                          : price(offer.price)}
-                      </strong>
-                      <button
-                        className={i === 0 ? "accent" : ""}
-                        onClick={() => void buy(offer.dealID)}
+                  .sort((a, b) => localAmount(a) - localAmount(b))
+                  .map((offer, i) => {
+                    const steam =
+                      offer.storeID === STEAM_STORE
+                        ? steamPrice(selected)
+                        : undefined;
+                    const off = steam
+                      ? steam.discount
+                      : Math.round(Number(offer.savings) || 0);
+                    return (
+                      <div
+                        className={`offer-row ${i === 0 ? "best-offer" : ""}`}
+                        key={offer.dealID}
                       >
-                        {t("buy")}
-                        <ArrowUpRightIcon />
-                      </button>
-                    </div>
-                  ))}
+                        <span>
+                          {name(offer.storeID)}
+                          {i === 0 && comparison.deals.length > 1 && (
+                            <small className="best-label">
+                              {t("bestPrice")}
+                            </small>
+                          )}
+                        </span>
+                        <span className="offer-price">
+                          <strong>
+                            {steam
+                              ? money(steam.final, steam.currency, lang)
+                              : price(offer.price)}
+                          </strong>
+                          {off > 0 && (
+                            <>
+                              <del>
+                                {steam
+                                  ? money(steam.initial, steam.currency, lang)
+                                  : price(offer.retailPrice)}
+                              </del>
+                              <span className="offer-discount">−{off}%</span>
+                            </>
+                          )}
+                          {/* The converted price says where it came from, without hovering. */}
+                          {!steam && converted && (
+                            <small>{usd(offer.price, lang)}</small>
+                          )}
+                        </span>
+                        <button
+                          data-best={i === 0 || undefined}
+                          className={i === 0 ? "accent" : ""}
+                          onClick={() => void buy(offer.dealID)}
+                        >
+                          {t("buy")}
+                          <ArrowUpRightIcon />
+                        </button>
+                      </div>
+                    );
+                  })}
               </div>
               {!comparison.deals.length && <p>{t("noOffers")}</p>}
               {!demo && comparison.cheapestPriceEver && (
                 <p className="muted">
                   {t("lowestPrice")}:{" "}
                   {price(comparison.cheapestPriceEver.price)}
+                  {comparison.cheapestPriceEver.date > 0 &&
+                    ` · ${new Intl.DateTimeFormat(lang, { dateStyle: "medium" }).format(comparison.cheapestPriceEver.date * 1000)}`}
                 </p>
               )}
             </>
           )}
+          <SteamMedia
+            key={selected.steamAppID}
+            media={media.data}
+            loading={media.isLoading}
+            t={t}
+            lang={lang}
+          />
           {partners.length > 0 && (
             <section className="partner-offers">
               <h2>{t("partnerOffers")}</h2>
@@ -791,7 +870,7 @@ export function Store({
                     onClick={() => {
                       void desktop("open_partner_offer", {
                         id: offer.id,
-                      }).catch((e) => setStatus(t(serviceError(e))));
+                      }).catch((e) => notify(serviceError(e)));
                     }}
                   >
                     {t("buy")}
@@ -825,7 +904,6 @@ export function Store({
               </div>
             </section>
           )}
-          <p role="status">{status}</p>
         </DetailFrame>
       )}
     </section>

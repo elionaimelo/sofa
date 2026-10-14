@@ -1749,6 +1749,12 @@ select:focus-visible,
   font-weight: 550;
   line-height: 1.25;
   min-height: 2.5em;
+  /* Two lines at most, so every card in a row keeps the same height. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 .price {
   display: flex;
@@ -1773,11 +1779,6 @@ select:focus-visible,
   font-size: 14px;
   line-height: 1.5;
   margin: 18px 0;
-}
-.feature-status {
-  margin-top: 20px;
-  color: var(--muted);
-  font-size: 14px;
 }
 .inline-error {
   margin-top: 18px;
@@ -1807,6 +1808,31 @@ select:focus-visible,
   to {
     background-position: -250% 0;
   }
+}
+.offer-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.offer-price del,
+.offer-price small {
+  color: var(--muted);
+  font-size: 14px;
+}
+.offer-discount {
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: #1f7a4d;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 650;
+}
+.best-label {
+  display: block;
+  color: #b9f2d2;
+  font-size: 14px;
+  font-weight: 650;
 }
 .compare-summary {
   display: flex;
@@ -3044,7 +3070,6 @@ main:not(.floating-hud) :is(button, input, select):not(.tile, .deal-card) {
 .hero-copy p,
 .feature-description,
 .inline-note,
-.feature-status,
 .muted {
   font-size: 17px;
   line-height: 1.5;

@@ -1200,6 +1200,7 @@ export default function App() {
                 saved={wishlist}
                 steamConnected={library.accounts.steam.connected}
                 onModal={setStoreModal}
+                notify={notify}
                 input={featureInput}
                 onBack={() => setPage("home")}
               />
