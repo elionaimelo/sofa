@@ -157,6 +157,9 @@ const en = {
   removeApp: "Remove",
   appOpened: "{name} opened.",
   appAdded: "{name} added.",
+  browsePlaces: "This device",
+  browseUp: "Back",
+  browseEmpty: "No folders or programs here.",
   settingsControllersDescription: "Pair a Bluetooth controller",
   bluetoothIntro:
     "Put the controller in pairing mode (hold its pairing button until it blinks), then search.",
@@ -489,6 +492,9 @@ const dicts = {
     removeApp: "Remover",
     appOpened: "{name} aberto.",
     appAdded: "{name} adicionado.",
+    browsePlaces: "Este dispositivo",
+    browseUp: "Voltar",
+    browseEmpty: "Nenhuma pasta ou programa aqui.",
     settingsControllersDescription: "Parear um controle Bluetooth",
     bluetoothIntro:
       "Coloque o controle em modo de pareamento (segure o botão de pareamento até piscar) e procure.",
@@ -819,6 +825,9 @@ const dicts = {
     removeApp: "Quitar",
     appOpened: "{name} abierto.",
     appAdded: "{name} añadido.",
+    browsePlaces: "Este dispositivo",
+    browseUp: "Volver",
+    browseEmpty: "No hay carpetas ni programas aquí.",
     settingsControllersDescription: "Emparejar un mando Bluetooth",
     bluetoothIntro:
       "Pon el mando en modo de emparejamiento (mantén su botón de emparejamiento hasta que parpadee) y busca.",

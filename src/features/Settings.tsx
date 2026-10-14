@@ -1,4 +1,4 @@
-import { XIcon } from "@phosphor-icons/react";
+import { AppWindowIcon, FolderIcon, XIcon } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -6,6 +6,8 @@ import {
   type Dispatch,
   type ReactNode,
   type SetStateAction,
+  useEffect,
+  useRef,
   useState,
 } from "react";
 import { Dialog } from "../components/Dialog";
@@ -17,7 +19,10 @@ import {
   demo,
   type MessageKey,
   type Notify,
+  navigateControls,
+  pickerInput,
   serviceError,
+  useFeatureInput,
 } from "../services";
 import { type Provider, providers, type useLibrary } from "../useLibrary";
 import type { useUpdates } from "../useUpdates";
@@ -335,6 +340,79 @@ export function AppearanceSettings({
 }
 
 type AppEntry = { id: string; name: string; kind: "steam" | "epic" | "custom" };
+type Listing = {
+  title: string;
+  can_go_up: boolean;
+  entries: { id: number; name: string; dir: boolean }[];
+};
+
+/**
+ * Folder browser the controller drives: up/down move, A opens a folder or picks a
+ * program, B goes up and closes at the top. The backend resolves every index.
+ */
+function FileBrowser({
+  t,
+  listing,
+  onListing,
+  onPick,
+  onClose,
+  notify,
+}: {
+  t: Translate;
+  listing: Listing;
+  onListing: (listing: Listing) => void;
+  onPick: (id: number) => void;
+  onClose: () => void;
+  notify: Notify;
+}) {
+  const root = useRef<HTMLDivElement>(null);
+  const go = useMutation({
+    mutationFn: (id: number | null) =>
+      id === null
+        ? invoke<Listing>("browse_up")
+        : invoke<Listing>("browse", { id }),
+    onSuccess: onListing,
+    onError: (error) => notify(serviceError(error)),
+  });
+  const up = () => (listing.can_go_up ? go.mutate(null) : onClose());
+  // biome-ignore lint/correctness/useExhaustiveDependencies: focus the first entry of every new listing.
+  useEffect(() => {
+    root.current?.querySelector<HTMLElement>("button")?.focus();
+  }, [listing]);
+  // While open, the controller talks only to the browser (App routes through pickerInput).
+  useFeatureInput(pickerInput, (a) => {
+    if (a === "b") up();
+    else navigateControls(a, root.current);
+  });
+  return (
+    <div ref={root} className="file-browser">
+      <div className="file-browser-head">
+        <button onClick={up}>{t("browseUp")}</button>
+        <strong>{listing.title || t("browsePlaces")}</strong>
+      </div>
+      {listing.entries.length === 0 ? (
+        <p className="muted">{t("browseEmpty")}</p>
+      ) : (
+        <ul className="item-list">
+          {listing.entries.map((entry) => (
+            <li key={entry.id}>
+              <button
+                aria-disabled={go.isPending}
+                onClick={() =>
+                  !go.isPending &&
+                  (entry.dir ? go.mutate(entry.id) : onPick(entry.id))
+                }
+              >
+                {entry.dir ? <FolderIcon /> : <AppWindowIcon />}
+                {entry.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 /** Launchers found on the device plus the user's own programs, opened from here. */
 export function AppsSettings({ t, notify }: { t: Translate; notify: Notify }) {
@@ -350,10 +428,17 @@ export function AppsSettings({ t, notify }: { t: Translate; notify: Notify }) {
     onSuccess: (_, app) => notify("appOpened", { name: app.name }),
     onError: (error) => notify(serviceError(error)),
   });
+  const [browsing, setBrowsing] = useState<Listing | null>(null);
+  const open = useMutation({
+    mutationFn: () => invoke<Listing>("browse", { id: null }),
+    onSuccess: setBrowsing,
+    onError: (error) => notify(serviceError(error)),
+  });
   const add = useMutation({
-    mutationFn: () => invoke<AppEntry | null>("add_app"),
+    mutationFn: (id: number) => invoke<AppEntry>("add_app", { id }),
     onSuccess: (app) => {
-      if (app) notify("appAdded", { name: app.name });
+      notify("appAdded", { name: app.name });
+      setBrowsing(null);
       refresh();
     },
     onError: (error) => notify(serviceError(error)),
@@ -363,7 +448,19 @@ export function AppsSettings({ t, notify }: { t: Translate; notify: Notify }) {
     onSuccess: refresh,
     onError: (error) => notify(serviceError(error)),
   });
-  const busy = launch.isPending || add.isPending || remove.isPending;
+  const busy =
+    launch.isPending || add.isPending || remove.isPending || open.isPending;
+  if (browsing)
+    return (
+      <FileBrowser
+        t={t}
+        listing={browsing}
+        onListing={setBrowsing}
+        onPick={(id) => !add.isPending && add.mutate(id)}
+        onClose={() => setBrowsing(null)}
+        notify={notify}
+      />
+    );
   return (
     <>
       <p className="muted">{t("appsIntro")}</p>
@@ -397,8 +494,8 @@ export function AppsSettings({ t, notify }: { t: Translate; notify: Notify }) {
         data-initial-focus
         disabled={!isTauri()}
         aria-disabled={busy}
-        aria-busy={add.isPending}
-        onClick={() => !busy && add.mutate()}
+        aria-busy={open.isPending}
+        onClick={() => !busy && open.mutate()}
       >
         {t("addApp")}
       </button>

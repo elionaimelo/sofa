@@ -1,6 +1,6 @@
 //! Launchers and the user's own programs (emulators, tools): opened from Settings → Apps.
-//! Custom entries are picked with the native file dialog here, so the webview only ever
-//! sees ids; their paths live in `apps.json` (app data dir).
+//! Custom entries are picked with a folder browser the controller can drive; the webview only
+//! ever sees listing indexes and ids, and the paths live in `apps.json` (app data dir).
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tauri::Manager;
@@ -64,17 +64,153 @@ pub fn apps_list(app: tauri::AppHandle) -> Vec<AppEntry> {
     apps
 }
 
-/// Native file dialog; `None` when the user cancels.
+/// One folder listing at a time; the webview addresses entries by index, never by path.
+#[derive(Default)]
+pub struct Browser(std::sync::Mutex<Option<(Option<PathBuf>, Vec<PathBuf>)>>);
+
+#[derive(Serialize)]
+pub struct Listing {
+    /// Folder name, or empty at the top level (drives and known folders).
+    title: String,
+    can_go_up: bool,
+    entries: Vec<Entry>,
+}
+
+#[derive(Serialize)]
+pub struct Entry {
+    id: usize,
+    name: String,
+    dir: bool,
+}
+
+const PROGRAM_EXTENSIONS: [&str; 4] = ["exe", "bat", "cmd", "lnk"];
+
+fn is_program(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| PROGRAM_EXTENSIONS.iter().any(|p| p.eq_ignore_ascii_case(e)))
+}
+
+/// Drives and the folders programs usually live in.
+fn roots() -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    #[cfg(windows)]
+    {
+        for letter in b'A'..=b'Z' {
+            let drive = PathBuf::from(format!("{}:\\", letter as char));
+            if drive.is_dir() {
+                roots.push(drive);
+            }
+        }
+        for var in ["ProgramFiles", "ProgramFiles(x86)"] {
+            if let Some(dir) = std::env::var_os(var).map(PathBuf::from).filter(|d| d.is_dir()) {
+                roots.push(dir);
+            }
+        }
+        if let Some(home) = std::env::var_os("USERPROFILE").map(PathBuf::from) {
+            for sub in ["Desktop", "Downloads", "Documents"] {
+                let dir = home.join(sub);
+                if dir.is_dir() {
+                    roots.push(dir);
+                }
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        roots.push(PathBuf::from("/"));
+        if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+            roots.push(home);
+        }
+    }
+    roots
+}
+
+/// Sub-folders first, then programs; names starting with "$" or "." are system or hidden.
+fn list_dir(dir: &Path) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with('$') || name.starts_with('.') {
+            continue;
+        }
+        if path.is_dir() {
+            dirs.push(path);
+        } else if is_program(&path) {
+            files.push(path);
+        }
+    }
+    let key = |p: &PathBuf| p.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+    dirs.sort_by_key(key);
+    files.sort_by_key(key);
+    dirs.truncate(400);
+    files.truncate(400);
+    dirs.extend(files);
+    dirs
+}
+
+fn listing(current: Option<PathBuf>, browser: &Browser) -> Result<Listing, String> {
+    let paths = match &current {
+        None => roots(),
+        Some(dir) => list_dir(dir),
+    };
+    let entries = paths
+        .iter()
+        .enumerate()
+        .map(|(id, path)| Entry {
+            id,
+            name: match &current {
+                None => path.display().to_string(),
+                Some(_) => path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+            },
+            dir: current.is_none() || path.is_dir(),
+        })
+        .collect();
+    let title = current
+        .as_ref()
+        .map(|d| d.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| d.display().to_string()))
+        .unwrap_or_default();
+    *browser.0.lock().map_err(|_| "serviceUnavailable")? = Some((current.clone(), paths));
+    Ok(Listing { title, can_go_up: current.is_some(), entries })
+}
+
+fn resolve(browser: &Browser, id: usize) -> Result<(Option<PathBuf>, PathBuf), String> {
+    let guard = browser.0.lock().map_err(|_| "serviceUnavailable")?;
+    let (current, paths) = guard.as_ref().ok_or("invalidInput")?;
+    Ok((current.clone(), paths.get(id).cloned().ok_or("invalidInput")?))
+}
+
+/// `id: None` lists drives and known folders; a folder id lists that folder.
 #[tauri::command]
-pub async fn add_app(app: tauri::AppHandle) -> Result<Option<AppEntry>, String> {
-    use tauri_plugin_dialog::DialogExt;
-    let dialog = app.dialog().file().add_filter("Programs", &["exe", "bat", "cmd", "lnk"]);
-    let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_pick_file())
-        .await
-        .map_err(|_| "serviceUnavailable".to_string())?;
-    let Some(picked) = picked else { return Ok(None) };
-    let path = picked.into_path().map_err(|_| "invalidInput")?;
-    if !path.is_file() {
+pub async fn browse(id: Option<usize>, browser: tauri::State<'_, Browser>) -> Result<Listing, String> {
+    let target = match id {
+        None => None,
+        Some(id) => {
+            let (_, path) = resolve(&browser, id)?;
+            if !path.is_dir() {
+                return Err("invalidInput".into());
+            }
+            Some(path)
+        }
+    };
+    listing(target, &browser)
+}
+
+/// A drive root has no parent, so going up from it shows the top level again.
+#[tauri::command]
+pub async fn browse_up(browser: tauri::State<'_, Browser>) -> Result<Listing, String> {
+    let current = browser.0.lock().map_err(|_| "serviceUnavailable")?.as_ref().and_then(|(c, _)| c.clone());
+    let parent = current.as_ref().and_then(|c| c.parent()).map(Path::to_path_buf);
+    listing(parent, &browser)
+}
+
+/// Adds the program at `id` from the current listing.
+#[tauri::command]
+pub async fn add_app(id: usize, app: tauri::AppHandle, browser: tauri::State<'_, Browser>) -> Result<AppEntry, String> {
+    let (_, path) = resolve(&browser, id)?;
+    if !path.is_file() || !is_program(&path) {
         return Err("invalidInput".into());
     }
     let name = path
@@ -94,7 +230,7 @@ pub async fn add_app(app: tauri::AppHandle) -> Result<Option<AppEntry>, String> 
     custom.push(Custom { id: id.clone(), name: name.clone(), path });
     save(&app, &custom)?;
     crate::log::info(&app, format!("apps: added {name:?}"));
-    Ok(Some(AppEntry { id, name, kind: "custom" }))
+    Ok(AppEntry { id, name, kind: "custom" })
 }
 
 #[tauri::command]
@@ -134,5 +270,27 @@ pub fn launch_app(id: String, app: tauri::AppHandle) -> Result<(), String> {
             let custom = load(&app).into_iter().find(|c| c.id == id).ok_or("invalidInput")?;
             run(&custom.path)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn listing_shows_folders_first_then_programs_only() {
+        let dir = std::env::temp_dir().join(format!("sofa-apps-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("zeta")).unwrap();
+        std::fs::create_dir_all(dir.join(".hidden")).unwrap();
+        for name in ["Game.EXE", "notes.txt", "run.bat", "$Recycle.exe"] {
+            std::fs::write(dir.join(name), b"").unwrap();
+        }
+        let names: Vec<String> = list_dir(&dir)
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, ["zeta", "Game.EXE", "run.bat"]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

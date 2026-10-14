@@ -673,6 +673,29 @@ dialog::backdrop {
 .settings-body > button {
   align-self: flex-start;
 }
+.file-browser {
+  display: grid;
+  gap: 12px;
+}
+.file-browser-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 18px;
+}
+.file-browser .item-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 10px 6px;
+}
+.file-browser .item-list li {
+  padding: 0 8px;
+}
 .item-list {
   display: grid;
   gap: 8px;
