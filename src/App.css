@@ -125,15 +125,14 @@ main::before {
   opacity: 0.23;
   transform: scale(1.1);
 }
+/* Transparent over the selected game's art; a soft top fade keeps the controls readable. */
 .app-header {
   display: flex;
   align-items: center;
   gap: 36px;
   padding: 20px 5%;
   flex-shrink: 0;
-  background: rgb(24 29 38 / 0.42);
-  backdrop-filter: blur(22px);
-  border-bottom: 1px solid rgb(255 255 255 / 0.06);
+  background: linear-gradient(rgb(11 13 18 / 0.62), transparent);
 }
 .brand {
   border: 0;
@@ -867,8 +866,6 @@ select:focus-visible,
 .app-header {
   padding: 14px 4%;
   gap: clamp(16px, 2.5vw, 40px);
-  background: rgb(24 27 34 / 0.8);
-  box-shadow: inset 0 1px rgb(255 255 255 / 0.04);
 }
 .primary-nav {
   gap: 6px;
