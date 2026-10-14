@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
-    "lint": "biome check",
+    "lint": "biome ci",
     "format": "biome check --write"
   },
   "dependencies": {

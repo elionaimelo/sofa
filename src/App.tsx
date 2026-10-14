@@ -287,15 +287,17 @@ export default function App() {
     [visible.length],
   );
   // Letter headings sit between tiles when sorting by title; index tiles, not children.
-  const tileAt = (i: number) =>
-    grid.current?.querySelectorAll<HTMLElement>(".tile")[i];
+  const tileAt = useCallback(
+    (i: number) => grid.current?.querySelectorAll<HTMLElement>(".tile")[i],
+    [],
+  );
   // Hiding or uninstalling the focused game removes its tile (and the dialog's return
   // target); put controller focus back on the grid instead of losing it to <body>.
   useEffect(() => {
     if (document.activeElement !== document.body) return;
     const tile = tileAt(Math.min(focus, visible.length - 1));
     tile?.focus();
-  }, [visible.length, focus]);
+  }, [visible.length, focus, tileAt]);
   useEffect(() => {
     tileAt(focus)?.scrollIntoView({
       block: "nearest",
@@ -304,7 +306,7 @@ export default function App() {
         ? "instant"
         : "smooth",
     });
-  }, [focus]);
+  }, [focus, tileAt]);
   const toggleFavorite = (g: Game) =>
     setPrefs((p) => ({
       ...p,
