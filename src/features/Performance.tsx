@@ -12,6 +12,7 @@ import {
   MoonIcon,
   ScalesIcon,
   SparkleIcon,
+  SpeakerHighIcon,
   SunIcon,
   XIcon,
 } from "@phosphor-icons/react";
@@ -229,6 +230,9 @@ export function HudPanel({
       "framerate_status",
     ),
   ).data;
+  const volume = useQuery(
+    commandQuery<{ percent: number | null; muted: boolean }>("volume_status"),
+  ).data;
   const builtin = useQuery(
     commandQuery<{ enabled: boolean | null }>("builtin_controller"),
   ).data;
@@ -262,7 +266,14 @@ export function HudPanel({
   const power = usePower();
   const display = useQuery(commandQuery<DisplayStatus>("display_status")).data;
   const [open, setOpen] = useState<
-    "resolution" | "refresh" | "brightness" | "tdp" | "fps" | "fans" | null
+    | "resolution"
+    | "refresh"
+    | "brightness"
+    | "volume"
+    | "tdp"
+    | "fps"
+    | "fans"
+    | null
   >(null);
   const [message, setMessage] = useState("");
   const change = useMutation({
@@ -356,23 +367,31 @@ export function HudPanel({
                   run("set_tdp", { watts });
                 },
               }))
-            : open === "fps"
-              ? framerateLimits.map((fps) => ({
-                  label: fps ? `${fps} FPS` : t("off"),
-                  selected: fps === (framerate?.limit ?? 0),
-                  pick: () =>
-                    run("set_framerate_limit", { fps }, "framerate_status"),
+            : open === "volume"
+              ? [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((percent) => ({
+                  label: percent ? `${percent}%` : t("hudMuted"),
+                  selected: volume?.muted
+                    ? percent === 0
+                    : percent === volume?.percent,
+                  pick: () => run("set_volume", { percent }, "volume_status"),
                 }))
-              : open === "fans"
-                ? fanPresets.map((preset) => ({
-                    label: t(`fan_${preset}`),
-                    selected: preset === fan,
-                    pick: () => {
-                      setFan(preset);
-                      run("set_fan_curve", { preset }, "ally_status");
-                    },
+              : open === "fps"
+                ? framerateLimits.map((fps) => ({
+                    label: fps ? `${fps} FPS` : t("off"),
+                    selected: fps === (framerate?.limit ?? 0),
+                    pick: () =>
+                      run("set_framerate_limit", { fps }, "framerate_status"),
                   }))
-                : [];
+                : open === "fans"
+                  ? fanPresets.map((preset) => ({
+                      label: t(`fan_${preset}`),
+                      selected: preset === fan,
+                      pick: () => {
+                        setFan(preset);
+                        run("set_fan_curve", { preset }, "ally_status");
+                      },
+                    }))
+                  : [];
   const toggle = (name: NonNullable<typeof open>) =>
     setOpen(open === name ? null : name);
   const battery = power.data?.batteries[0]?.charge_percent;
@@ -459,6 +478,18 @@ export function HudPanel({
           onClick={() => void run("set_cpu_boost", { on: !display?.cpu_boost })}
         />
         {open === "brightness" && <Options options={options} disabled={busy} />}
+        {volume?.percent != null && (
+          <Tile
+            icon={SpeakerHighIcon}
+            label={t("hudVolume")}
+            value={volume.muted ? t("hudMuted") : `${volume.percent}%`}
+            note={t("hudTapToChange")}
+            expanded={open === "volume"}
+            disabled={busy}
+            onClick={() => toggle("volume")}
+          />
+        )}
+        {open === "volume" && <Options options={options} disabled={busy} />}
         {ally?.tdp_supported && (
           <Tile
             icon={LightningIcon}

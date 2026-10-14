@@ -42,7 +42,7 @@ fn json(status: u16, body: String) -> Response<std::io::Cursor<Vec<u8>>> {
 
 /// Runs one HUD command. Same functions the Tauri commands use; only this allowlist is reachable.
 async fn dispatch(app: &tauri::AppHandle, command: &str, args: serde_json::Value) -> Result<serde_json::Value, String> {
-    use crate::{ally, ally_pad, display, game_settings, hud, power, rtss, session};
+    use crate::{ally, ally_pad, audio, display, game_settings, hud, power, rtss, session};
     fn parse<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> Result<T, String> {
         serde_json::from_value(value).map_err(|_| "invalidInput".to_string())
     }
@@ -68,6 +68,8 @@ async fn dispatch(app: &tauri::AppHandle, command: &str, args: serde_json::Value
         "display_status" => out(display::display_status().await),
         "set_display_mode" => out(display::set_display_mode(parse(arg("mode"))?).await?),
         "set_brightness" => out(display::set_brightness(parse(arg("percent"))?).await?),
+        "volume_status" => out(audio::volume_status().await),
+        "set_volume" => out(audio::set_volume(parse(arg("percent"))?).await?),
         "set_cpu_boost" => out(display::set_cpu_boost(parse(arg("on"))?).await?),
         "game_settings" => out(game_settings::game_settings(parse(arg("id"))?, app.clone()).await),
         "set_game_settings" => out(

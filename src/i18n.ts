@@ -156,6 +156,8 @@ const en = {
   hudRefreshRate: "Refresh rate",
   hudBrightness: "Brightness",
   hudTapToChange: "Tap to change",
+  hudVolume: "Volume",
+  hudMuted: "Muted",
   storage: "Storage",
   storageFree: "{name} {free} GB free of {total} GB",
   settingsStorageDescription:
@@ -462,6 +464,8 @@ const dicts = {
     hudRefreshRate: "Taxa de atualização",
     hudBrightness: "Brilho",
     hudTapToChange: "Toque para alterar",
+    hudVolume: "Volume",
+    hudMuted: "Mudo",
     storage: "Armazenamento",
     storageFree: "{name} {free} GB livres de {total} GB",
     settingsStorageDescription:
@@ -765,6 +769,8 @@ const dicts = {
     hudRefreshRate: "Frecuencia de actualización",
     hudBrightness: "Brillo",
     hudTapToChange: "Toca para cambiar",
+    hudVolume: "Volumen",
+    hudMuted: "Silencio",
     storage: "Almacenamiento",
     storageFree: "{name} {free} GB libres de {total} GB",
     settingsStorageDescription:

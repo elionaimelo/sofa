@@ -3800,6 +3800,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tiny_http",
  "tokio",
+ "windows",
  "windows-sys 0.61.2",
  "winreg 0.55.0",
 ]
