@@ -24,6 +24,7 @@ import type { useUpdates } from "../useUpdates";
 
 export type SettingsPanel =
   | "library"
+  | "apps"
   | "appearance"
   | "controllers"
   | "updates";
@@ -31,6 +32,7 @@ type SetPrefs = Dispatch<SetStateAction<Preferences>>;
 
 const titles: Record<SettingsPanel, MessageKey> = {
   library: "librarySettings",
+  apps: "apps",
   appearance: "appearance",
   controllers: "controllers",
   updates: "updates",
@@ -328,6 +330,78 @@ export function AppearanceSettings({
           )}
         </>
       )}
+    </>
+  );
+}
+
+type AppEntry = { id: string; name: string; kind: "steam" | "epic" | "custom" };
+
+/** Launchers found on the device plus the user's own programs, opened from here. */
+export function AppsSettings({ t, notify }: { t: Translate; notify: Notify }) {
+  const queryClient = useQueryClient();
+  const apps = useQuery({
+    ...commandQuery<AppEntry[]>("apps_list"),
+    enabled: isTauri(),
+  });
+  const refresh = () =>
+    queryClient.invalidateQueries({ queryKey: ["apps_list"] });
+  const launch = useMutation({
+    mutationFn: (app: AppEntry) => invoke("launch_app", { id: app.id }),
+    onSuccess: (_, app) => notify("appOpened", { name: app.name }),
+    onError: (error) => notify(serviceError(error)),
+  });
+  const add = useMutation({
+    mutationFn: () => invoke<AppEntry | null>("add_app"),
+    onSuccess: (app) => {
+      if (app) notify("appAdded", { name: app.name });
+      refresh();
+    },
+    onError: (error) => notify(serviceError(error)),
+  });
+  const remove = useMutation({
+    mutationFn: (app: AppEntry) => invoke("remove_app", { id: app.id }),
+    onSuccess: refresh,
+    onError: (error) => notify(serviceError(error)),
+  });
+  const busy = launch.isPending || add.isPending || remove.isPending;
+  return (
+    <>
+      <p className="muted">{t("appsIntro")}</p>
+      {apps.data && apps.data.length > 0 && (
+        <ul className="item-list">
+          {apps.data.map((app) => (
+            <li key={app.id}>
+              <span>{app.name}</span>
+              <span className="detail-actions">
+                {app.kind === "custom" && (
+                  <button
+                    aria-disabled={busy}
+                    onClick={() => !busy && remove.mutate(app)}
+                  >
+                    {t("removeApp")}
+                  </button>
+                )}
+                <button
+                  className="accent"
+                  aria-disabled={busy}
+                  onClick={() => !busy && launch.mutate(app)}
+                >
+                  {t("openApp")}
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <button
+        data-initial-focus
+        disabled={!isTauri()}
+        aria-disabled={busy}
+        aria-busy={add.isPending}
+        onClick={() => !busy && add.mutate()}
+      >
+        {t("addApp")}
+      </button>
     </>
   );
 }

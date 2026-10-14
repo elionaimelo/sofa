@@ -128,7 +128,7 @@ pub fn running_steam_app() -> Option<u32> {
 // Redistributables / runtimes that show up as "installed apps" but aren't games.
 const STEAM_SKIP: &[&str] = &["228980", "1070560", "1391110", "1628350", "1493710"];
 
-fn steam_root() -> Option<PathBuf> {
+pub(crate) fn steam_root() -> Option<PathBuf> {
     #[cfg(windows)]
     {
         use winreg::{RegKey, enums::HKEY_CURRENT_USER};

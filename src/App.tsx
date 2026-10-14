@@ -31,6 +31,7 @@ import { useUpdates } from "./useUpdates";
 import "./App.css";
 import "@fontsource-variable/outfit";
 import {
+  AppWindowIcon,
   ArrowRightIcon,
   BluetoothIcon,
   GaugeIcon,
@@ -54,6 +55,7 @@ import { HudPanel } from "./features/Performance";
 import { PowerMenu, TopBatteries, usePower } from "./features/Power";
 import {
   AppearanceSettings,
+  AppsSettings,
   ControllerSettings,
   LibrarySettings,
   SettingsDialog,
@@ -1120,6 +1122,15 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => {
+                    setSettings("apps");
+                  }}
+                >
+                  <AppWindowIcon aria-hidden />
+                  <strong>{t("apps")}</strong>
+                  <span>{t("settingsAppsDescription")}</span>
+                </button>
+                <button
+                  onClick={() => {
                     setSettings("appearance");
                   }}
                 >
@@ -1364,6 +1375,7 @@ export default function App() {
               notify={notify}
             />
           )}
+          {settings === "apps" && <AppsSettings t={t} notify={notify} />}
           {settings === "controllers" && (
             <ControllerSettings t={t} notify={notify} />
           )}

@@ -148,6 +148,15 @@ const en = {
     "In the Game Bar (Xbox button), with View + Menu, or tap here",
   settingsUpdatesDescription: "Check for a new Sofa version",
   controllers: "Controllers",
+  apps: "Apps",
+  settingsAppsDescription: "Open Steam, Epic or your own programs",
+  appsIntro:
+    "Launchers found on this device, plus programs you add yourself, such as an emulator.",
+  openApp: "Open",
+  addApp: "Add a program…",
+  removeApp: "Remove",
+  appOpened: "{name} opened.",
+  appAdded: "{name} added.",
   settingsControllersDescription: "Pair a Bluetooth controller",
   bluetoothIntro:
     "Put the controller in pairing mode (hold its pairing button until it blinks), then search.",
@@ -471,6 +480,15 @@ const dicts = {
       "Na Game Bar (botão Xbox), com View + Menu ou tocando aqui",
     settingsUpdatesDescription: "Verificar novas versões do Sofa",
     controllers: "Controles",
+    apps: "Aplicativos",
+    settingsAppsDescription: "Abrir Steam, Epic ou programas seus",
+    appsIntro:
+      "Launchers encontrados neste dispositivo e programas que você adicionar, como um emulador.",
+    openApp: "Abrir",
+    addApp: "Adicionar programa…",
+    removeApp: "Remover",
+    appOpened: "{name} aberto.",
+    appAdded: "{name} adicionado.",
     settingsControllersDescription: "Parear um controle Bluetooth",
     bluetoothIntro:
       "Coloque o controle em modo de pareamento (segure o botão de pareamento até piscar) e procure.",
@@ -792,6 +810,15 @@ const dicts = {
       "En la Game Bar (botón Xbox), con View + Menu o toca aquí",
     settingsUpdatesDescription: "Buscar nuevas versiones de Sofa",
     controllers: "Mandos",
+    apps: "Aplicaciones",
+    settingsAppsDescription: "Abrir Steam, Epic o tus propios programas",
+    appsIntro:
+      "Launchers encontrados en este dispositivo y programas que añadas, como un emulador.",
+    openApp: "Abrir",
+    addApp: "Añadir programa…",
+    removeApp: "Quitar",
+    appOpened: "{name} abierto.",
+    appAdded: "{name} añadido.",
     settingsControllersDescription: "Emparejar un mando Bluetooth",
     bluetoothIntro:
       "Pon el mando en modo de emparejamiento (mantén su botón de emparejamiento hasta que parpadee) y busca.",
