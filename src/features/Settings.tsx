@@ -1,4 +1,22 @@
-import { AppWindowIcon, FolderIcon, XIcon } from "@phosphor-icons/react";
+import {
+  AppWindowIcon,
+  ArrowClockwiseIcon,
+  ArrowLeftIcon,
+  ArrowSquareOutIcon,
+  ArrowsOutIcon,
+  BluetoothIcon,
+  DownloadSimpleIcon,
+  EyeIcon,
+  FileTextIcon,
+  FolderIcon,
+  MagnifyingGlassIcon,
+  PlayIcon,
+  PlusIcon,
+  SignInIcon,
+  SignOutIcon,
+  TrashIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -120,6 +138,7 @@ function AccountSection({
           aria-busy={account.busy}
           onClick={() => !account.busy && account.connect()}
         >
+          <SignInIcon weight="bold" />
           {t(account.busy ? "connecting" : `connect${providerNames[provider]}`)}
         </button>
       )}
@@ -146,6 +165,7 @@ function AccountSection({
               account.disconnect();
             }}
           >
+            <SignOutIcon weight="bold" />
             {t("disconnect")}
           </button>
         </div>
@@ -192,6 +212,7 @@ export function LibrarySettings({
         aria-busy={library.loading}
         onClick={() => !library.loading && void library.refresh()}
       >
+        <ArrowClockwiseIcon />
         {t("refresh")}
       </button>
       {/* Hidden games live only here; restoring puts them back in the library. */}
@@ -207,6 +228,7 @@ export function LibrarySettings({
               <li key={game.id}>
                 <span>{game.title}</span>
                 <button onClick={() => onRestore(game)}>
+                  <EyeIcon />
                   {t("restoreGame")}
                 </button>
               </li>
@@ -316,6 +338,7 @@ export function AppearanceSettings({
             toggleFullscreen.mutate(!fullscreen.data)
           }
         >
+          <ArrowsOutIcon />
           {t("fullscreen")}: {t(fullscreen.data ? "on" : "off")}
         </button>
       )}
@@ -401,7 +424,10 @@ function FileBrowser({
   return (
     <div ref={root} className="file-browser">
       <div className="file-browser-head">
-        <button onClick={up}>{t("browseUp")}</button>
+        <button onClick={up}>
+          <ArrowLeftIcon />
+          {t("browseUp")}
+        </button>
         <strong>{listing.title || t("browsePlaces")}</strong>
       </div>
       {listing.entries.length === 0 ? (
@@ -489,6 +515,7 @@ export function AppsSettings({ t, notify }: { t: Translate; notify: Notify }) {
                     aria-disabled={busy}
                     onClick={() => !busy && remove.mutate(app)}
                   >
+                    <TrashIcon />
                     {t("removeApp")}
                   </button>
                 )}
@@ -497,6 +524,7 @@ export function AppsSettings({ t, notify }: { t: Translate; notify: Notify }) {
                   aria-disabled={busy}
                   onClick={() => !busy && launch.mutate(app)}
                 >
+                  <PlayIcon weight="fill" />
                   {t("openApp")}
                 </button>
               </span>
@@ -511,6 +539,7 @@ export function AppsSettings({ t, notify }: { t: Translate; notify: Notify }) {
         aria-busy={open.isPending}
         onClick={() => !busy && open.mutate()}
       >
+        <PlusIcon weight="bold" />
         {t("addApp")}
       </button>
     </>
@@ -552,6 +581,7 @@ export function ControllerSettings({
         aria-busy={scan.isPending}
         onClick={() => !busy && scan.mutate()}
       >
+        <MagnifyingGlassIcon weight="bold" />
         {t(scan.isPending ? "bluetoothScanning" : "bluetoothScan")}
       </button>
       {scan.data && scan.data.length === 0 && (
@@ -569,6 +599,7 @@ export function ControllerSettings({
                 aria-busy={pair.isPending && pair.variables?.id === device.id}
                 onClick={() => !busy && pair.mutate(device)}
               >
+                <BluetoothIcon />
                 {t(
                   pair.isPending && pair.variables?.id === device.id
                     ? "bluetoothPairing"
@@ -586,6 +617,7 @@ export function ControllerSettings({
           )
         }
       >
+        <ArrowSquareOutIcon />
         {t("bluetoothWindowsSettings")}
       </button>
     </>
@@ -605,6 +637,7 @@ export function UpdateSettings({
       {version && <p>{t("installedVersion", { version })}</p>}
       {isTauri() && (
         <button onClick={() => void invoke("open_log").catch(() => undefined)}>
+          <FileTextIcon />
           {t("openLog")}
         </button>
       )}
@@ -617,6 +650,7 @@ export function UpdateSettings({
           else void updates.check();
         }}
       >
+        {update ? <DownloadSimpleIcon weight="bold" /> : <ArrowClockwiseIcon />}
         {update
           ? t("updateAvailable", { version: update.version })
           : t("checkUpdates")}

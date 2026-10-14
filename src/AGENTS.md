@@ -17,6 +17,18 @@
 - Set focus on purpose: `data-initial-focus` in dialogs, move focus to the trigger before unmounting a focused element.
 - View + Start is reserved for the native HUD toggle; `useInput` fires View/Start on release so the chord doesn't trigger them.
 
+## Design language
+
+Decided with the product owner; keep every new screen inside it.
+
+- **Glass surfaces.** Panels, dialogs, drawers, pickers, settings cards and HUD tiles use the `--glass*` tokens in `App.css`: translucent background, `backdrop-filter` blur, a thin light border and an inset top highlight. The game's art stays visible behind; `prefers-reduced-transparency` falls back to a solid colour. Header and footer are transparent with a soft fade.
+- **Icon + label buttons.** Every text button carries a Phosphor icon before the label (after it for "next"-style actions); icon-only buttons get `aria-label`. The spacing rule lives on `button > svg:not(:only-child)`.
+- **Motion.** Short and purposeful: tiles stagger in (`tile-in`, `--i` index), the hero copy rises when the selection changes (`rise-in`), pickers pop, drawers slide from the right, dialogs fade and scale, buttons press down. 150–320 ms, `cubic-bezier(0.2, 0.8, 0.2, 1)`, and every animation is listed under `prefers-reduced-motion`.
+- **Fixed frames.** Game details and the store comparison share `.detail-layout`: cover fixed on the left, blurred art behind, scrolling content on the right, actions pinned at the bottom. Dialogs must fit a 720p screen without scrolling the frame.
+- **One line of facts.** Under a title, metadata goes in a single muted line joined by " · " (`gameMeta`): last session, hours played, size on disk or expected download.
+- **Quiet chrome.** The library count is context next to the tabs, not a heading. Store badges on covers stay subtle; the install prompt shows only on the focused tile. Cards that leave Sofa (Windows settings) carry an "opens outside" icon.
+- **Typography and colour.** Outfit variable font; accent `--accent` for the one primary action per view and for selection; `--muted` for secondary text. Uppercase, letter-spaced labels only for small eyebrows (`.eyebrow`, `.detail-meta`, `.deal-shop`).
+
 ## Text, errors and accessibility
 
 - All UI text goes through `t(key)`; add the key to all three dictionaries in `i18n.ts` (the `Dict` type enforces it). Brand names (Steam, CPU Boost) are the only literals.

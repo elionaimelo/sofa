@@ -35,15 +35,20 @@ import "./App.css";
 import "@fontsource-variable/outfit";
 import {
   AppWindowIcon,
+  ArrowCounterClockwiseIcon,
   ArrowRightIcon,
   ArrowSquareOutIcon,
   BluetoothIcon,
+  CheckIcon,
   DownloadSimpleIcon,
+  EyeIcon,
+  EyeSlashIcon,
   GaugeIcon,
   GearSixIcon,
   HardDrivesIcon,
   HeartIcon,
   HouseIcon,
+  InfoIcon,
   PlayIcon,
   PowerIcon,
   SlidersHorizontalIcon,
@@ -992,12 +997,14 @@ export default function App() {
                         setPrefs((p) => ({ ...p, filters: defaultFilters }))
                       }
                     >
+                      <ArrowCounterClockwiseIcon />
                       {t("clearFilters")}
                     </button>
                     <button
                       className="accent"
                       onClick={() => setFiltersOpen(false)}
                     >
+                      <CheckIcon weight="bold" />
                       {t("showResults")}
                     </button>
                   </div>
@@ -1080,6 +1087,7 @@ export default function App() {
                         {t(selected.installed ? "play" : "installGame")}
                       </button>
                       <button onClick={() => setDetails(selected)}>
+                        <InfoIcon />
                         {t("details")}
                       </button>
                       <button
@@ -1402,9 +1410,19 @@ export default function App() {
                       : installGame(details))
                   }
                 >
+                  {details.installed ? (
+                    <PlayIcon weight="fill" />
+                  ) : (
+                    <DownloadSimpleIcon weight="bold" />
+                  )}
                   {t(details.installed ? "play" : "installGame")}
                 </button>
                 <button onClick={() => toggleFavorite(details)}>
+                  <HeartIcon
+                    weight={
+                      prefs.favorites.includes(details.id) ? "fill" : "regular"
+                    }
+                  />
                   {t(
                     prefs.favorites.includes(details.id)
                       ? "removeFavorite"
@@ -1412,6 +1430,11 @@ export default function App() {
                   )}
                 </button>
                 <button onClick={() => toggleHidden(details)}>
+                  {prefs.hidden.includes(details.id) ? (
+                    <EyeIcon />
+                  ) : (
+                    <EyeSlashIcon />
+                  )}
                   {t(
                     prefs.hidden.includes(details.id)
                       ? "restoreGame"

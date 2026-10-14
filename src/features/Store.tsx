@@ -1,6 +1,8 @@
 import {
   ArrowClockwiseIcon,
   ArrowUpRightIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
   HeartIcon,
   MagnifyingGlassIcon,
   XIcon,
@@ -414,6 +416,7 @@ export function Store({
           })}
         >
           <button disabled={page === 0} onClick={() => goToPage(page - 1)}>
+            <CaretLeftIcon weight="bold" />
             {t("previousPage")}
           </button>
           <span>
@@ -424,6 +427,7 @@ export function Store({
             onClick={() => goToPage(page + 1)}
           >
             {t("nextPage")}
+            <CaretRightIcon weight="bold" />
           </button>
         </nav>
       )}
