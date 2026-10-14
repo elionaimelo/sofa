@@ -2443,3 +2443,119 @@ footer kbd {
   gap: 8px;
   justify-items: start;
 }
+/* Launch screen: the game's art behind a rumbling controller while the launcher starts it. */
+.launch-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #0b0d12;
+  animation: launch-in 0.25s ease-out;
+}
+.launch-art {
+  position: absolute;
+  inset: -24px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(20px) brightness(0.4) saturate(1.2);
+}
+.launch-content {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+}
+.launch-content h2 {
+  margin: 8px 0 0;
+  font-size: clamp(26px, 4vw, 44px);
+  font-weight: 700;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.launch-content p {
+  color: var(--muted);
+}
+.launch-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.08);
+  color: #fff;
+}
+.launch-icon svg {
+  width: 72px;
+  height: 72px;
+  animation: rumble 1.3s ease-in-out infinite;
+}
+.launch-icon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  animation: rumble-ring 1.3s ease-out infinite;
+}
+/* Two short bursts, then rest: reads as a controller's vibration motor. */
+@keyframes rumble {
+  0%,
+  42%,
+  100% {
+    transform: translate(0, 0) rotate(0);
+  }
+  4% {
+    transform: translate(-3px, 1px) rotate(-7deg);
+  }
+  8% {
+    transform: translate(3px, -1px) rotate(7deg);
+  }
+  12% {
+    transform: translate(-3px, -1px) rotate(-6deg);
+  }
+  16% {
+    transform: translate(3px, 1px) rotate(6deg);
+  }
+  20% {
+    transform: translate(0, 0) rotate(0);
+  }
+  26% {
+    transform: translate(-2px, 1px) rotate(-4deg);
+  }
+  30% {
+    transform: translate(2px, -1px) rotate(4deg);
+  }
+  34% {
+    transform: translate(-2px, 0) rotate(-3deg);
+  }
+  38% {
+    transform: translate(2px, 0) rotate(3deg);
+  }
+}
+@keyframes rumble-ring {
+  from {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+@keyframes launch-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .launch-icon svg,
+  .launch-icon::after,
+  .launch-screen {
+    animation: none;
+  }
+}

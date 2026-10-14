@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { Dialog } from "./components/Dialog";
+import { LaunchScreen } from "./components/LaunchScreen";
 import { Scene } from "./components/Scene";
 import { initialLang, type Lang, saveLang, translator } from "./i18n";
 import {
@@ -134,7 +135,19 @@ export default function App() {
   const [settings, setSettings] = useState<SettingsPanel | null>(null);
   const [powerMenu, setPowerMenu] = useState(false);
   const [hudOpen, setHudOpen] = useState(false);
+  const [launchScreen, setLaunchScreen] = useState<Game | null>(null);
   const hudInput: InputRef = useRef(null);
+  // The launch screen stays until the game takes focus; launchers can take a while.
+  useEffect(() => {
+    if (!launchScreen) return;
+    const done = () => setLaunchScreen(null);
+    const timeout = setTimeout(done, 30_000);
+    window.addEventListener("blur", done);
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener("blur", done);
+    };
+  }, [launchScreen]);
   const powerInput: InputRef = useRef(null);
   const power = usePower();
   const [launching, setLaunching] = useState(false);
@@ -290,19 +303,25 @@ export default function App() {
   const play = async (g: Game) => {
     if (!g.installed) return;
     if (launchBusy.current) return;
-    if (demo || !isTauri()) {
-      setStatus(t(demo ? "previewLaunch" : "browserPreview"));
+    if (demo) {
+      // The preview shows the launch screen without starting anything.
+      setLaunchScreen(g);
+      return;
+    }
+    if (!isTauri()) {
+      setStatus(t("browserPreview"));
       return;
     }
     launchBusy.current = true;
     setLaunching(true);
-    setStatus(t("launching", { title: g.title }));
+    setLaunchScreen(g);
     try {
       await invoke("launch", { id: g.id });
       setPrefs((p) => ({ ...p, recent: { ...p.recent, [g.id]: Date.now() } }));
       setDetails(null);
       setStatus("");
     } catch (e) {
+      setLaunchScreen(null);
       setStatus(
         t("launchFailed", { title: g.title, error: t(serviceError(e)) }),
       );
@@ -329,6 +348,10 @@ export default function App() {
     }
   };
   useInput((a) => {
+    if (launchScreen) {
+      if (a === "b") setLaunchScreen(null);
+      return;
+    }
     if (hudOpen) {
       hudInput.current?.(a);
       return;
@@ -467,50 +490,52 @@ export default function App() {
   });
   // The library's collection title is its page heading; on Home the hero title is.
   const CollectionHeading = page === "library" ? "h1" : "h2";
-  const hints: [string, string][] = hudOpen
-    ? [
-        ["A", t("selectAction")],
-        ["B", t("close")],
-      ]
-    : details
+  const hints: [string, string][] = launchScreen
+    ? [["B", t("close")]]
+    : hudOpen
       ? [
           ["A", t("selectAction")],
-          ["X", t("favorites")],
-          [
-            "Y",
-            t(prefs.hidden.includes(details.id) ? "restoreGame" : "hideGame"),
-          ],
           ["B", t("close")],
         ]
-      : settings || powerMenu
+      : details
         ? [
             ["A", t("selectAction")],
+            ["X", t("favorites")],
+            [
+              "Y",
+              t(prefs.hidden.includes(details.id) ? "restoreGame" : "hideGame"),
+            ],
             ["B", t("close")],
           ]
-        : filtersOpen && page === "library"
+        : settings || powerMenu
           ? [
               ["A", t("selectAction")],
-              ["Y", t("clearFilters")],
               ["B", t("close")],
             ]
-          : [
-              ["View", t("menu")],
-              ["A", t("selectAction")],
-              ...(page === "home" || page === "library"
-                ? ([
-                    ["X", t("favorites")],
-                    ["LB/RB", t("sources")],
-                  ] as [string, string][])
-                : page === "store"
+          : filtersOpen && page === "library"
+            ? [
+                ["A", t("selectAction")],
+                ["Y", t("clearFilters")],
+                ["B", t("close")],
+              ]
+            : [
+                ["View", t("menu")],
+                ["A", t("selectAction")],
+                ...(page === "home" || page === "library"
                   ? ([
-                      ["X", t("wishlist")],
-                      ["LB/RB", `${t("discover")} / ${t("wishlist")}`],
+                      ["X", t("favorites")],
+                      ["LB/RB", t("sources")],
                     ] as [string, string][])
-                  : []),
-              ...(page === "home"
-                ? []
-                : ([["B", t("home")]] as [string, string][])),
-            ];
+                  : page === "store"
+                    ? ([
+                        ["X", t("wishlist")],
+                        ["LB/RB", `${t("discover")} / ${t("wishlist")}`],
+                      ] as [string, string][])
+                    : []),
+                ...(page === "home"
+                  ? []
+                  : ([["B", t("home")]] as [string, string][])),
+              ];
   return (
     <main className={`page-${page} density-${prefs.density}`}>
       <a className="skip-link" href="#content">
@@ -1094,6 +1119,7 @@ export default function App() {
           ))}
         </span>
       </footer>
+      {launchScreen && <LaunchScreen game={launchScreen} t={t} />}
       {hudOpen && (
         <Dialog label="HUD" onClose={() => setHudOpen(false)}>
           <HudPanel
