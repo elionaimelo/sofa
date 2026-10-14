@@ -195,7 +195,7 @@ pub(crate) fn steam_root() -> Option<PathBuf> {
         {
             return Some(PathBuf::from(p));
         }
-        return Some(PathBuf::from(r"C:\Program Files (x86)\Steam")).filter(|p| p.exists());
+        Some(PathBuf::from(r"C:\Program Files (x86)\Steam")).filter(|p| p.exists())
     }
     #[cfg(not(windows))]
     {

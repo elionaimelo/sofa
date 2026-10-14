@@ -105,11 +105,10 @@ async fn steam_token(app: &tauri::AppHandle, visible: bool) -> Result<Option<Str
             }
         })
         .on_document_title_changed(move |_, title| {
-            if let Some(token) = title.strip_prefix(TITLE_PREFIX) {
-                if let Ok(mut slot) = sink.lock() {
+            if let Some(token) = title.strip_prefix(TITLE_PREFIX)
+                && let Ok(mut slot) = sink.lock() {
                     *slot = Some(token.to_owned());
                 }
-            }
         });
     if let Some(main) = app.get_webview_window("main").filter(|_| visible) {
         builder = builder.parent(&main).map_err(|_| "openFailed")?;

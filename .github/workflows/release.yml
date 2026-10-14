@@ -29,6 +29,7 @@ jobs:
       # The Rust build bundles ../dist as a resource (HUD server), so build the frontend first.
       - run: npm run build
       - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings
 
   # Xbox Game Bar widget (widget/): UWP app signed with the same cert; the installer sideloads it.
   # Rebuilt only when widget/ or its artwork changes: the signed package is cached by content,

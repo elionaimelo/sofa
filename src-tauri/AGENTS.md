@@ -30,4 +30,5 @@
 ## Tests
 
 - `#[cfg(test)] mod tests` at the bottom of each module for pure logic (parsers, validation, mappings). Hardware or OS integration tests are `#[ignore]`.
-- `cargo test` must pass with zero warnings.
+- `cargo test` must pass with zero warnings, and `cargo clippy --all-targets -- -D warnings` must be clean for macOS and for Windows (`scripts/check-rust.sh` runs both; CI runs it on Windows). When a lint is wrong for a line, use `#[expect(clippy::lint)]` with a comment saying why, never a bare `#[allow]`.
+- Follow the `rust-best-practices` skill (`.agents/skills/`) with one project exception: commands return `Result<T, String>` whose error is an i18n key, so the UI never shows raw error text. Don't introduce `thiserror`/`anyhow` error types across the command boundary.

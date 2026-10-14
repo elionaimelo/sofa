@@ -25,12 +25,22 @@ fn install_dir() -> Option<std::path::PathBuf> {
 /// The exported profile API of RTSSHooks64.dll (the same one Handheld Companion uses).
 #[cfg(windows)]
 struct Hooks {
-    load: unsafe extern "system" fn(*const u8),
-    save: unsafe extern "system" fn(*const u8),
-    get: unsafe extern "system" fn(*const u8, *mut u32, u32) -> i32,
-    set: unsafe extern "system" fn(*const u8, *const u32, u32) -> i32,
-    update: unsafe extern "system" fn(),
+    load: ByName,
+    save: ByName,
+    get: GetProperty,
+    set: SetProperty,
+    update: Update,
 }
+#[cfg(windows)]
+type Export = unsafe extern "system" fn() -> isize;
+#[cfg(windows)]
+type ByName = unsafe extern "system" fn(*const u8);
+#[cfg(windows)]
+type GetProperty = unsafe extern "system" fn(*const u8, *mut u32, u32) -> i32;
+#[cfg(windows)]
+type SetProperty = unsafe extern "system" fn(*const u8, *const u32, u32) -> i32;
+#[cfg(windows)]
+type Update = unsafe extern "system" fn();
 
 #[cfg(windows)]
 fn hooks(dir: &std::path::Path) -> Option<Hooks> {
@@ -46,18 +56,18 @@ fn hooks(dir: &std::path::Path) -> Option<Hooks> {
     if module.is_null() {
         return None;
     }
-    let symbol = |name: &[u8]| {
+    let symbol = |name: &std::ffi::CStr| {
         // `name` is a NUL-terminated ASCII export name; the module handle is valid.
-        unsafe { GetProcAddress(module, name.as_ptr()) }
+        unsafe { GetProcAddress(module, name.as_ptr().cast()) }
     };
-    // Exports resolved by name; the signatures below are the documented stdcall ones.
+    // Exports resolved by name; the target signatures are the documented stdcall ones.
     unsafe {
         Some(Hooks {
-            load: std::mem::transmute(symbol(b"LoadProfile\0")?),
-            save: std::mem::transmute(symbol(b"SaveProfile\0")?),
-            get: std::mem::transmute(symbol(b"GetProfileProperty\0")?),
-            set: std::mem::transmute(symbol(b"SetProfileProperty\0")?),
-            update: std::mem::transmute(symbol(b"UpdateProfiles\0")?),
+            load: std::mem::transmute::<Export, ByName>(symbol(c"LoadProfile")?),
+            save: std::mem::transmute::<Export, ByName>(symbol(c"SaveProfile")?),
+            get: std::mem::transmute::<Export, GetProperty>(symbol(c"GetProfileProperty")?),
+            set: std::mem::transmute::<Export, SetProperty>(symbol(c"SetProfileProperty")?),
+            update: std::mem::transmute::<Export, Update>(symbol(c"UpdateProfiles")?),
         })
     }
 }
@@ -69,8 +79,8 @@ fn status() -> FramerateStatus {
     let mut limit = 0u32;
     // Global profile; the property is a 32-bit integer.
     let ok = unsafe {
-        (hooks.load)(b"\0".as_ptr());
-        (hooks.get)(b"FramerateLimit\0".as_ptr(), &mut limit, 4) != 0
+        (hooks.load)(c"".as_ptr().cast());
+        (hooks.get)(c"FramerateLimit".as_ptr().cast(), &mut limit, 4) != 0
     };
     FramerateStatus { installed: true, limit: ok.then_some(limit) }
 }
@@ -82,10 +92,10 @@ fn set_limit(fps: u32) -> Result<(), String> {
     let hooks = hooks(&dir).ok_or("settingUnavailable")?;
     // Global profile; the property is a 32-bit integer.
     let ok = unsafe {
-        (hooks.load)(b"\0".as_ptr());
-        let ok = (hooks.set)(b"FramerateLimit\0".as_ptr(), &fps, 4) != 0;
+        (hooks.load)(c"".as_ptr().cast());
+        let ok = (hooks.set)(c"FramerateLimit".as_ptr().cast(), &fps, 4) != 0;
         if ok {
-            (hooks.save)(b"\0".as_ptr());
+            (hooks.save)(c"".as_ptr().cast());
             (hooks.update)();
         }
         ok

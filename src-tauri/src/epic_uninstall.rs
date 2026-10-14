@@ -38,7 +38,7 @@ fn string(bytes: &[u8], cursor: &mut usize) -> Result<String, String> {
         }
         String::from_utf16(
             &value[..size - 2]
-                .chunks_exact(2)
+                .as_chunks::<2>().0.iter()
                 .map(|v| u16::from_le_bytes([v[0], v[1]]))
                 .collect::<Vec<_>>(),
         )
@@ -396,7 +396,7 @@ mod tests {
         let save = root.join("save.dat");
         fs::write(&game, b"fixture").unwrap();
         fs::write(&save, b"personal").unwrap();
-        remove_owned(&[game.clone()]).unwrap();
+        remove_owned(std::slice::from_ref(&game)).unwrap();
         assert!(!game.exists());
         assert_eq!(fs::read(&save).unwrap(), b"personal");
         fs::remove_dir_all(root).unwrap();

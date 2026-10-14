@@ -140,11 +140,10 @@ pub async fn game_categories(
             }
             let title = title.filter(|t| !t.trim().is_empty() && t.len() <= 200).ok_or("invalidGame")?;
             let cached = load(&app, &cache, locale)?;
-            if let Some(entry) = cached.get(&id) {
-                if timestamp().saturating_sub(entry.updated) < 30 * 86400 {
+            if let Some(entry) = cached.get(&id)
+                && timestamp().saturating_sub(entry.updated) < 30 * 86400 {
                     return entry_labels(entry);
                 }
-            }
             match steam_app_for_title(&title).await? {
                 Some(app_id) => app_id.to_string(),
                 None => {
@@ -199,19 +198,18 @@ fn store(app: &tauri::AppHandle, cache: &CategoryCache, locale: &str, id: String
         Some((l, entries)) if l == locale => entries,
         _ => &mut guard.insert((locale.to_owned(), BTreeMap::new())).1,
     };
-    if entries.len() >= 5000 && !entries.contains_key(&id) {
-        if let Some(oldest) = entries
+    if entries.len() >= 5000 && !entries.contains_key(&id)
+        && let Some(oldest) = entries
             .iter()
             .min_by_key(|(_, v)| v.updated)
             .map(|(k, _)| k.clone())
         {
             entries.remove(&oldest);
         }
-    }
     entries.insert(id, Entry { updated: timestamp(), labels });
-    if let Ok(path) = app.path().app_cache_dir() {
-        if std::fs::create_dir_all(&path).is_ok() {
-            if let Ok(json) = serde_json::to_vec(entries) {
+    if let Ok(path) = app.path().app_cache_dir()
+        && std::fs::create_dir_all(&path).is_ok()
+            && let Ok(json) = serde_json::to_vec(entries) {
                 let temporary = path.join(format!("categories-v1-{locale}.tmp"));
                 if std::fs::write(&temporary, json).is_ok() {
                     // Windows rename cannot replace an existing file; keep the last valid cache on failure.
@@ -220,8 +218,6 @@ fn store(app: &tauri::AppHandle, cache: &CategoryCache, locale: &str, id: String
                     let _ = std::fs::rename(temporary, destination);
                 }
             }
-        }
-    }
 }
 #[cfg(test)]
 mod tests {

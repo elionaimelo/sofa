@@ -161,11 +161,10 @@ async fn auth_code(app: &tauri::AppHandle, visible: bool) -> Result<Option<Strin
             }
         })
         .on_document_title_changed(move |_, title| {
-            if let Some(code) = title.strip_prefix(TITLE_PREFIX) {
-                if let Ok(mut slot) = sink.lock() {
+            if let Some(code) = title.strip_prefix(TITLE_PREFIX)
+                && let Ok(mut slot) = sink.lock() {
                     *slot = Some(code.to_owned());
                 }
-            }
         });
     if let Some(main) = app.get_webview_window("main").filter(|_| visible) {
         builder = builder.parent(&main).map_err(|_| "openFailed")?;

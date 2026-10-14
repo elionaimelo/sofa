@@ -70,12 +70,15 @@ pub fn watch_controller(app: tauri::AppHandle) {
     std::thread::spawn(move || {
         let mut connected = [true; 4];
         let mut was_held = false;
-        for tick in 0u32.. {
+        let mut tick = 0u32;
+        loop {
+            // Wraps instead of overflowing; only multiples of 40 matter.
+            tick = tick.wrapping_add(1);
             std::thread::sleep(std::time::Duration::from_millis(50));
             let mut held = false;
             for (index, live) in connected.iter_mut().enumerate() {
                 // Polling empty slots is slow in XInput; probe them every 2 s only.
-                if !*live && tick % 40 != 0 {
+                if !*live && !tick.is_multiple_of(40) {
                     continue;
                 }
                 let mut state = XINPUT_STATE::default();
@@ -83,11 +86,10 @@ pub fn watch_controller(app: tauri::AppHandle) {
                 let chord = XINPUT_GAMEPAD_BACK | XINPUT_GAMEPAD_START;
                 held |= *live && state.Gamepad.wButtons & chord == chord;
             }
-            if held && !was_held {
-                if let Err(error) = show_hud(&app) {
+            if held && !was_held
+                && let Err(error) = show_hud(&app) {
                     crate::log::info(&app, format!("hud: Game Bar launch failed: {error}"));
                 }
-            }
             was_held = held;
         }
     });

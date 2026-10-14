@@ -67,24 +67,20 @@ pub async fn set_game_settings(
 pub async fn apply(app: &tauri::AppHandle, id: &str) {
     let Some(s) = get(app, id) else { return };
     crate::log::info(app, format!("launch: applying saved settings for {id}"));
-    if let Some(profile) = s.profile {
-        if let Err(e) = crate::ally::set_ally_profile(profile).await {
+    if let Some(profile) = s.profile
+        && let Err(e) = crate::ally::set_ally_profile(profile).await {
             crate::log::info(app, format!("launch: profile failed: {e}"));
         }
-    }
-    if let Some(watts) = s.tdp {
-        if let Err(e) = crate::ally::set_tdp(watts).await {
+    if let Some(watts) = s.tdp
+        && let Err(e) = crate::ally::set_tdp(watts).await {
             crate::log::info(app, format!("launch: tdp failed: {e}"));
         }
-    }
-    if let Some(mode) = s.mode {
-        if let Err(e) = crate::display::set_display_mode(mode).await {
+    if let Some(mode) = s.mode
+        && let Err(e) = crate::display::set_display_mode(mode).await {
             crate::log::info(app, format!("launch: display mode failed: {e}"));
         }
-    }
-    if let Some(percent) = s.brightness {
-        if let Err(e) = crate::display::set_brightness(percent).await {
+    if let Some(percent) = s.brightness
+        && let Err(e) = crate::display::set_brightness(percent).await {
             crate::log::info(app, format!("launch: brightness failed: {e}"));
         }
-    }
 }

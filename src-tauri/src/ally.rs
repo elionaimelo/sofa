@@ -331,7 +331,7 @@ fn read_tdp() -> Option<u8> {
     ))
     .ok()?;
     let raw: u32 = out.trim().parse().ok()?;
-    (raw & 0x10000 != 0).then(|| (raw & 0xFF) as u8).filter(|w| TDP_RANGE.contains(w))
+    (raw & 0x10000 != 0).then_some((raw & 0xFF) as u8).filter(|w| TDP_RANGE.contains(w))
 }
 
 #[cfg(windows)]

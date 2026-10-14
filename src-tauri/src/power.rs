@@ -44,7 +44,7 @@ fn ac_power() -> Option<bool> {
     let mut status = SYSTEM_POWER_STATUS::default();
     // Writes exactly this SDK struct; returns 0 on failure.
     (unsafe { GetSystemPowerStatus(&mut status) } != 0 && status.ACLineStatus != 255)
-        .then(|| status.ACLineStatus == 1)
+        .then_some(status.ACLineStatus == 1)
 }
 #[cfg(not(windows))]
 fn ac_power() -> Option<bool> {
