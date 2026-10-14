@@ -67,7 +67,7 @@ pub async fn install_widget(app: tauri::AppHandle) -> Result<(), String> {
         crate::log::info(&app, "widget: install script missing");
         return Err("hudWidgetInstallFailed".into());
     }
-    crate::log::info(&app, "widget: install requested");
+    crate::log::info(&app, format!("widget: install requested via {}", script.display()));
     let result = tauri::async_runtime::spawn_blocking(move || {
         start_elevated(&script)?;
         installed_version().ok_or_else(|| "hudWidgetInstallFailed".to_string())

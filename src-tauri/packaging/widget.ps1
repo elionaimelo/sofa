@@ -13,7 +13,8 @@ function FirstLine($ErrorRecord) { "$($ErrorRecord.Exception.Message)".Split("`n
 
 $dir = Join-Path $PSScriptRoot 'widget'
 if (-not (Test-Path "$dir\Sofa.Widget.msix")) {
-  Log 'package not found in the install folder'
+  $siblings = (Get-ChildItem $PSScriptRoot -Name -ErrorAction SilentlyContinue) -join ', '
+  Log "package not found at $dir\Sofa.Widget.msix (script folder has: $siblings)"
   exit 1
 }
 
