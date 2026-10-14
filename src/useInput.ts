@@ -10,6 +10,8 @@ export type Action =
   | "y"
   | "lb"
   | "rb"
+  | "lt"
+  | "rt"
   | "home"
   | "settings"
   | "menu"
@@ -26,6 +28,8 @@ const keys: Record<string, Action> = {
   u: "y",
   q: "lb",
   e: "rb",
+  PageUp: "lt",
+  PageDown: "rt",
   Home: "home",
   F2: "settings",
   F4: "power",
@@ -39,6 +43,8 @@ const buttons: [number, Action][] = [
   [3, "y"],
   [4, "lb"],
   [5, "rb"],
+  [6, "lt"],
+  [7, "rt"],
   [9, "settings"],
   [8, "menu"],
   [12, "up"],
@@ -70,7 +76,9 @@ export function useInput(
       }
     };
     window.addEventListener("keydown", onKey);
+    // When each held action fired last, and when its press began (for the repeat delay).
     const last = new Map<Action, number>();
+    const since = new Map<Action, number>();
     const deferred: Action[] = ["menu", "settings"];
     let chord = false;
     const fire = (a: Action) => {
@@ -89,6 +97,7 @@ export function useInput(
     const poll = () => {
       if (!document.hasFocus()) {
         last.clear();
+        since.clear();
         raf = requestAnimationFrame(poll);
         return;
       }
@@ -97,11 +106,15 @@ export function useInput(
       for (const pad of navigator.getGamepads?.() ?? []) {
         if (pad?.mapping !== "standard") continue;
         for (const [i, a] of buttons) if (pad.buttons[i]?.pressed) held.add(a);
+        // One direction per tick: a diagonal push follows its stronger axis.
         const [x = 0, y = 0] = pad.axes;
-        if (y < -0.5) held.add("up");
-        if (y > 0.5) held.add("down");
-        if (x < -0.5) held.add("left");
-        if (x > 0.5) held.add("right");
+        if (Math.abs(y) >= Math.abs(x)) {
+          if (y < -0.5) held.add("up");
+          if (y > 0.5) held.add("down");
+        } else {
+          if (x < -0.5) held.add("left");
+          if (x > 0.5) held.add("right");
+        }
       }
       // View + Menu together toggles the native HUD; those two fire on release
       // so the chord doesn't also open the menu or settings here.
@@ -109,12 +122,20 @@ export function useInput(
       for (const a of last.keys())
         if (!held.has(a)) {
           last.delete(a);
+          since.delete(a);
           if (deferred.includes(a) && !chord) fire(a);
         }
       if (!held.has("menu") && !held.has("settings")) chord = false;
       for (const a of held) {
+        // Directions repeat like a console: a pause after the press, then a steady pace.
         const repeats = ["up", "down", "left", "right"].includes(a);
-        if (!last.has(a) || (repeats && now - (last.get(a) ?? 0) > 180)) {
+        if (
+          !last.has(a) ||
+          (repeats &&
+            now - (since.get(a) ?? now) > 350 &&
+            now - (last.get(a) ?? 0) > 120)
+        ) {
+          if (!last.has(a)) since.set(a, now);
           last.set(a, now);
           if (!deferred.includes(a)) fire(a);
         }
