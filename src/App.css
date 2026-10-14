@@ -1184,6 +1184,10 @@ dialog::backdrop {
   font-weight: 650;
 }
 /* Epic's giveaways sit above the deals: wide art, the title and when the offer ends. */
+/* A section of its own: more room below than between the deal rows (24px). */
+.free-games {
+  margin-bottom: 36px;
+}
 .free-games h2 {
   margin: 0 0 10px;
   font-size: 18px;
