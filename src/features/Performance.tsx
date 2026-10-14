@@ -5,7 +5,6 @@ import {
   FloppyDiskIcon,
   GameControllerIcon,
   LightningIcon,
-  MemoryIcon,
   MoonIcon,
   ScalesIcon,
   SunIcon,
@@ -23,18 +22,12 @@ import {
   desktop,
   type InputRef,
   navigateSpatial,
-  queryError,
   serviceError,
   useFeatureInput,
 } from "../services";
 import { useInput } from "../useInput";
 import { ControllerBatteries, usePower } from "./Power";
 
-type Metrics = {
-  cpu: number | null;
-  used_memory: number;
-  total_memory: number;
-};
 type Mode = { width: number; height: number; refresh: number };
 type DisplayStatus = {
   current: Mode | null;
@@ -191,11 +184,6 @@ export function HudPanel({
   useEffect(() => {
     root.current?.querySelector<HTMLElement>("button:not(:disabled)")?.focus();
   }, []);
-  const metricsQuery = useQuery({
-    ...commandQuery<Metrics>("system_metrics"),
-    refetchInterval: 2000,
-  });
-  const metrics = metricsQuery.data;
   const session = useQuery({
     ...commandQuery<{
       game: Game;
@@ -336,7 +324,6 @@ export function HudPanel({
             : [];
   const toggle = (name: NonNullable<typeof open>) =>
     setOpen(open === name ? null : name);
-  const gb = (n: number) => (n / 1024 ** 3).toFixed(1);
   const battery = power.data?.batteries[0]?.charge_percent;
   return (
     <Root className="floating-hud" ref={root as never}>
@@ -468,25 +455,10 @@ export function HudPanel({
             }
           />
         )}
-        <Tile
-          icon={MemoryIcon}
-          label={t("memory")}
-          value={metrics ? `${gb(metrics.used_memory)} GB` : "—"}
-          note={
-            metrics
-              ? t("ofMemory", { total: gb(metrics.total_memory) })
-              : t("sampling")
-          }
-        />
       </div>
       <ControllerBatteries t={t} data={power.data} />
       {/* Live regions stay mounted so screen readers announce changes, not insertions. */}
       <p role="status">{message}</p>
-      {metricsQuery.error && (
-        <p role="alert">
-          {t(queryError(metricsQuery.error) || "serviceUnavailable")}
-        </p>
-      )}
     </Root>
   );
 }
