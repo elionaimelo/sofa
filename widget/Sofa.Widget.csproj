@@ -51,7 +51,7 @@
     <AppxManifest Include="Package.appxmanifest">
       <SubType>Designer</SubType>
     </AppxManifest>
-    <None Include="Properties\Default.rd.xml" />
+    <Content Include="Properties\Default.rd.xml" />
   </ItemGroup>
   <ItemGroup>
     <!-- Same artwork as the identity package; linked so there is one copy in the repo. -->
@@ -71,7 +71,8 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform">
-      <Version>6.2.15</Version>
+      <!-- 6.2.15 requires .NET Native 2.3.60521.0 but bundles 2.3.60518.0, breaking sideloads. -->
+      <Version>6.2.14</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Gaming.XboxGameBar">
       <Version>7.3.2607010</Version>

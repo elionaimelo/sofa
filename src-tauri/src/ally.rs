@@ -40,6 +40,11 @@ impl AllyProfile {
 
 #[cfg(windows)]
 pub(crate) fn powershell(script: &str) -> Result<String, String> {
+    powershell_with_timeout(script, std::time::Duration::from_secs(8))
+}
+
+#[cfg(windows)]
+pub(crate) fn powershell_with_timeout(script: &str, timeout: std::time::Duration) -> Result<String, String> {
     use std::os::windows::process::CommandExt;
     use std::process::Stdio;
     use std::time::{Duration, Instant};
@@ -62,7 +67,7 @@ pub(crate) fn powershell(script: &str) -> Result<String, String> {
         {
             break;
         }
-        if started.elapsed() >= Duration::from_secs(8) {
+        if started.elapsed() >= timeout {
             let _ = child.kill();
             let _ = child.wait();
             return Err("powerControlUnavailable".into());

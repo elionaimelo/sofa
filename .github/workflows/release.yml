@@ -72,6 +72,9 @@ jobs:
           New-Item "$dest/Dependencies" -ItemType Directory -Force | Out-Null
           Copy-Item "$($out.FullName)/*.msix" "$dest/Sofa.Widget.msix"
           Copy-Item "$($out.FullName)/Dependencies/x64/*.appx" "$dest/Dependencies"
+      # Check cached packages too: a successful build does not prove sideload dependencies match.
+      - name: Validate widget dependencies
+        run: python widget/validate-package.py "$env:RUNNER_TEMP/widget"
       - uses: actions/upload-artifact@v7
         with:
           name: widget
