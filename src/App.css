@@ -273,6 +273,109 @@ main::before {
   gap: 12px;
   margin-top: 8px;
 }
+/* The one thing to do with the selected game stands out from the secondary actions. */
+.hero-actions .primary-action {
+  min-width: 170px;
+  padding-inline: 28px;
+  font-size: 1.06em;
+  box-shadow: 0 10px 30px rgb(237 22 76 / 0.35);
+}
+.hero-actions .primary-action svg {
+  width: 22px;
+  height: 22px;
+}
+/* The selected game's copy slides in whenever the selection changes. */
+.hero-copy {
+  animation: rise-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* Tiles pop in one after another when a list appears; --i is the column-ish index. */
+.grid .tile,
+.game-row .tile {
+  animation: tile-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 22ms);
+}
+@keyframes tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+button:active:not([aria-disabled="true"]) {
+  transform: scale(0.97);
+}
+/* The library count is context for the tabs, not a page title. */
+.page-library .collection-heading h1 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+}
+/* Store badges stay quiet; the install prompt appears only on the focused tile. */
+.tile .badge {
+  opacity: 0.85;
+}
+.install-mark {
+  opacity: 0;
+  transition: opacity 0.16s;
+}
+.tile:is(:focus, :hover, [aria-current="true"]) .install-mark {
+  opacity: 1;
+}
+/* Settings cards that leave Sofa say so. */
+.settings-hub-grid .external {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  color: var(--muted);
+}
+.settings-hub-grid button {
+  position: relative;
+}
+.settings-body :is(label, .field) {
+  max-width: 720px;
+}
+.detail-meta-line {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+.filter-tabs span {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+}
+.picker-list {
+  animation: pop-in 0.14s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 .accent {
   background: var(--accent);
   border-color: var(--accent);
@@ -1195,8 +1298,8 @@ select:focus-visible,
   bottom: 12px;
   left: 12px;
   padding: 5px 8px;
-  background: #d3e5bb;
-  color: #20331c;
+  background: var(--accent);
+  color: #fff;
   border-radius: 5px;
   font-size: 13px;
   font-weight: 650;
@@ -1218,7 +1321,14 @@ select:focus-visible,
 }
 .deal-shop {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.price del {
+  color: var(--muted);
+  font-weight: 400;
 }
 .deal-copy h2 {
   font-size: 17px;
@@ -2087,6 +2197,10 @@ dialog::backdrop {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .hero-copy,
+  .grid .tile,
+  .game-row .tile,
+  .picker-list,
   .library-filters,
   .backdrop,
   dialog[open],

@@ -297,6 +297,7 @@ const en = {
   otherSourcesInstalledOnly: "GOG currently shows installed games only.",
   neverPlayed: "Not played in Sofa yet",
   lastPlayed: "Last played: {date}",
+  hoursPlayed: "{hours} played",
   gamesCount: "{count} games",
   browserPreview: "Browser preview — launch is available in the desktop app.",
   checkUpdates: "Check for updates",
@@ -649,6 +650,7 @@ const dicts = {
       "GOG mostra apenas jogos instalados por enquanto.",
     neverPlayed: "Ainda não jogado pelo Sofa",
     lastPlayed: "Última vez jogado: {date}",
+    hoursPlayed: "{hours} jogadas",
     gamesCount: "{count} jogos",
     browserPreview:
       "Prévia no navegador — abra o app desktop para iniciar jogos.",
@@ -994,6 +996,7 @@ const dicts = {
     otherSourcesInstalledOnly: "GOG solo muestra juegos instalados por ahora.",
     neverPlayed: "Aún no jugado en Sofa",
     lastPlayed: "Última vez jugado: {date}",
+    hoursPlayed: "{hours} jugadas",
     gamesCount: "{count} juegos",
     browserPreview:
       "Vista previa — abre la app de escritorio para iniciar juegos.",

@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { AnimatePresence } from "motion/react";
 import {
+  type CSSProperties,
   Fragment,
   useCallback,
   useDeferredValue,
@@ -35,7 +36,9 @@ import "@fontsource-variable/outfit";
 import {
   AppWindowIcon,
   ArrowRightIcon,
+  ArrowSquareOutIcon,
   BluetoothIcon,
+  DownloadSimpleIcon,
   GaugeIcon,
   GearSixIcon,
   HardDrivesIcon,
@@ -88,6 +91,9 @@ const TABS = ["all", "favorites", "steam", "epic", "gog"] as const;
 const preferencesKey = demo ? "sofa.demo.preferences" : "sofa.preferences";
 /** Whole gigabytes as Windows counts them (1024³), enough for a storage overview. */
 const gb = (bytes: number) => String(Math.round(bytes / 1024 ** 3));
+/** Hours with one decimal from Steam's minutes; nothing under six minutes. */
+const hoursPlayed = (minutes: number) =>
+  minutes >= 6 ? `${(minutes / 60).toFixed(minutes >= 600 ? 0 : 1)} h` : "";
 /** One decimal above a gigabyte, whole megabytes below. */
 const formatSize = (bytes: number) =>
   bytes >= 1024 ** 3
@@ -226,6 +232,30 @@ export default function App() {
   const { update, install } = updates;
   const { games, loading, scanError } = library;
   const categories = useCategories(games, lang);
+  // One line of facts under a title: last session, hours, size on disk or to download.
+  const gameMeta = (game: Game, lastAt?: number, estimate?: number) =>
+    [
+      lastAt
+        ? t("lastPlayed", { date: new Date(lastAt).toLocaleDateString(lang) })
+        : t("neverPlayed"),
+      game.playtime
+        ? t("hoursPlayed", { hours: hoursPlayed(game.playtime) })
+        : "",
+      game.installed && game.size != null
+        ? t("diskSpaceUsed", { size: formatSize(game.size) })
+        : estimate != null
+          ? t("downloadEstimate", { size: formatSize(estimate) })
+          : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  // Active filters per drawer tab, shown on the tab itself.
+  const filterCount = (tab: "categories" | "options") =>
+    tab === "categories"
+      ? prefs.filters.categories.length
+      : Number(prefs.filters.played !== "any") +
+        Number(prefs.filters.artwork !== "any") +
+        Number(prefs.filters.favoritesOnly);
   // Store prices follow the language unless the user picked a region.
   const region =
     prefs.region ?? (lang === "pt-BR" ? "br" : lang === "es" ? "es" : "us");
@@ -817,6 +847,9 @@ export default function App() {
                         {t(
                           tab === "categories" ? "categories" : "filterOptions",
                         )}
+                        {filterCount(tab) > 0 && (
+                          <span>{filterCount(tab)}</span>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -1019,29 +1052,32 @@ export default function App() {
             ) : (
               <>
                 {page === "home" && selected && (
-                  <section className="hero-copy">
+                  <section className="hero-copy" key={selected.id}>
                     <span className="game-meta">
-                      {selected.source.toUpperCase()} · {t("installed")}
+                      {selected.source.toUpperCase()} ·{" "}
+                      {t(
+                        selected.installed ? "installed" : "availableToInstall",
+                      )}
                     </span>
                     <h1>{selected.title}</h1>
-                    <p>
-                      {prefs.recent[selected.id]
-                        ? t("lastPlayed", {
-                            date: new Date(
-                              prefs.recent[selected.id],
-                            ).toLocaleDateString(lang),
-                          })
-                        : t("neverPlayed")}
-                    </p>
+                    <p>{gameMeta(selected, prefs.recent[selected.id])}</p>
                     <div className="hero-actions">
                       <button
-                        className="accent"
+                        className="accent primary-action"
                         aria-disabled={launching}
                         aria-busy={launching}
-                        onClick={() => void play(selected)}
+                        onClick={() =>
+                          void (selected.installed
+                            ? play(selected)
+                            : installGame(selected))
+                        }
                       >
-                        <PlayIcon weight="fill" />
-                        {t("play")}
+                        {selected.installed ? (
+                          <PlayIcon weight="fill" />
+                        ) : (
+                          <DownloadSimpleIcon weight="bold" />
+                        )}
+                        {t(selected.installed ? "play" : "installGame")}
                       </button>
                       <button onClick={() => setDetails(selected)}>
                         {t("details")}
@@ -1122,6 +1158,7 @@ export default function App() {
                           )}
                         <button
                           className="tile"
+                          style={{ "--i": i % 18 } as CSSProperties}
                           data-installed={g.installed}
                           aria-current={i === focus}
                           aria-label={`${g.title} · ${g.source} · ${t(g.installed ? "installed" : "availableToInstall")}`}
@@ -1223,6 +1260,7 @@ export default function App() {
                   }
                 >
                   <HardDrivesIcon aria-hidden />
+                  <ArrowSquareOutIcon className="external" aria-hidden />
                   <strong>{t("storage")}</strong>
                   <span>
                     {storage.data?.length
@@ -1326,27 +1364,14 @@ export default function App() {
                 {t(details.installed ? "installed" : "availableToInstall")}
               </p>
               <h1>{details.title}</h1>
-              {details.installed
-                ? details.size != null && (
-                    <p className="muted">
-                      {t("diskSpaceUsed", { size: formatSize(details.size) })}
-                    </p>
-                  )
-                : sizeEstimate.data != null && (
-                    <p className="muted">
-                      {t("downloadEstimate", {
-                        size: formatSize(sizeEstimate.data),
-                      })}
-                    </p>
-                  )}
-              <p>
-                {prefs.recent[details.id]
-                  ? t("lastPlayed", {
-                      date: new Date(prefs.recent[details.id]).toLocaleString(
-                        lang,
-                      ),
-                    })
-                  : t("neverPlayed")}
+              <p className="detail-meta-line">
+                {gameMeta(
+                  details,
+                  prefs.recent[details.id],
+                  details.installed
+                    ? undefined
+                    : (sizeEstimate.data ?? undefined),
+                )}
               </p>
               <CategoryEditor
                 key={details.id}

@@ -284,7 +284,6 @@ export function Store({
           setPage(0);
         }}
       >
-        <MagnifyingGlassIcon aria-hidden />
         <SearchField
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -297,7 +296,9 @@ export function Store({
           placeholder={t("searchGames")}
           aria-label={t("searchGames")}
         />
-        <button type="submit">{t("search")}</button>
+        <button type="submit" aria-label={t("search")} title={t("search")}>
+          <MagnifyingGlassIcon />
+        </button>
         <button
           type="button"
           onClick={refresh}
