@@ -1,6 +1,7 @@
 mod library;
 mod uninstall;
 mod epic_uninstall;
+mod steam_uninstall;
 mod categories;
 mod network;
 mod store;

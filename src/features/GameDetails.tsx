@@ -33,7 +33,7 @@ export function GameDetails({
   onInstall,
   onToggleFavorite,
   onToggleHidden,
-  onUninstallStarted,
+  onUninstalled,
   onClose,
 }: {
   game: Game;
@@ -48,7 +48,7 @@ export function GameDetails({
   onInstall: (game: Game) => void;
   onToggleFavorite: (game: Game) => void;
   onToggleHidden: (game: Game) => void;
-  onUninstallStarted: (id: string, completed: boolean) => void;
+  onUninstalled: (id: string) => void;
   onClose: () => void;
 }) {
   const favorite = prefs.favorites.includes(game.id);
@@ -121,7 +121,7 @@ export function GameDetails({
           key={game.id}
           game={game}
           t={t}
-          onStarted={onUninstallStarted}
+          onUninstalled={onUninstalled}
         />
       )}
     </DetailFrame>

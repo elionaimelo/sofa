@@ -6,11 +6,11 @@ import { demo, desktop, type MessageKey, serviceError } from "../services";
 export function Uninstall({
   game,
   t,
-  onStarted,
+  onUninstalled,
 }: {
   game: Game;
   t: Translate;
-  onStarted: (id: string, completed: boolean) => void;
+  onUninstalled: (id: string) => void;
 }) {
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -26,11 +26,8 @@ export function Uninstall({
     setBusy(true);
     setError("");
     try {
-      const completed = await desktop<boolean>("uninstall_game", {
-        id: game.id,
-        confirmed: true,
-      });
-      onStarted(game.id, completed);
+      await desktop("uninstall_game", { id: game.id, confirmed: true });
+      onUninstalled(game.id);
     } catch (e) {
       setError(
         serviceError(e, [
@@ -41,6 +38,8 @@ export function Uninstall({
           "invalidUninstallManifest",
           "uninstallFailed",
           "uninstallTitleRunning",
+          "uninstallSteamRunning",
+          "steamCloseFailed",
           "uninstallBusy",
         ]),
       );
@@ -85,7 +84,7 @@ export function Uninstall({
               onClick={() => void uninstall()}
             >
               <TrashIcon />
-              {t(game.source === "steam" ? "uninstallSteam" : "uninstall")}
+              {t("uninstall")}
             </button>
           </div>
         </div>

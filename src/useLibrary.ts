@@ -107,13 +107,12 @@ function useAccount(provider: Provider, onStatus: Notify) {
 
 /**
  * Installed games plus owned Steam and Epic games, with store sign-in and the polling
- * that confirms installs and uninstalls started in the launchers.
+ * that confirms installs started in the launchers.
  */
 export function useLibrary(onStatus: Notify) {
   const queryClient = useQueryClient();
-  const [pendingUninstall, setPendingUninstall] = useState<string | null>(null);
   const [pendingInstalls, setPendingInstalls] = useState<string[]>([]);
-  const pending = !!pendingUninstall || pendingInstalls.length > 0;
+  const pending = pendingInstalls.length > 0;
   const installed = useQuery({
     queryKey: keys.installed,
     queryFn: () =>
@@ -122,7 +121,7 @@ export function useLibrary(onStatus: Notify) {
         : isTauri()
           ? invoke<Game[]>("scan_library")
           : [],
-    // Rescanned on demand, and every few seconds while a launcher installs or uninstalls.
+    // Rescanned on demand, and every few seconds while a launcher installs.
     staleTime: Number.POSITIVE_INFINITY,
     refetchInterval: pending ? 4000 : false,
     refetchOnWindowFocus: pending,
@@ -159,10 +158,6 @@ export function useLibrary(onStatus: Notify) {
   const scanned = installed.data;
   useEffect(() => {
     if (!scanned) return;
-    if (pendingUninstall && !scanned.some((g) => g.id === pendingUninstall)) {
-      setPendingUninstall(null);
-      onStatus("uninstallComplete");
-    }
     const done = pendingInstalls.filter((id) =>
       scanned.some((g) => g.id === id),
     );
@@ -170,15 +165,7 @@ export function useLibrary(onStatus: Notify) {
       setPendingInstalls((ids) => ids.filter((id) => !done.includes(id)));
       onStatus("installComplete");
     }
-  }, [scanned, pendingUninstall, pendingInstalls, onStatus]);
-  useEffect(() => {
-    if (!pendingUninstall) return;
-    const id = setTimeout(() => {
-      setPendingUninstall(null);
-      onStatus("uninstallStillInstalled");
-    }, 120_000);
-    return () => clearTimeout(id);
-  }, [pendingUninstall, onStatus]);
+  }, [scanned, pendingInstalls, onStatus]);
 
   const games = useMemo(
     () =>
@@ -194,7 +181,6 @@ export function useLibrary(onStatus: Notify) {
     loading: installed.isFetching,
     scanError: installed.error ? serviceError(installed.error) : ("" as const),
     refresh: () => queryClient.invalidateQueries({ queryKey: keys.all }),
-    watchUninstall: setPendingUninstall,
     downloads: pendingInstalls.flatMap((id) => {
       const p = progress.data?.[id];
       const game = games.find((g) => g.id === id);

@@ -4,10 +4,13 @@ const en = {
   uninstallTitleRunning:
     "Close this title and Epic Launcher before uninstalling. Sofa stays open.",
   uninstallBusy: "Another title is being uninstalled. Wait for it to finish.",
+  uninstallSteamRunning:
+    "Close the game running in Steam first: Sofa closes Steam in the background to remove the title.",
+  steamCloseFailed: "Steam didn’t close in time. Close Steam and try again.",
   uninstallEpicNote:
     "Epic: removes only files listed in this title’s installed build manifest. Close the title and Epic Launcher first.",
   uninstallSteamNote:
-    "Steam: uses Steam’s own uninstall confirmation. Sofa stays open.",
+    "Steam: Sofa removes the title itself. Steam closes and reopens in the background, without coming to the screen.",
   uninstallEpicConfirm:
     "Remove the installed files of this title? Unlisted files, mods and saves outside the installation are retained. This operation cannot be undone by Sofa. Close the title and Epic Launcher before continuing.",
   unsafeUninstallPath:
@@ -16,15 +19,10 @@ const en = {
     "The installed manifest could not be validated. Repair the title in its launcher and try again.",
   uninstallFailed:
     "Removal could not be completed. Close the title and launcher, check folder permissions, and try again.",
-  uninstallStillInstalled:
-    "The title is still installed. Refresh the library when its uninstaller finishes.",
   uninstall: "Uninstall",
-  uninstallSteam: "Continue in Steam",
   uninstallTitle: "Uninstall {title}?",
   uninstallConfirm:
-    "Steam will ask you to confirm the removal of this title’s local files. Sofa stays open. Save preservation depends on the title and its cloud settings.",
-  uninstallStarted:
-    "Uninstallation requested. Waiting for removal or cancellation.",
+    "Remove this title’s installation folder? Steam closes and reopens in the background during the removal. Saves in Steam Cloud are kept; saves stored inside the game folder are removed.",
   uninstallComplete: "Title removed. Library updated.",
   uninstallUnavailable: "Uninstallation is unavailable for this title.",
   gameNoLongerInstalled:
@@ -352,10 +350,14 @@ const dicts = {
     uninstallTitleRunning:
       "Feche este título e o Epic Launcher antes de desinstalar. O Sofa continua aberto.",
     uninstallBusy: "Outro título está sendo desinstalado. Aguarde a conclusão.",
+    uninstallSteamRunning:
+      "Feche o jogo aberto na Steam primeiro: o Sofa fecha a Steam em segundo plano para remover o título.",
+    steamCloseFailed:
+      "A Steam não fechou a tempo. Feche a Steam e tente novamente.",
     uninstallEpicNote:
       "Epic: remove somente os arquivos listados no manifesto instalado deste título. Feche o título e o Epic Launcher antes de continuar.",
     uninstallSteamNote:
-      "Steam: usa a confirmação de desinstalação da própria Steam. O Sofa continua aberto.",
+      "Steam: o Sofa remove o título por conta própria. A Steam fecha e reabre em segundo plano, sem aparecer na tela.",
     uninstallEpicConfirm:
       "Remover os arquivos instalados deste título? Arquivos não listados, mods e saves fora da instalação serão mantidos. Esta operação não pode ser desfeita pelo Sofa. Feche o título e o Epic Launcher antes de continuar.",
     unsafeUninstallPath:
@@ -364,15 +366,10 @@ const dicts = {
       "Não foi possível validar o manifesto instalado. Repare o título no launcher e tente novamente.",
     uninstallFailed:
       "Não foi possível concluir a remoção. Feche o título e o launcher, verifique as permissões da pasta e tente novamente.",
-    uninstallStillInstalled:
-      "O título ainda está instalado. Atualize a biblioteca quando o desinstalador terminar.",
     uninstall: "Desinstalar",
-    uninstallSteam: "Continuar na Steam",
     uninstallTitle: "Desinstalar {title}?",
     uninstallConfirm:
-      "A Steam pedirá confirmação para remover os arquivos locais deste título. O Sofa continuará aberto. A preservação dos saves depende do título e das configurações de nuvem.",
-    uninstallStarted:
-      "Desinstalação solicitada. Aguardando a remoção ou o cancelamento.",
+      "Remover a pasta de instalação deste título? A Steam fecha e reabre em segundo plano durante a remoção. Saves na Steam Cloud são mantidos; saves guardados dentro da pasta do jogo são removidos.",
     uninstallComplete: "Título removido. Biblioteca atualizada.",
     uninstallUnavailable:
       "A desinstalação não está disponível para este título.",
@@ -708,10 +705,14 @@ const dicts = {
     uninstallTitleRunning:
       "Cierra este título y Epic Launcher antes de desinstalar. Sofa sigue abierto.",
     uninstallBusy: "Se está desinstalando otro título. Espera a que termine.",
+    uninstallSteamRunning:
+      "Cierra primero el juego abierto en Steam: Sofa cierra Steam en segundo plano para eliminar el título.",
+    steamCloseFailed:
+      "Steam no se cerró a tiempo. Cierra Steam e inténtalo de nuevo.",
     uninstallEpicNote:
       "Epic: elimina solo los archivos del manifiesto instalado de este título. Cierra el título y Epic Launcher antes de continuar.",
     uninstallSteamNote:
-      "Steam: usa la confirmación de desinstalación de Steam. Sofa sigue abierto.",
+      "Steam: Sofa elimina el título por su cuenta. Steam se cierra y se vuelve a abrir en segundo plano, sin aparecer en pantalla.",
     uninstallEpicConfirm:
       "¿Eliminar los archivos instalados de este título? Se conservarán los archivos no listados, mods y partidas fuera de la instalación. Sofa no puede deshacer esta operación. Cierra el título y Epic Launcher antes de continuar.",
     unsafeUninstallPath:
@@ -720,15 +721,10 @@ const dicts = {
       "No se pudo validar el manifiesto instalado. Repara el título en su launcher e inténtalo de nuevo.",
     uninstallFailed:
       "No se pudo completar la eliminación. Cierra el título y launcher, verifica los permisos e inténtalo de nuevo.",
-    uninstallStillInstalled:
-      "El título sigue instalado. Actualiza la biblioteca cuando termine su desinstalador.",
     uninstall: "Desinstalar",
-    uninstallSteam: "Continuar en Steam",
     uninstallTitle: "¿Desinstalar {title}?",
     uninstallConfirm:
-      "Steam pedirá confirmación para eliminar los archivos locales de este título. Sofa seguirá abierto. La conservación de partidas depende del título y de los ajustes de la nube.",
-    uninstallStarted:
-      "Desinstalación solicitada. Esperando eliminación o cancelación.",
+      "¿Eliminar la carpeta de instalación de este título? Steam se cierra y se vuelve a abrir en segundo plano durante la eliminación. Las partidas en Steam Cloud se conservan; las guardadas dentro de la carpeta del juego se eliminan.",
     uninstallComplete: "Título eliminado. Biblioteca actualizada.",
     uninstallUnavailable:
       "La desinstalación no está disponible para este título.",

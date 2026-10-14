@@ -93,8 +93,14 @@ pub(crate) fn parse_progress(text: &str) -> InstallProgress {
     InstallProgress { downloaded, total, installed: flags & STATE_FULLY_INSTALLED != 0 }
 }
 
+/// Folder name of an installed title under `steamapps/common`, from its manifest.
+#[cfg_attr(not(any(windows, test)), allow(dead_code))]
+pub(crate) fn steam_install_dir(text: &str) -> Option<String> {
+    vdf_pairs(text).find(|(k, _)| *k == "installdir").map(|(_, v)| v)
+}
+
 /// Every Steam library folder: the root plus those listed in `libraryfolders.vdf`.
-fn steam_libraries() -> Vec<PathBuf> {
+pub(crate) fn steam_libraries() -> Vec<PathBuf> {
     let Some(root) = steam_root() else { return vec![] };
     let mut libs = vec![root.clone()];
     if let Ok(vdf) = fs::read_to_string(root.join("steamapps/libraryfolders.vdf")) {

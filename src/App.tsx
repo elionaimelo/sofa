@@ -1173,11 +1173,10 @@ export default function App() {
           onInstall={(game) => void installGame(game)}
           onToggleFavorite={toggleFavorite}
           onToggleHidden={toggleHidden}
-          onUninstallStarted={(id, completed) => {
-            if (completed) void library.refresh();
-            else library.watchUninstall(id);
+          onUninstalled={() => {
+            void library.refresh();
             setDetails(null);
-            setStatus(t(completed ? "uninstallComplete" : "uninstallStarted"));
+            setStatus(t("uninstallComplete"));
           }}
           onClose={closeDetails}
         />
