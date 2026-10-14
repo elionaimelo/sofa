@@ -1900,6 +1900,23 @@ select:focus-visible,
   gap: 2px;
   min-width: 0;
 }
+/* Live numbers under the running game: big digits, readable at arm's length. */
+.hud-stats {
+  display: flex;
+  justify-content: space-around;
+  gap: 12px;
+  padding: 8px 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  background: var(--glass);
+  color: var(--muted);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.hud-stats strong {
+  color: #fff;
+  font-size: 20px;
+}
 /* Close and force close sit under the running game, as on a console's quick menu. */
 .hud-quit {
   display: grid;

@@ -220,6 +220,15 @@ export function HudPanel({
     ...commandQuery<{ id: string; title: string } | null>("running_game"),
     refetchInterval: 5000,
   }).data;
+  // Framerate (RivaTuner, when it runs) and GPU load, only while the HUD is open.
+  const stats = useQuery({
+    ...commandQuery<{
+      fps: number | null;
+      frame_time: number | null;
+      gpu: number | null;
+    }>("game_stats"),
+    refetchInterval: 2000,
+  }).data;
   const [confirmForce, setConfirmForce] = useState(false);
   const forceButton = useRef<HTMLButtonElement>(null);
   const cancelForce = useRef<HTMLButtonElement>(null);
@@ -479,6 +488,31 @@ export function HudPanel({
           </>
         )}
       </section>
+      {stats && (stats.fps != null || stats.gpu != null) && (
+        <section className="hud-stats" aria-label={t("hudStats")}>
+          {stats.fps != null && (
+            <span>
+              <strong>{stats.fps}</strong> FPS
+            </span>
+          )}
+          {stats.frame_time != null && (
+            <span>
+              <strong>
+                {new Intl.NumberFormat(undefined, {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                }).format(stats.frame_time)}
+              </strong>{" "}
+              ms
+            </span>
+          )}
+          {stats.gpu != null && (
+            <span>
+              GPU <strong>{stats.gpu}%</strong>
+            </span>
+          )}
+        </section>
+      )}
       {running && (
         <section className="hud-quit" aria-label={t("closeGame")}>
           <button

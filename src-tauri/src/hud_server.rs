@@ -42,7 +42,7 @@ fn json(status: u16, body: String) -> Response<std::io::Cursor<Vec<u8>>> {
 
 /// Runs one HUD command. Same functions the Tauri commands use; only this allowlist is reachable.
 async fn dispatch(app: &tauri::AppHandle, command: &str, args: serde_json::Value) -> Result<serde_json::Value, String> {
-    use crate::{ally, ally_pad, audio, display, game_settings, hud, power, quit, rtss, session};
+    use crate::{ally, ally_pad, audio, display, game_settings, hud, power, quit, rtss, session, stats};
     fn parse<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> Result<T, String> {
         serde_json::from_value(value).map_err(|_| "invalidInput".to_string())
     }
@@ -53,6 +53,7 @@ async fn dispatch(app: &tauri::AppHandle, command: &str, args: serde_json::Value
     match command {
         "current_session" => out(session::current_session(app.clone(), app.state()).await?),
         "running_game" => out(quit::running_game(app.clone()).await?),
+        "game_stats" => out(stats::game_stats().await),
         "close_game" => out(quit::close_game(parse(arg("force"))?, app.clone()).await?),
         "power_status" => out(power::power_status().await?),
         "ally_status" => out(ally::ally_status(app.clone(), app.state()).await?),

@@ -253,6 +253,7 @@ const en = {
   hudSession: "Session {session} · total {total}",
   hudNoGame: "No game running. Launch one from Sofa to see it here.",
   closeGame: "Close game",
+  hudStats: "Performance",
   forceClose: "Force close",
   forceCloseWarning: "Force close {title}? Unsaved progress will be lost.",
   gameClosing: "Close requested. If the game stays open, use Force close.",
@@ -639,6 +640,7 @@ const dicts = {
     hudSession: "Sessão {session} · total {total}",
     hudNoGame: "Nenhum jogo aberto. Abra um pelo Sofa para vê-lo aqui.",
     closeGame: "Fechar jogo",
+    hudStats: "Desempenho",
     forceClose: "Forçar fechamento",
     forceCloseWarning:
       "Forçar o fechamento de {title}? O progresso não salvo será perdido.",
@@ -1025,6 +1027,7 @@ const dicts = {
     hudSession: "Sesión {session} · total {total}",
     hudNoGame: "Ningún juego abierto. Abre uno desde Sofa para verlo aquí.",
     closeGame: "Cerrar juego",
+    hudStats: "Rendimiento",
     forceClose: "Forzar cierre",
     forceCloseWarning:
       "¿Forzar el cierre de {title}? Se perderá el progreso no guardado.",
