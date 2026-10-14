@@ -502,11 +502,10 @@ footer {
   display: flex;
   align-items: center;
   gap: 16px;
-  background: rgb(39 44 55 / 0.8);
-  backdrop-filter: blur(25px);
-  border-top: 1px solid rgb(255 255 255 / 0.08);
+  /* Transparent like the header: the game's art runs under the hints, console style. */
+  background: linear-gradient(transparent, rgb(11 13 18 / 0.7));
   font-size: 12px;
-  color: #c7ccd6;
+  color: #d9dde5;
   flex-shrink: 0;
 }
 footer [role="status"] {
