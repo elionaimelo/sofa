@@ -24,6 +24,7 @@ Status em 14/10/2026, conforme as páginas oficiais; porcentagens e prazos de co
 | Green Man Gaming | [Business Affiliate Program](https://www.greenmangaming.com/affiliates/) | inscrição como site/app ("Business"); a via "Ambassador" é só para redes sociais | até 5% por venda, 10% em bundles; a aprovação dá acesso a uma API de catálogo com mais de 7.000 jogos | sim | não tem |
 | Nuuvem | [Nuuvem Co-Op](https://secure.nuuvem.com/lp/pt/nuuvem-coop) | inscrição gratuita, operada pela rede Rakuten (links, relatórios e saque ficam lá); pessoa física maior de 18 anos ou empresa, no Brasil ou fora | não publicada; a página diz que o programa está em fase final de testes | sim, em reais | não tem |
 | Epic Games Store | Support-A-Creator (código de criador) | criado pela própria loja | definida pela Epic por produto | sim | não tem |
+| Steam | nenhum: a Steam não tem programa de afiliados, compras nela nunca geram comissão | — | — | — | — |
 
 Regras que valem para todas: o link vem pronto do programa (`url` em `offers`), com os domínios de rastreamento aprovados em `allowed_tracking_hosts`; o Sofa não monta parâmetros de afiliado por conta própria. GMG e Nuuvem publicam preços regionais, então as ofertas delas podem trazer `quote` em reais quando o programa fornecer o preço.
 
