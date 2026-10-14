@@ -254,9 +254,74 @@ pub async fn steam_prices(
     Ok(parse_prices(&details))
 }
 
+/// The currency shoppers in a store region pay in.
+fn region_currency(region: &str) -> Option<&'static str> {
+    match region {
+        "us" => Some("USD"),
+        "br" => Some("BRL"),
+        "es" | "pt" => Some("EUR"),
+        "mx" => Some("MXN"),
+        "ar" => Some("ARS"),
+        _ => None,
+    }
+}
+
+#[derive(Serialize)]
+pub struct UsdRate {
+    currency: &'static str,
+    /// Units of `currency` per US dollar; None when the reference rates don't cover it.
+    per_usd: Option<f64>,
+}
+
+/// CheapShark only knows US dollars; ECB reference rates (Frankfurter, no key) let the store
+/// show them converted, marked as approximate. Cached for six hours.
+#[tauri::command]
+pub async fn usd_rate(region: String, cache: tauri::State<'_, StoreCache>) -> Result<UsdRate, String> {
+    let currency = region_currency(&region).ok_or("invalidInput")?;
+    if currency == "USD" {
+        return Ok(UsdRate { currency, per_usd: Some(1.0) });
+    }
+    let key = format!("fx:{currency}");
+    let cached_rate = cache
+        .0
+        .lock()
+        .map_err(|_| "serviceUnavailable")?
+        .get(&key)
+        .filter(|(at, _)| at.elapsed() < Duration::from_secs(6 * 3600))
+        .map(|(_, v)| v.clone());
+    let rates = match cached_rate {
+        Some(rates) => rates,
+        None => {
+            let rates: Value = network::json(
+                network::client()?
+                    .get("https://api.frankfurter.dev/v1/latest")
+                    .query(&[("base", "USD"), ("symbols", currency)]),
+            )
+            .await?;
+            cache
+                .0
+                .lock()
+                .map_err(|_| "serviceUnavailable")?
+                .insert(key, (Instant::now(), rates.clone()));
+            rates
+        }
+    };
+    let per_usd = rates["rates"][currency].as_f64().filter(|r| r.is_finite() && *r > 0.0);
+    Ok(UsdRate { currency, per_usd })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_store_region_has_a_currency() {
+        for region in REGIONS {
+            assert!(region_currency(region).is_some(), "{region}");
+        }
+        assert_eq!(region_currency("br"), Some("BRL"));
+        assert_eq!(region_currency("xx"), None);
+    }
 
     #[test]
     fn regional_prices_keep_only_priced_apps_with_a_currency_code() {
@@ -312,3 +377,4 @@ mod live_tests {
         });
     }
 }
+

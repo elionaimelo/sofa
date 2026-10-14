@@ -39,6 +39,8 @@ const demoShops: Shop[] = [
   { storeID: "7", storeName: "GOG", isActive: 1 },
 ];
 type DealsPage = { deals: Deal[]; pages: number };
+/** CheapShark's store id for Steam. */
+const STEAM_STORE = "1";
 type RegionalPrice = {
   currency: string;
   initial: number;
@@ -166,6 +168,27 @@ export function Store({
     staleTime: 5 * 60_000,
   });
   const regional = regionalQuery.data ?? {};
+  // Every other price is in US dollars: shown converted (marked ≈) where a rate is known.
+  const rate = useQuery({
+    ...commandQuery<{ currency: string; per_usd: number | null }>("usd_rate", {
+      region,
+    }),
+    enabled: region !== "us" && !demo,
+    staleTime: 6 * 60 * 60_000,
+  }).data;
+  const price = (usdValue: string) => {
+    const amount = Number(usdValue);
+    if (!rate?.per_usd || rate.currency === "USD" || !Number.isFinite(amount))
+      return usd(usdValue, lang);
+    return (
+      <span title={t("convertedFrom", { price: usd(usdValue, lang) })}>
+        ≈ {money(Math.round(amount * rate.per_usd * 100), rate.currency, lang)}
+      </span>
+    );
+  };
+  /** Steam's own price in the region, for a Steam offer of the selected game. */
+  const steamPrice = (d: Deal | null) =>
+    d?.steamAppID ? regional[d.steamAppID] : undefined;
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new tab or search starts at the first deal.
   useEffect(() => setFocus(0), [tab, search]);
   useEffect(() => {
@@ -394,9 +417,9 @@ export function Store({
                   </div>
                 ) : (
                   <div className="price">
-                    <strong>{usd(d.salePrice, lang)}</strong>
+                    <strong>{price(d.salePrice)}</strong>
                     {Number(d.normalPrice) > Number(d.salePrice) && (
-                      <del>{usd(d.normalPrice, lang)}</del>
+                      <del>{price(d.normalPrice)}</del>
                     )}
                     <ArrowUpRightIcon />
                   </div>
@@ -494,7 +517,15 @@ export function Store({
                       key={offer.dealID}
                     >
                       <span>{name(offer.storeID)}</span>
-                      <strong>{usd(offer.price, lang)}</strong>
+                      <strong>
+                        {offer.storeID === STEAM_STORE && steamPrice(selected)
+                          ? money(
+                              steamPrice(selected)?.final ?? 0,
+                              steamPrice(selected)?.currency ?? "USD",
+                              lang,
+                            )
+                          : price(offer.price)}
+                      </strong>
                       <button
                         className={i === 0 ? "accent" : ""}
                         onClick={() => void buy(offer.dealID)}
@@ -509,7 +540,7 @@ export function Store({
               {!demo && comparison.cheapestPriceEver && (
                 <p className="muted">
                   {t("lowestPrice")}:{" "}
-                  {usd(comparison.cheapestPriceEver.price, lang)}
+                  {price(comparison.cheapestPriceEver.price)}
                 </p>
               )}
             </>
