@@ -1257,7 +1257,7 @@ export default function App() {
       </AnimatePresence>
       <footer>
         <span role="status">
-          {status || (!isTauri() && !demo ? t("browserPreview") : "Sofa")}
+          {status || (!isTauri() && !demo ? t("browserPreview") : "")}
         </span>
         {update && (
           <button
