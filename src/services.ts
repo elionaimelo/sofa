@@ -122,6 +122,9 @@ export function navigateSpatial(
       const box = container.getBoundingClientRect();
       if (rect.bottom <= box.top || rect.top >= box.bottom) continue;
     }
+    // Inside a scrolled grid the previous row sits past its edge, farther than the tabs
+    // above it: the same container always wins while it still has something that way.
+    const outside = scroller && container !== scroller ? 1e6 : 0;
     const x = rect.left + rect.width / 2;
     const y = rect.top + rect.height / 2;
     const primary = (vertical ? y - cy : x - cx) * direction;
@@ -130,7 +133,7 @@ export function navigateSpatial(
     const overlap = vertical
       ? Math.min(from.right, rect.right) > Math.max(from.left, rect.left)
       : Math.min(from.bottom, rect.bottom) > Math.max(from.top, rect.top);
-    const score = primary + secondary * (overlap ? 0.35 : 2.5);
+    const score = primary + secondary * (overlap ? 0.35 : 2.5) + outside;
     if (score < bestScore) {
       best = candidate;
       bestScore = score;
