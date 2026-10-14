@@ -362,10 +362,10 @@ main::before {
   height: 100%;
   object-fit: cover;
 }
-/* A landscape fallback is shown whole instead of cropped to a sliver. */
+/* Landscape fallbacks fill the tile like portrait art; the centre of the banner is the key art. */
 .tile img[data-fallback] {
-  object-fit: contain;
-  background: #10141b;
+  object-fit: cover;
+  object-position: center;
 }
 .tile .title {
   position: absolute;
