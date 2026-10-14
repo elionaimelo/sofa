@@ -101,33 +101,62 @@ async fn cached(
     entries.insert(key.into(), (Instant::now(), value.clone()));
     Ok(value)
 }
+#[derive(Serialize, Deserialize)]
+pub struct DealsPage {
+    deals: Vec<Deal>,
+    /// Total pages CheapShark reports for this query (`X-Total-Page-Count`).
+    pages: u32,
+}
+
 #[tauri::command]
 pub async fn store_deals(
     query: String,
+    page: u32,
     cache: tauri::State<'_, StoreCache>,
-) -> Result<Vec<Deal>, String> {
+) -> Result<DealsPage, String> {
     let query = query.trim();
-    if query.chars().count() > 100 {
+    if query.chars().count() > 100 || page > 500 {
         return Err("invalidInput".into());
     }
-    let value = cached(
-        &cache,
-        &format!("deals:{query}"),
-        "deals",
-        &[
-            ("title", query),
-            ("pageSize", "48"),
-            ("sortBy", "Deal Rating"),
-        ],
-    )
-    .await?;
-    let deals: Vec<Deal> = serde_json::from_value(value).map_err(|_| "invalidResponse")?;
-    // One tile per game; comparisons come from /games?id=….
-    let mut seen = std::collections::HashSet::new();
-    Ok(deals
-        .into_iter()
-        .filter(|d| seen.insert(d.game_id.clone()))
-        .collect())
+    let key = format!("deals:{query}:{page}");
+    let cached_page = cache
+        .0
+        .lock()
+        .map_err(|_| "serviceUnavailable")?
+        .get(&key)
+        .filter(|(at, _)| at.elapsed() < Duration::from_secs(300))
+        .map(|(_, v)| v.clone());
+    let value = match cached_page {
+        Some(value) => value,
+        None => {
+            let (body, pages) = network::text_with_header(
+                network::client()?.get(format!("{BASE}/deals")).query(&[
+                    ("title", query),
+                    ("pageSize", "48"),
+                    ("pageNumber", &page.to_string()),
+                    ("sortBy", "Deal Rating"),
+                ]),
+                "x-total-page-count",
+            )
+            .await?;
+            let deals: Vec<Deal> = serde_json::from_str(&body).map_err(|_| "invalidResponse")?;
+            // One tile per game; comparisons come from /games?id=….
+            let mut seen = std::collections::HashSet::new();
+            let deals: Vec<Deal> = deals.into_iter().filter(|d| seen.insert(d.game_id.clone())).collect();
+            let pages = pages.and_then(|p| p.trim().parse().ok()).unwrap_or(1).max(1);
+            let value = serde_json::to_value(DealsPage { deals, pages }).map_err(|_| "invalidResponse")?;
+            let mut entries = cache.0.lock().map_err(|_| "serviceUnavailable")?;
+            if entries.len() >= 100 {
+                entries.retain(|_, (at, _)| at.elapsed() < Duration::from_secs(300));
+                if entries.len() >= 100 {
+                    entries.clear();
+                }
+            }
+            entries.insert(key, (Instant::now(), value.clone()));
+            value
+        }
+    };
+    serde_json::from_value(value).map_err(|_| "invalidResponse".into())
 }
 #[tauri::command]
 pub async fn store_shops(cache: tauri::State<'_, StoreCache>) -> Result<Vec<Shop>, String> {

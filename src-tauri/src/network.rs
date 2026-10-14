@@ -14,6 +14,14 @@ pub fn client() -> Result<Client, String> {
 
 // Never expose request URLs: Steam's API carries the user's key in the query.
 pub async fn text(request: reqwest::RequestBuilder) -> Result<String, String> {
+    text_with_header(request, "").await.map(|(body, _)| body)
+}
+
+/// The body plus one response header (empty name: none), for paginated APIs.
+pub async fn text_with_header(
+    request: reqwest::RequestBuilder,
+    header: &str,
+) -> Result<(String, Option<String>), String> {
     let mut response = request.send().await.map_err(|_| "network".to_string())?;
     let status = response.status().as_u16();
     if status == 429 {
@@ -36,7 +44,13 @@ pub async fn text(request: reqwest::RequestBuilder) -> Result<String, String> {
         }
         bytes.extend_from_slice(&chunk);
     }
-    String::from_utf8(bytes).map_err(|_| "invalidResponse".into())
+    let value = response
+        .headers()
+        .get(header)
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned);
+    let body = String::from_utf8(bytes).map_err(|_| "invalidResponse".to_string())?;
+    Ok((body, value))
 }
 
 pub async fn json<T: DeserializeOwned>(request: reqwest::RequestBuilder) -> Result<T, String> {
