@@ -1088,6 +1088,17 @@ dialog::backdrop {
   overflow: hidden;
   background: #000;
 }
+.gallery-stage {
+  position: relative;
+}
+.stage-play {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 64px;
+  height: 64px;
+  filter: drop-shadow(0 2px 8px rgb(0 0 0 / 0.8));
+}
 .gallery-stage :is(img, video) {
   display: block;
   width: 100%;

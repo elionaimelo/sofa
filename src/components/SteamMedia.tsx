@@ -4,7 +4,7 @@ import {
   SteamLogoIcon,
   ThumbsUpIcon,
 } from "@phosphor-icons/react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Translate } from "../i18n";
 
 /** A screenshot or trailer from a game's Steam page (`store_media`, `game_media`). */
@@ -97,10 +97,13 @@ export function SteamMedia({
 
 /**
  * Steam's gallery: the picked shot large, thumbnails in a row below. Focusing or tapping a
- * thumbnail picks it; a trailer plays muted, and A (or a tap) on it turns the sound on or off.
+ * thumbnail shows it; on a trailer, A (or a tap) plays it with sound and pauses it again.
+ * Nothing streams until then, so moving across the strip stays light.
  */
 function Gallery({ shots, t }: { shots: Shot[]; t: Translate }) {
   const [picked, setPicked] = useState(0);
+  // The picked trailer's player is mounted only after A; moving on unmounts it.
+  const [playing, setPlaying] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
   const shown = shots[picked] ?? shots[0];
   const label = (shot: Shot, i: number) =>
@@ -109,35 +112,53 @@ function Gallery({ shots, t }: { shots: Shot[]; t: Translate }) {
         shots.slice(0, i + 1).filter((s) => !s.video === !shot.video).length,
       ),
     });
-  const toggleSound = () => {
-    const v = video.current;
-    if (!v) return;
-    v.muted = !v.muted;
-    if (v.paused) void v.play();
+  const pick = (i: number) => {
+    if (i === picked) return;
+    setPicked(i);
+    setPlaying(false);
   };
+  const togglePlay = () => {
+    const v = video.current;
+    if (!playing || !v) setPlaying(true);
+    else if (v.paused) void v.play();
+    else v.pause();
+  };
+  // With sound when the webview allows it; muted rather than not at all.
+  useEffect(() => {
+    const v = video.current;
+    if (!playing || !v) return;
+    v.play().catch(() => {
+      v.muted = true;
+      void v.play();
+    });
+  }, [playing]);
   return (
     <section className="gallery" aria-label={t("gallery")}>
       <div className="gallery-stage">
-        {shown.video ? (
+        {shown.video && playing ? (
+          // biome-ignore lint/a11y/useMediaCaption: Steam's trailers ship without caption files.
           <video
             key={shown.video}
             ref={video}
             src={shown.video}
             poster={shown.image}
             controls
-            muted
             playsInline
-            autoPlay={!matchMedia("(prefers-reduced-motion: reduce)").matches}
           />
         ) : (
-          <img
-            key={shown.image}
-            src={shown.image}
-            alt={label(shown, picked)}
-            width={600}
-            height={338}
-            decoding="async"
-          />
+          <>
+            <img
+              key={shown.image}
+              src={shown.image}
+              alt={label(shown, picked)}
+              width={600}
+              height={338}
+              decoding="async"
+            />
+            {shown.video && (
+              <PlayIcon className="stage-play" weight="fill" aria-hidden />
+            )}
+          </>
         )}
       </div>
       <div className="gallery-strip">
@@ -146,10 +167,8 @@ function Gallery({ shots, t }: { shots: Shot[]; t: Translate }) {
             key={shot.image}
             aria-label={label(shot, i)}
             aria-current={i === picked}
-            onFocus={() => setPicked(i)}
-            onClick={() =>
-              i === picked && shot.video ? toggleSound() : setPicked(i)
-            }
+            onFocus={() => pick(i)}
+            onClick={() => (shot.video ? togglePlay() : pick(i))}
           >
             <img
               src={shot.image}
