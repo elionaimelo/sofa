@@ -23,9 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 
-# Agent skills are restored from skills-lock.json (npx skills experimental_install)
-.agents/
-.claude/skills/
 
 # Game Bar widget build output (CI copies the signed package into packaging/widget)
 widget/bin/

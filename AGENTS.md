@@ -27,7 +27,7 @@ sh scripts/check-rust.sh   # cargo test (zero warnings) + the crate compiled for
 
 Errors must surface here, never in CI. The versioned git hooks enforce it: `pre-commit` runs lint and typecheck (seconds); `pre-push` runs `npm run check`. The release CI (`.github/workflows/release.yml`) runs the same on `windows-latest`, so Windows-only code (`#[cfg(windows)]`) must compile there even if you develop on macOS: `scripts/check-rust.sh` compiles the whole crate for `x86_64-pc-windows-gnu` (needs `rustup target add x86_64-pc-windows-gnu` and `brew install mingw-w64`; the MSVC target can't build `ring` from macOS). Never bypass the hooks with `--no-verify`.
 
-Agent skills (TanStack Query, React composition, web interface guidelines) are pinned in `skills-lock.json`; restore them with `npx skills experimental_install`.
+Agent skills (TanStack Query, React composition, web interface guidelines) are versioned in `.agents/skills/`; `.claude/skills` links there so Claude Code loads them in every checkout. Read the matching `SKILL.md` before working in its area, and review UI changes against `web-design-guidelines` (it fetches the current rules). `skills-lock.json` records where each one came from: to update, run `npx skills experimental_install`, review the diff of `.agents/skills/` and commit it together with the new hashes. Never update them as a side effect of another change.
 
 ## Ground rules
 
