@@ -30,6 +30,7 @@ import {
   gameMeta,
   hero,
   parsePreferences,
+  tasteSeeds,
   titleGroup,
 } from "./library";
 import { useInput } from "./useInput";
@@ -224,6 +225,26 @@ export default function App() {
     setOnboardingDone(true);
     setOnboarding(false);
   };
+  // The store's "For you" starts from the games the player plays most, and never suggests
+  // what they already have.
+  const tasteSeedGames = useMemo(
+    () =>
+      tasteSeeds(library.games, prefs).map((appId) => ({
+        appId,
+        title:
+          library.games.find((g) => g.id === `steam:${appId}`)?.title ?? "",
+      })),
+    [library.games, prefs],
+  );
+  const ownedSteam = useMemo(
+    () =>
+      new Set(
+        library.games
+          .filter((g) => g.id.startsWith("steam:"))
+          .map((g) => g.id.slice(6)),
+      ),
+    [library.games],
+  );
   // Store prices follow the language unless the user picked a region.
   const region =
     prefs.region ?? (lang === "pt-BR" ? "br" : lang === "es" ? "es" : "us");
@@ -621,7 +642,7 @@ export default function App() {
                   : page === "store"
                     ? ([
                         ["X", t("wishlist")],
-                        ["LB/RB", `${t("discover")} / ${t("wishlist")}`],
+                        ["LB/RB", t("filterTabs")],
                       ] as [string, string][])
                     : []),
                 ...(page === "home"
@@ -1038,6 +1059,8 @@ export default function App() {
               t={t}
               lang={lang}
               region={region}
+              seeds={tasteSeedGames}
+              owned={ownedSteam}
               input={featureInput}
               onBack={() => setPage("home")}
             />

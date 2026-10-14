@@ -1015,6 +1015,33 @@ dialog::backdrop {
   color: var(--muted);
   font-size: 12px;
 }
+.also-like {
+  margin-top: 6px;
+}
+.also-like h2 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--muted);
+}
+.also-like-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 10px;
+}
+.also-like-row button {
+  aspect-ratio: 2 / 3;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #10141b;
+}
+.also-like-row img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .store-pager {
   display: flex;
   align-items: center;

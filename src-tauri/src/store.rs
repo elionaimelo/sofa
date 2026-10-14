@@ -254,6 +254,112 @@ pub async fn steam_prices(
     Ok(parse_prices(&details))
 }
 
+/// A game Steam lists as similar to another, from its public "More like this" page.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Similar {
+    app_id: String,
+    /// From the store link's slug; the cover art carries the tile, this names it for screen readers.
+    name: String,
+}
+
+fn numeric_id(id: &str) -> bool {
+    !id.is_empty() && id.len() <= 10 && id.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn parse_similar(html: &str, own: &str) -> Vec<Similar> {
+    let document = scraper::Html::parse_document(html);
+    let selector = scraper::Selector::parse("a.similar_grid_capsule[data-ds-appid]").unwrap();
+    let mut found: Vec<Similar> = Vec::new();
+    for node in document.select(&selector) {
+        let Some(id) = node.value().attr("data-ds-appid") else { continue };
+        if id == own || !numeric_id(id) || found.iter().any(|s| s.app_id == id) {
+            continue;
+        }
+        let href = node.value().attr("href").unwrap_or_default();
+        let name = href
+            .split(&format!("/app/{id}/"))
+            .nth(1)
+            .and_then(|rest| rest.split(['/', '?']).next())
+            .map(|slug| slug.replace('_', " ").trim().to_owned())
+            .filter(|name| !name.is_empty());
+        if let Some(name) = name {
+            found.push(Similar { app_id: id.to_owned(), name });
+        }
+        if found.len() >= 24 {
+            break;
+        }
+    }
+    found
+}
+
+/// Games similar to one Steam title. Cached for a day; the page needs no account or key.
+#[tauri::command]
+pub async fn store_similar(app_id: String, cache: tauri::State<'_, StoreCache>) -> Result<Vec<Similar>, String> {
+    if !numeric_id(&app_id) {
+        return Err("invalidInput".into());
+    }
+    let key = format!("similar:{app_id}");
+    let cached_list = cache
+        .0
+        .lock()
+        .map_err(|_| "serviceUnavailable")?
+        .get(&key)
+        .filter(|(at, _)| at.elapsed() < Duration::from_secs(24 * 3600))
+        .map(|(_, v)| v.clone());
+    if let Some(list) = cached_list {
+        return serde_json::from_value(list).map_err(|_| "invalidResponse".into());
+    }
+    let html = network::text(
+        network::client()?
+            .get(format!("https://store.steampowered.com/recommended/morelike/app/{app_id}/"))
+            .query(&[("l", "english")]),
+    )
+    .await?;
+    let list = parse_similar(&html, &app_id);
+    let value = serde_json::to_value(&list).map_err(|_| "invalidResponse")?;
+    cache.0.lock().map_err(|_| "serviceUnavailable")?.insert(key, (Instant::now(), value));
+    Ok(list)
+}
+
+#[derive(Deserialize)]
+struct CheapSharkGame {
+    #[serde(rename = "gameID")]
+    game_id: String,
+    cheapest: String,
+    #[serde(rename = "cheapestDealID")]
+    cheapest_deal_id: String,
+    external: String,
+    #[serde(default)]
+    thumb: String,
+}
+
+/// The CheapShark entry of a Steam title, as a deal the comparison can open; None when
+/// CheapShark doesn't list it.
+#[tauri::command]
+pub async fn store_lookup(app_id: String) -> Result<Option<Deal>, String> {
+    if !numeric_id(&app_id) {
+        return Err("invalidInput".into());
+    }
+    let games: Vec<CheapSharkGame> = network::json(
+        network::client()?
+            .get(format!("{BASE}/games"))
+            .query(&[("steamAppID", app_id.as_str())]),
+    )
+    .await?;
+    Ok(games.into_iter().find(|g| valid_game_id(&g.game_id)).map(|g| Deal {
+        game_id: g.game_id,
+        deal_id: g.cheapest_deal_id,
+        store_id: String::new(),
+        title: g.external,
+        sale_price: g.cheapest.clone(),
+        normal_price: g.cheapest,
+        savings: "0".into(),
+        thumb: g.thumb,
+        steam_app_id: Some(app_id),
+    }))
+}
+
 /// The currency shoppers in a store region pay in.
 fn region_currency(region: &str) -> Option<&'static str> {
     match region {
@@ -313,6 +419,19 @@ pub async fn usd_rate(region: String, cache: tauri::State<'_, StoreCache>) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn similar_games_come_from_the_capsule_links_without_the_game_itself() {
+        let html = r#"<div><a class="similar_grid_capsule" data-ds-appid="1145360" href="https://store.steampowered.com/app/1145360/Hades/">x</a>
+            <a class="similar_grid_capsule" data-ds-appid="1280930" href="https://store.steampowered.com/app/1280930/Astral_Ascent/?snr=1">x</a>
+            <a class="similar_grid_capsule" data-ds-appid="1280930" href="https://store.steampowered.com/app/1280930/Astral_Ascent/">dup</a>
+            <a class="similar_grid_capsule" data-ds-appid="bad" href="https://store.steampowered.com/app/bad/X/">x</a>
+            <a class="other" data-ds-appid="7" href="https://store.steampowered.com/app/7/Other/">x</a></div>"#;
+        assert_eq!(
+            parse_similar(html, "1145360"),
+            vec![Similar { app_id: "1280930".into(), name: "Astral Ascent".into() }]
+        );
+    }
 
     #[test]
     fn every_store_region_has_a_currency() {

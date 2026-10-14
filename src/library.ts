@@ -66,6 +66,56 @@ export function gameMeta(
     .filter(Boolean)
     .join(" · ");
 }
+/**
+ * The Steam titles that say most about the player's taste: hours played, how recently, and
+ * favourites. Recommendations start from these.
+ */
+export function tasteSeeds(
+  games: Game[],
+  p: Pick<Preferences, "favorites" | "recent">,
+  now = Date.now(),
+  limit = 3,
+): string[] {
+  const favorites = new Set(p.favorites);
+  return games
+    .filter((g) => /^steam:\d+$/.test(g.id))
+    .map((g) => {
+      const last = Math.max(p.recent[g.id] ?? 0, (g.last_played ?? 0) * 1000);
+      const days = last ? (now - last) / 86_400_000 : Number.POSITIVE_INFINITY;
+      const score =
+        (g.playtime ?? 0) +
+        (days <= 30 ? 600 : days <= 180 ? 120 : 0) +
+        (favorites.has(g.id) ? 1200 : 0);
+      return { id: g.id.slice(6), score };
+    })
+    .filter((g) => g.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((g) => g.id);
+}
+export type Similar = { appId: string; name: string };
+/**
+ * Merges the "more like this" lists of several seeds: a game suggested by more of them, and
+ * higher up, ranks first. Games the player already has are left out.
+ */
+export function rankSimilar(
+  lists: Similar[][],
+  exclude: Set<string>,
+  limit = 24,
+): Similar[] {
+  const scores = new Map<string, { item: Similar; score: number }>();
+  for (const list of lists)
+    list.forEach((item, position) => {
+      if (exclude.has(item.appId)) return;
+      const entry = scores.get(item.appId) ?? { item, score: 0 };
+      entry.score += 1 + (list.length - position) / list.length;
+      scores.set(item.appId, entry);
+    });
+  return [...scores.values()]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((entry) => entry.item);
+}
 /** Heading for a title-sorted group: its first letter, or "#" for digits and symbols. */
 export function titleGroup(title: string): string {
   const first = title.trim().charAt(0).toLocaleUpperCase();

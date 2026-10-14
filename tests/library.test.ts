@@ -10,6 +10,8 @@ import {
   hoursPlayed,
   mergeLibrary,
   parsePreferences,
+  rankSimilar,
+  tasteSeeds,
   titleGroup,
 } from "../src/library.ts";
 
@@ -293,4 +295,56 @@ test("sizes and hours read the way a console shows them", () => {
   assert.equal(hoursPlayed(3), "");
   assert.equal(hoursPlayed(90), "1.5 h");
   assert.equal(hoursPlayed(1230), "21 h");
+});
+
+test("taste seeds favour hours, recent play and favourites, Steam titles only", () => {
+  const now = Date.UTC(2026, 9, 14);
+  const game = (id: string, extra: Partial<Game> = {}): Game => ({
+    id,
+    title: id,
+    source: id.startsWith("steam:") ? "steam" : "epic",
+    launch: "",
+    installed: true,
+    ...extra,
+  });
+  const library = [
+    game("steam:1", { playtime: 3000 }),
+    game("steam:2", { playtime: 100 }),
+    game("steam:3"),
+    game("steam:4"),
+    game("epic:x", { playtime: 9000 }),
+  ];
+  const seeds = tasteSeeds(
+    library,
+    { favorites: ["steam:3"], recent: { "steam:2": now - 86_400_000 } },
+    now,
+  );
+  assert.deepEqual(
+    seeds,
+    ["steam:1", "steam:3", "steam:2"].map((id) => id.slice(6)),
+  );
+  assert.deepEqual(
+    tasteSeeds([game("steam:9")], { favorites: [], recent: {} }, now),
+    [],
+  );
+});
+test("similar games suggested by several seeds rank first, owned ones never", () => {
+  const ranked = rankSimilar(
+    [
+      [
+        { appId: "10", name: "A" },
+        { appId: "20", name: "B" },
+        { appId: "30", name: "C" },
+      ],
+      [
+        { appId: "30", name: "C" },
+        { appId: "40", name: "D" },
+      ],
+    ],
+    new Set(["20"]),
+  );
+  assert.deepEqual(
+    ranked.map((s) => s.appId),
+    ["30", "10", "40"],
+  );
 });

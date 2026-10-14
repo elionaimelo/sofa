@@ -5,13 +5,14 @@ import {
   CaretRightIcon,
   HeartIcon,
   MagnifyingGlassIcon,
+  SparkleIcon,
 } from "@phosphor-icons/react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DetailFrame } from "../components/DetailFrame";
 import { SearchField } from "../components/SearchField";
 import type { Lang, Translate } from "../i18n";
-import type { Region } from "../library";
+import { type Region, rankSimilar, type Similar } from "../library";
 import {
   commandQuery,
   type Deal,
@@ -47,20 +48,39 @@ type RegionalPrice = {
   final: number;
   discount: number;
 };
+/** A Steam title the store only knows by id: the comparison resolves it on open. */
+const fromSimilar = (s: Similar): Deal => ({
+  gameID: "",
+  dealID: "",
+  storeID: STEAM_STORE,
+  title: s.name,
+  salePrice: "",
+  normalPrice: "",
+  savings: "0",
+  thumb: "",
+  steamAppID: s.appId,
+});
+const tabs = ["discover", "forYou", "wishlist"] as const;
 export function Store({
   t,
   lang,
   region,
+  seeds,
+  owned,
   input,
   onBack,
 }: {
   t: Translate;
   lang: Lang;
   region: Region;
+  /** Steam titles that best describe the player's taste (see `tasteSeeds`). */
+  seeds: { appId: string; title: string }[];
+  /** Steam app ids the player already has, never recommended. */
+  owned: Set<string>;
   input: InputRef;
   onBack: () => void;
 }) {
-  const [tab, setTab] = useState<"discover" | "wishlist">("discover");
+  const [tab, setTab] = useState<(typeof tabs)[number]>("discover");
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -141,21 +161,45 @@ export function Store({
       enabled: !!selected?.steamAppID && !demo,
       staleTime: 60 * 60_000,
     }).data ?? [];
-  const visible = useMemo(
+  // For you: what Steam lists as similar to the games the player plays most.
+  const similarLists = useQueries({
+    queries: seeds.map((seed) => ({
+      ...commandQuery<Similar[]>("store_similar", { appId: seed.appId }),
+      enabled: !demo,
+      staleTime: 60 * 60_000,
+    })),
+  });
+  const similarKey = similarLists.map((q) => q.dataUpdatedAt).join(",");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: similarKey changes whenever a list arrives.
+  const forYou = useMemo(
     () =>
-      tab === "discover"
-        ? deals
-        : wishlist.filter((d) =>
-            d.title.toLowerCase().includes(query.toLowerCase()),
-          ),
-    [deals, wishlist, tab, query],
+      rankSimilar(
+        similarLists.map((q) => q.data ?? []),
+        new Set([...owned, ...seeds.map((s) => s.appId)]),
+      ).map(fromSimilar),
+    [similarKey, owned, seeds],
   );
-  // CheapShark prices are US dollars; outside the US, Steam's price in the user's region
-  // replaces them for every deal that has a Steam id.
-  const steamIds = visible
-    .map((d) => d.steamAppID)
-    .filter((id): id is string => !!id)
+  const forYouLoading = similarLists.some((q) => q.isPending) && !demo;
+  const visible = useMemo(() => {
+    const matching = (list: Deal[]) =>
+      list.filter((d) => d.title.toLowerCase().includes(query.toLowerCase()));
+    return tab === "discover"
+      ? deals
+      : tab === "forYou"
+        ? matching(forYou)
+        : matching(wishlist);
+  }, [deals, forYou, wishlist, tab, query]);
+  // Steam's own price in the region, for Steam offers and recommendations (every region:
+  // recommendations carry no CheapShark price).
+  const steamIds = [
+    ...new Set(
+      [...visible, ...(selected ? [selected] : [])]
+        .map((d) => d.steamAppID)
+        .filter((id): id is string => !!id),
+    ),
+  ]
     .sort()
+    .slice(0, 60)
     .join(",");
   const regionalQuery = useQuery({
     queryKey: ["steam_prices", region, steamIds],
@@ -164,7 +208,7 @@ export function Store({
         ids: steamIds.split(","),
         region,
       }),
-    enabled: region !== "us" && !demo && steamIds !== "",
+    enabled: !demo && steamIds !== "",
     staleTime: 5 * 60_000,
   });
   const regional = regionalQuery.data ?? {};
@@ -189,6 +233,23 @@ export function Store({
   /** Steam's own price in the region, for a Steam offer of the selected game. */
   const steamPrice = (d: Deal | null) =>
     d?.steamAppID ? regional[d.steamAppID] : undefined;
+  /** The deal's own discount, or Steam's for Steam offers and recommendations. */
+  const discount = (d: Deal) =>
+    d.storeID === STEAM_STORE && steamPrice(d)
+      ? (steamPrice(d)?.discount ?? 0)
+      : Math.round(Number(d.savings) || 0);
+  // "You may also like" under the comparison: Steam's similar titles the player doesn't own.
+  const alsoLike = (
+    useQuery({
+      ...commandQuery<Similar[]>("store_similar", {
+        appId: selected?.steamAppID,
+      }),
+      enabled: !!selected?.steamAppID && !demo,
+      staleTime: 60 * 60_000,
+    }).data ?? []
+  )
+    .filter((s) => !owned.has(s.appId))
+    .slice(0, 8);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new tab or search starts at the first deal.
   useEffect(() => setFocus(0), [tab, search]);
   useEffect(() => {
@@ -200,11 +261,31 @@ export function Store({
       inline: "nearest",
     });
   }, [focus]);
+  /** A recommendation only has a Steam id; CheapShark's entry gives it offers to compare. */
+  const resolve = async (d: Deal): Promise<Deal | null> => {
+    if (d.gameID || !d.steamAppID) return d;
+    try {
+      const found = await desktop<Deal | null>("store_lookup", {
+        appId: d.steamAppID,
+      });
+      if (!found) setStatus(t("noOffers"));
+      return found;
+    } catch (e) {
+      setStatus(t(serviceError(e)));
+      return null;
+    }
+  };
+  const open = (d: Deal) =>
+    void resolve(d).then((found) => found && setSelected(found));
   const toggle = (d: Deal) =>
-    setWishlist((list) =>
-      list.some((g) => g.gameID === d.gameID)
-        ? list.filter((g) => g.gameID !== d.gameID)
-        : [...list, d],
+    void resolve(d).then(
+      (found) =>
+        found &&
+        setWishlist((list) =>
+          list.some((g) => g.gameID === found.gameID)
+            ? list.filter((g) => g.gameID !== found.gameID)
+            : [...list, found],
+        ),
     );
   const buy = async (id: string) => {
     setStatus("");
@@ -230,7 +311,13 @@ export function Store({
       return;
     }
     if (a === "lb" || a === "rb") {
-      setTab((s) => (s === "discover" ? "wishlist" : "discover"));
+      setTab(
+        (s) =>
+          tabs[
+            (tabs.indexOf(s) + (a === "lb" ? -1 : 1) + tabs.length) %
+              tabs.length
+          ],
+      );
       return;
     }
     // The pager below the grid: DOWN from the last row reaches it, UP returns to the tiles.
@@ -240,7 +327,7 @@ export function Store({
       else navigateSpatial(a, pager);
       return;
     }
-    if (a === "a" && visible[focus]) setSelected(visible[focus]);
+    if (a === "a" && visible[focus]) open(visible[focus]);
     if (a === "x" && visible[focus]) toggle(visible[focus]);
     if (a === "y") refresh();
     const cols = grid.current
@@ -291,6 +378,13 @@ export function Store({
             {t("discover")}
           </button>
           <button
+            aria-pressed={tab === "forYou"}
+            onClick={() => setTab("forYou")}
+          >
+            <SparkleIcon />
+            {t("forYou")}
+          </button>
+          <button
             aria-pressed={tab === "wishlist"}
             onClick={() => setTab("wishlist")}
           >
@@ -335,7 +429,18 @@ export function Store({
       {tab === "wishlist" && (
         <p className="inline-note">{t("wishlistPriceNote")}</p>
       )}
-      {loading && tab === "discover" ? (
+      {tab === "forYou" && seeds.length > 0 && (
+        <p className="inline-note">
+          {t("forYouBasedOn", {
+            games: seeds
+              .map((s) => s.title)
+              .filter(Boolean)
+              .join(", "),
+          })}
+        </p>
+      )}
+      {(loading && tab === "discover") ||
+      (forYouLoading && tab === "forYou") ? (
         <div
           className="store-grid skeleton-grid"
           aria-label={t("loadingOffers")}
@@ -353,19 +458,31 @@ export function Store({
         </div>
       ) : !visible.length ? (
         <div className="feature-empty">
-          <HeartIcon size={42} />
-          <h2>{t(tab === "wishlist" ? "emptyWishlist" : "noMatches")}</h2>
+          {tab === "forYou" ? (
+            <SparkleIcon size={42} />
+          ) : (
+            <HeartIcon size={42} />
+          )}
+          <h2>
+            {t(
+              tab === "wishlist"
+                ? "emptyWishlist"
+                : tab === "forYou" && !seeds.length
+                  ? "forYouEmpty"
+                  : "noMatches",
+            )}
+          </h2>
         </div>
       ) : (
         <div className="store-grid" ref={grid}>
           {visible.map((d, i) => (
             <button
               className="deal-card"
-              key={d.gameID}
+              key={d.gameID || `steam:${d.steamAppID}`}
               aria-current={i === focus}
               onFocus={() => setFocus(i)}
               onMouseEnter={() => setFocus(i)}
-              onClick={() => setSelected(d)}
+              onClick={() => open(d)}
             >
               <div className="deal-art">
                 <img
@@ -376,10 +493,8 @@ export function Store({
                     e.currentTarget.style.visibility = "hidden";
                   }}
                 />
-                {Number(d.savings) > 0 && (
-                  <span className="discount">
-                    −{Math.round(Number(d.savings))}%
-                  </span>
+                {discount(d) > 0 && (
+                  <span className="discount">−{discount(d)}%</span>
                 )}
                 {wishlist.some((g) => g.gameID === d.gameID) && (
                   <HeartIcon
@@ -394,7 +509,9 @@ export function Store({
               <div className="deal-copy">
                 <span className="deal-shop">{name(d.storeID)}</span>
                 <h2>{d.title}</h2>
-                {d.steamAppID && regional[d.steamAppID] ? (
+                {d.storeID === STEAM_STORE &&
+                d.steamAppID &&
+                regional[d.steamAppID] ? (
                   <div className="price">
                     <strong>
                       {money(
@@ -473,7 +590,8 @@ export function Store({
           onClose={() => setSelected(null)}
         >
           <p className="detail-meta">
-            {t("compare")} · {name(selected.storeID)}
+            {t("compare")}
+            {selected.storeID ? ` · ${name(selected.storeID)}` : ""}
           </p>
           <h1>{selected.title}</h1>
           <div className="compare-summary">
@@ -574,6 +692,30 @@ export function Store({
                   </button>
                 </div>
               ))}
+            </section>
+          )}
+          {alsoLike.length > 0 && (
+            <section className="also-like" aria-label={t("alsoLike")}>
+              <h2>{t("alsoLike")}</h2>
+              <div className="also-like-row">
+                {alsoLike.map((s) => (
+                  <button
+                    key={s.appId}
+                    aria-label={s.name}
+                    title={s.name}
+                    onClick={() => open(fromSimilar(s))}
+                  >
+                    <img
+                      src={dealArt({ steamAppID: s.appId, thumb: "" })}
+                      alt=""
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.style.visibility = "hidden";
+                      }}
+                    />
+                  </button>
+                ))}
+              </div>
             </section>
           )}
           <p role="status">{status}</p>
