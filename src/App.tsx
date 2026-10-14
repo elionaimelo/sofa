@@ -761,9 +761,23 @@ export default function App() {
           {demo && <span className="preview-label">{t("preview")}</span>}
           {(page === "home" || page === "library") &&
             (loading ? (
-              <div className="empty">
-                <Loading label={t("scanning")} />
-              </div>
+              page === "library" ? (
+                // The grid is already on screen: tiles take shape where they will land.
+                <div
+                  className="grid skeleton-grid"
+                  role="status"
+                  aria-label={t("scanning")}
+                >
+                  {Array.from({ length: 12 }, (_, i) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: fixed, identical loading placeholders.
+                    <div className="skeleton" key={i} />
+                  ))}
+                </div>
+              ) : (
+                <div className="empty">
+                  <Loading label={t("scanning")} />
+                </div>
+              )
             ) : scanError ? (
               <div className="empty" role="alert">
                 <p>{t("scanFailed", { error: t(scanError) })}</p>

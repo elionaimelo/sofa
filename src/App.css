@@ -1453,6 +1453,24 @@ select:focus-visible,
 .inline-error button {
   margin-left: 16px;
 }
+/* Skeletons stand in for content whose shape is known: card grids and offer rows. */
+.skeleton {
+  background: linear-gradient(110deg, #252934 20%, #303541 40%, #252934 60%);
+  background-size: 250% 100%;
+  animation: skeleton-shimmer 1.7s linear infinite;
+  border-radius: 14px;
+}
+.skeleton-grid .skeleton {
+  aspect-ratio: 2 / 3;
+}
+.offer-skeleton {
+  min-height: 170px;
+}
+@keyframes skeleton-shimmer {
+  to {
+    background-position: -250% 0;
+  }
+}
 .compare-summary {
   display: flex;
   align-items: center;
@@ -2286,6 +2304,7 @@ dialog::backdrop {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .skeleton,
   .hero-copy,
   .grid .tile,
   .game-row .tile,
