@@ -658,11 +658,7 @@ export default function App() {
               {t("offline")}
             </span>
           )}
-          <TopBatteries
-            t={t}
-            data={power.data}
-            onOpen={() => setHudOpen(true)}
-          />
+          <TopBatteries t={t} data={power.data} onOpen={openHud} />
           <button
             onClick={() => setPowerMenu(true)}
             aria-label={t("powerMenu")}
