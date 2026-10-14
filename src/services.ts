@@ -15,6 +15,8 @@ export const demo =
   !isTauri() &&
   new URLSearchParams(location.search).has("demo");
 export type InputRef = MutableRefObject<((a: Action) => void) | null>;
+/** Set while a Picker list is open; the main window routes every action to it first. */
+export const pickerInput: InputRef = { current: null };
 export function useFeatureInput(ref: InputRef, handler: (a: Action) => void) {
   useEffect(() => {
     ref.current = handler;
@@ -22,13 +24,6 @@ export function useFeatureInput(ref: InputRef, handler: (a: Action) => void) {
       ref.current = null;
     };
   });
-}
-/** The controller can't open a native dropdown: A and RB step forward, LB back. */
-function stepSelect(select: HTMLSelectElement, step: number) {
-  select.selectedIndex =
-    (select.selectedIndex + step + select.options.length) %
-    select.options.length;
-  select.dispatchEvent(new Event("change", { bubbles: true }));
 }
 export function navigateControls(a: Action, root: Element | null): boolean {
   if (!root) return false;
@@ -53,10 +48,6 @@ export function navigateControls(a: Action, root: Element | null): boolean {
       (current instanceof HTMLInputElement && current.type === "checkbox"))
   ) {
     current.click();
-    return true;
-  }
-  if (["a", "lb", "rb"].includes(a) && current instanceof HTMLSelectElement) {
-    stepSelect(current, a === "lb" ? -1 : 1);
     return true;
   }
   return false;
@@ -94,8 +85,7 @@ export function navigateSpatial(
   const current = document.activeElement as HTMLElement;
   if (a === "a") {
     if (controls.includes(current)) {
-      if (current instanceof HTMLSelectElement) stepSelect(current, 1);
-      else current.click();
+      current.click();
       return true;
     }
     if (initial && controls.includes(initial)) {
@@ -104,14 +94,6 @@ export function navigateSpatial(
       return true;
     }
     return false;
-  }
-  if (
-    (a === "lb" || a === "rb") &&
-    current instanceof HTMLSelectElement &&
-    controls.includes(current)
-  ) {
-    stepSelect(current, a === "lb" ? -1 : 1);
-    return true;
   }
   if (!["up", "down", "left", "right"].includes(a) || !controls.length)
     return false;

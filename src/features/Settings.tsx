@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { Dialog } from "../components/Dialog";
+import { Picker } from "../components/Picker";
 import { LANGS, type Lang, type Translate } from "../i18n";
 import type { Preferences } from "../library";
 import {
@@ -237,31 +238,30 @@ export function AppearanceSettings({
   });
   return (
     <>
-      <label>
+      <div className="field">
         {t("language")}
-        <select value={lang} onChange={(e) => setLang(e.target.value as Lang)}>
-          {Object.entries(LANGS).map(([code, name]) => (
-            <option key={code} value={code}>
-              {name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
+        <Picker
+          label={t("language")}
+          value={lang}
+          options={(Object.keys(LANGS) as Lang[]).map((code) => ({
+            value: code,
+            label: LANGS[code],
+          }))}
+          onChange={setLang}
+        />
+      </div>
+      <div className="field">
         {t("density")}
-        <select
+        <Picker
+          label={t("density")}
           value={prefs.density}
-          onChange={(e) =>
-            setPrefs((p) => ({
-              ...p,
-              density: e.target.value as typeof p.density,
-            }))
-          }
-        >
-          <option value="comfortable">{t("comfortable")}</option>
-          <option value="compact">{t("compact")}</option>
-        </select>
-      </label>
+          options={[
+            { value: "comfortable", label: t("comfortable") },
+            { value: "compact", label: t("compact") },
+          ]}
+          onChange={(density) => setPrefs((p) => ({ ...p, density }))}
+        />
+      </div>
       {/* Xbox mode owns the window layout; the toggle only makes sense outside it. */}
       {xboxMode?.active !== true && (
         <button

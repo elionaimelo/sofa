@@ -12,6 +12,7 @@ import {
 } from "react";
 import { Dialog } from "./components/Dialog";
 import { LaunchScreen } from "./components/LaunchScreen";
+import { Picker } from "./components/Picker";
 import { Scene } from "./components/Scene";
 import { initialLang, type Lang, saveLang, translator } from "./i18n";
 import {
@@ -68,6 +69,7 @@ import {
   type Notify,
   navigateControls,
   navigateSpatial,
+  pickerInput,
   serviceError,
 } from "./services";
 
@@ -172,7 +174,7 @@ export default function App() {
   const tRef = useRef(t);
   tRef.current = t;
   const grid = useRef<HTMLDivElement>(null);
-  const sortSelect = useRef<HTMLSelectElement>(null);
+  const sortSelect = useRef<HTMLButtonElement>(null);
   const featureInput: InputRef = useRef(null);
   const launchBusy = useRef(false);
   const notify = useCallback<Notify>(
@@ -386,6 +388,10 @@ export default function App() {
     }
   };
   useInput((a) => {
+    if (pickerInput.current) {
+      pickerInput.current(a);
+      return;
+    }
     if (launchScreen) {
       if (a === "b") setLaunchScreen(null);
       return;
@@ -496,12 +502,6 @@ export default function App() {
       return;
     }
     if (a === "lb" || a === "rb") {
-      // Select elements handle LB/RB themselves via navigateControls.
-      if (
-        document.activeElement instanceof HTMLSelectElement &&
-        navigateControls(a, document.querySelector("main"))
-      )
-        return;
       if (navigateSpatial(a, document.querySelector("main"))) return;
       if (page === "home" || page === "library") {
         setPage("library");
@@ -820,45 +820,43 @@ export default function App() {
                           .includes(categoryQuery.toLocaleLowerCase()),
                       ) && <p className="muted">{t("noCategorySearch")}</p>}
                   </section>
-                  <label>
+                  <div className="field">
                     {t("playedFilter")}
-                    <select
+                    <Picker
+                      label={t("playedFilter")}
                       value={prefs.filters.played}
-                      onChange={(e) =>
+                      options={[
+                        { value: "any", label: t("anyHistory") },
+                        { value: "never", label: t("neverPlayedFilter") },
+                        { value: "recent7", label: t("recent7") },
+                        { value: "recent30", label: t("recent30") },
+                      ]}
+                      onChange={(played) =>
                         setPrefs((p) => ({
                           ...p,
-                          filters: {
-                            ...p.filters,
-                            played: e.target.value as typeof p.filters.played,
-                          },
+                          filters: { ...p.filters, played },
                         }))
                       }
-                    >
-                      <option value="any">{t("anyHistory")}</option>
-                      <option value="never">{t("neverPlayedFilter")}</option>
-                      <option value="recent7">{t("recent7")}</option>
-                      <option value="recent30">{t("recent30")}</option>
-                    </select>
-                  </label>
-                  <label>
+                    />
+                  </div>
+                  <div className="field">
                     {t("artworkFilter")}
-                    <select
+                    <Picker
+                      label={t("artworkFilter")}
                       value={prefs.filters.artwork}
-                      onChange={(e) =>
+                      options={[
+                        { value: "any", label: t("anyArtwork") },
+                        { value: "with", label: t("withArtwork") },
+                        { value: "without", label: t("withoutArtwork") },
+                      ]}
+                      onChange={(artwork) =>
                         setPrefs((p) => ({
                           ...p,
-                          filters: {
-                            ...p.filters,
-                            artwork: e.target.value as typeof p.filters.artwork,
-                          },
+                          filters: { ...p.filters, artwork },
                         }))
                       }
-                    >
-                      <option value="any">{t("anyArtwork")}</option>
-                      <option value="with">{t("withArtwork")}</option>
-                      <option value="without">{t("withoutArtwork")}</option>
-                    </select>
-                  </label>
+                    />
+                  </div>
                   <label className="filter-checkbox">
                     <input
                       type="checkbox"
@@ -1001,29 +999,20 @@ export default function App() {
                     </CollectionHeading>
                     {page === "library" && (
                       <div className="collection-actions">
-                        {/* Sorting sits right above the list it orders; LB/RB change it when focused; UP from the list brings focus here. */}
-                        <select
+                        {/* Sorting sits right above the list it orders; UP from the list brings focus here. */}
+                        <Picker
                           ref={sortSelect}
+                          label={t("sort")}
                           value={prefs.sort}
-                          aria-label={t("sort")}
-                          title={t("sort")}
-                          onChange={(e) =>
-                            setPrefs((p) => ({
-                              ...p,
-                              sort: e.target.value as typeof p.sort,
-                            }))
-                          }
-                        >
-                          <option value="recent">{t("recent")}</option>
-                          <option value="mostPlayed">
-                            {t("sortMostPlayed")}
-                          </option>
-                          <option value="installed">
-                            {t("sortInstalled")}
-                          </option>
-                          <option value="title">{t("titleAsc")}</option>
-                          <option value="size">{t("sortSize")}</option>
-                        </select>
+                          options={[
+                            { value: "recent", label: t("recent") },
+                            { value: "mostPlayed", label: t("sortMostPlayed") },
+                            { value: "installed", label: t("sortInstalled") },
+                            { value: "title", label: t("titleAsc") },
+                            { value: "size", label: t("sortSize") },
+                          ]}
+                          onChange={(sort) => setPrefs((p) => ({ ...p, sort }))}
+                        />
                       </div>
                     )}
                     {page === "home" && (

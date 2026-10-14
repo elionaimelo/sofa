@@ -13,7 +13,7 @@
 ## Controller-first UI
 
 - Every action must be reachable with the gamepad: `useInput` actions, `navigateSpatial` / `navigateControls`, `useFeatureInput` for pages and dialogs. Never rely on hover. Test new UI with the controller before touch; the controller is the primary input.
-- Native `<select>` dropdowns can't be opened by the controller (the gamepad click isn't a user activation). `navigateSpatial` / `navigateControls` make A and RB step to the next option and LB to the previous; prefer buttons or segmented controls for new choices.
+- Never use a native `<select>`: the controller can't open its list (a gamepad click isn't a user activation). Choices use `components/Picker.tsx` (A opens, up/down move, A picks, B closes); while its list is open `App.tsx` routes every action to it through `pickerInput`.
 - Set focus on purpose: `data-initial-focus` in dialogs, move focus to the trigger before unmounting a focused element.
 - View + Start is reserved for the native HUD toggle; `useInput` fires View/Start on release so the chord doesn't trigger them.
 
