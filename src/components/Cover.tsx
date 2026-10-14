@@ -16,32 +16,53 @@ export function coverSources(game: Game): string[] {
   return sources.filter((source, i) => sources.indexOf(source) === i);
 }
 
+/** The current art source for a game, moving to the next one each time an image fails. */
+function useCoverSource(game: Game) {
+  const [failed, setFailed] = useState(0);
+  return {
+    src: coverSources(game)[failed] as string | undefined,
+    fallback: failed > 0,
+    next: () => setFailed((n) => n + 1),
+  };
+}
+
 /** The art alone, trying each source in turn; nothing when all fail. */
 export function CoverImage({ game }: { game: Game }) {
-  const [failed, setFailed] = useState(0);
-  const src = coverSources(game)[failed];
+  const { src, fallback, next } = useCoverSource(game);
   return (
     src && (
       <img
         src={src}
         alt=""
         loading="lazy"
-        data-fallback={failed > 0 || undefined}
-        onError={() => setFailed((n) => n + 1)}
+        data-fallback={fallback || undefined}
+        onError={next}
       />
     )
   );
 }
 
-/** A library tile's content: art, title and the store badge. */
+/**
+ * A tile's content, console style: the art carries the tile. The name shows only where it is
+ * needed (the focused tile in the library, or a game without any art); the tile's aria-label
+ * always names it.
+ */
 export function Cover({ game }: { game: Game }) {
+  const { src, fallback, next } = useCoverSource(game);
   return (
     <>
-      <CoverImage game={game} />
-      <span className="title">
+      {src && (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          data-fallback={fallback || undefined}
+          onError={next}
+        />
+      )}
+      <span className="title" data-always={!src || undefined}>
         <span>{game.title}</span>
       </span>
-      <span className="badge">{game.source}</span>
     </>
   );
 }

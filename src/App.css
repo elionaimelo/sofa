@@ -409,10 +409,7 @@ button:active:not([aria-disabled="true"]) {
   font-weight: 600;
   color: var(--muted);
 }
-/* Store badges stay quiet; the install prompt appears only on the focused tile. */
-.tile .badge {
-  opacity: 0.85;
-}
+/* The install prompt appears only on the focused tile. */
 .install-mark {
   opacity: 0;
   transition: opacity 0.16s;
@@ -665,16 +662,16 @@ button:active:not([aria-disabled="true"]) {
   content-visibility: auto;
   contain-intrinsic-size: auto 285px;
 }
-.tile .badge {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  padding: 4px 6px;
-  border-radius: 5px;
-  background: rgb(0 0 0 / 0.55);
-  text-transform: uppercase;
-  font-size: 10px;
-  font-weight: 700;
+/* Console style: the art carries the tile and the name shows once. On Home the hero names
+   the focused game; in the library the focused tile shows its name; a tile without any art
+   always does. */
+.tile .title {
+  opacity: 0;
+  transition: opacity 0.16s;
+}
+.tile .title[data-always],
+.page-library .tile:is(:focus, :hover, [aria-current="true"]) .title {
+  opacity: 1;
 }
 .tile[aria-current="true"] {
   transform: scale(1.035);
@@ -2789,7 +2786,6 @@ main:not(.floating-hud) :is(button, input, select):not(.tile, .deal-card) {
   line-height: 1.2;
   padding: 50px 15px 16px;
 }
-.tile .badge,
 .preview-label {
   font-size: 13px;
 }
