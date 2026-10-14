@@ -1,5 +1,5 @@
 import { XIcon } from "@phosphor-icons/react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Dialog } from "./Dialog";
 
 /**
@@ -26,7 +26,7 @@ export function DetailFrame({
     <Dialog label={label} onClose={onClose}>
       <div
         className="detail-layout"
-        style={{ backgroundImage: `url("${art}")` }}
+        style={{ "--art": `url("${art}")` } as CSSProperties}
       >
         <button className="close" onClick={onClose} aria-label={closeLabel}>
           <XIcon />

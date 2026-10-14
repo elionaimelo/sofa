@@ -53,8 +53,8 @@ button > svg:not(:only-child):last-child {
   --glass-border: rgb(255 255 255 / 0.14);
   --glass-blur: blur(26px) saturate(150%);
 }
-dialog,
-.library-filters,
+/* Blur only on small, static surfaces: on scrolling or animating containers (dialogs, the
+   drawer) WebView2 leaves ghost trails, so those get a near-opaque colour instead. */
 .picker-list,
 .settings-hub-grid button,
 .library-account,
@@ -67,11 +67,17 @@ dialog,
   -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: inset 0 1px rgb(255 255 255 / 0.1);
 }
+dialog,
+.library-filters {
+  box-shadow: inset 0 1px rgb(255 255 255 / 0.1);
+}
 dialog {
-  background: var(--glass-strong);
+  background: rgb(27 33 43 / 0.97);
   border-color: var(--glass-border);
 }
-.library-filters,
+.library-filters {
+  background: rgb(27 33 43 / 0.97);
+}
 .picker-list {
   background: var(--glass-strong);
 }
@@ -809,16 +815,18 @@ dialog::backdrop {
   display: grid;
   grid-template-columns: minmax(180px, 28%) minmax(0, 1fr);
   height: min(92dvh, 680px);
-  background-position: center;
-  background-size: cover;
+  overflow: hidden;
+  background: #171c25;
 }
+/* The art is blurred on its own layer with `filter`: `backdrop-filter` on a dialog that
+   animates and re-measures leaves ghost copies of its content in WebView2. */
 .detail-layout::before {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: -40px;
   z-index: -1;
-  background: rgb(20 25 33 / 0.84);
-  backdrop-filter: blur(28px);
+  background: var(--art) center / cover no-repeat;
+  filter: blur(28px) brightness(0.45) saturate(1.2);
 }
 .detail-cover {
   margin: 26px 0 26px 26px;
@@ -1523,9 +1531,7 @@ select:focus-visible,
   flex-direction: column;
   min-height: 0;
   padding: 14px 16px 18px;
-  background: rgb(22 27 36 / 0.92);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  background: rgb(22 27 36 / 0.96);
   height: 100%;
   gap: 16px;
   overflow-y: auto;
