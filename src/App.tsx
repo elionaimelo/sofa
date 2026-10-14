@@ -760,6 +760,7 @@ export default function App() {
                     ? ([
                         ["X", t("wishlist")],
                         ["LB/RB", t("filterTabs")],
+                        ["LT/RT", t("pages")],
                       ] as [string, string][])
                     : []),
                 ...(page === "home"
