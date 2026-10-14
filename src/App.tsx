@@ -85,6 +85,11 @@ const TABS = ["all", "favorites", "steam", "epic", "gog"] as const;
 const preferencesKey = demo ? "sofa.demo.preferences" : "sofa.preferences";
 /** Whole gigabytes as Windows counts them (1024³), enough for a storage overview. */
 const gb = (bytes: number) => String(Math.round(bytes / 1024 ** 3));
+/** One decimal above a gigabyte, whole megabytes below. */
+const formatSize = (bytes: number) =>
+  bytes >= 1024 ** 3
+    ? `${(bytes / 1024 ** 3).toFixed(1)} GB`
+    : `${Math.round(bytes / 1024 ** 2)} MB`;
 /** Steam's portrait art is missing for some titles; its landscape header rarely is. */
 function coverSources(game: Game): string[] {
   const sources = game.cover ? [game.cover] : [];
@@ -190,6 +195,12 @@ export default function App() {
   );
   const library = useLibrary(notify);
   const updates = useUpdates(notify);
+  // Expected download of an owned Steam game, from its store requirements.
+  const sizeEstimate = useQuery({
+    ...commandQuery<number | null>("game_size_estimate", { id: details?.id }),
+    enabled: !!details && !details.installed && details.id.startsWith("steam:"),
+    staleTime: Number.POSITIVE_INFINITY,
+  });
   // Fixed disks for the storage card; looked up again when the user comes back to Sofa.
   const storage = useQuery({
     ...commandQuery<{ name: string; total: number; available: number }[]>(
@@ -1241,6 +1252,19 @@ export default function App() {
                 {t(details.installed ? "installed" : "availableToInstall")}
               </p>
               <h1>{details.title}</h1>
+              {details.installed
+                ? details.size != null && (
+                    <p className="muted">
+                      {t("diskSpaceUsed", { size: formatSize(details.size) })}
+                    </p>
+                  )
+                : sizeEstimate.data != null && (
+                    <p className="muted">
+                      {t("downloadEstimate", {
+                        size: formatSize(sizeEstimate.data),
+                      })}
+                    </p>
+                  )}
               <p>
                 {prefs.recent[details.id]
                   ? t("lastPlayed", {
