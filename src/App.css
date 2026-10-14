@@ -408,6 +408,21 @@ button:active:not([aria-disabled="true"]) {
   opacity: 0;
   transition: opacity 0.16s;
 }
+/* A download in progress is always visible: the prompt becomes the percentage, with a bar. */
+.install-mark.installing {
+  opacity: 1;
+  background: rgb(237 22 76 / 0.85);
+  color: #fff;
+}
+.install-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  background: var(--accent);
+  box-shadow: 0 0 12px rgb(237 22 76 / 0.8);
+  transition: width 0.6s ease-out;
+}
 .tile:is(:focus, :hover, [aria-current="true"]) .install-mark {
   opacity: 1;
 }

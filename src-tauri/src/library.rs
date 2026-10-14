@@ -46,22 +46,73 @@ fn vdf_pairs(text: &str) -> impl Iterator<Item = (&str, String)> {
 
 /// An installed Steam game from its appmanifest. Only the first value of each key counts:
 /// nested sections (UserConfig) repeat names.
+/// Steam writes the manifest when a download starts; the game is installed only once the
+/// FullyInstalled flag (4) is set.
+const STATE_FULLY_INSTALLED: u64 = 4;
+
 fn parse_acf(text: &str) -> Option<Game> {
-    let (mut id, mut name, mut last_played, mut size) = (None, None, None, None);
+    let (mut id, mut name, mut last_played, mut size, mut flags) = (None, None, None, None, None);
     for (k, v) in vdf_pairs(text) {
         match k {
             "appid" if id.is_none() => id = Some(v),
             "name" if name.is_none() => name = Some(v),
             "LastPlayed" if last_played.is_none() => last_played = v.parse().ok().filter(|t| *t > 0),
             "SizeOnDisk" if size.is_none() => size = v.parse().ok().filter(|b| *b > 0),
+            "StateFlags" if flags.is_none() => flags = v.parse::<u64>().ok(),
             _ => {}
         }
+    }
+    if flags.is_some_and(|f| f & STATE_FULLY_INSTALLED == 0) {
+        return None;
     }
     Some(Game {
         last_played,
         size,
         ..steam_game(id?, name?, true)
     })
+}
+
+/// Download state of a Steam install in progress, from the same manifest.
+#[derive(Serialize, Debug, PartialEq, Clone, Copy)]
+pub struct InstallProgress {
+    pub downloaded: u64,
+    pub total: u64,
+    pub installed: bool,
+}
+
+pub(crate) fn parse_progress(text: &str) -> InstallProgress {
+    let (mut downloaded, mut total, mut flags) = (0, 0, 0);
+    for (k, v) in vdf_pairs(text) {
+        match k {
+            "BytesDownloaded" => downloaded = v.parse().unwrap_or(0),
+            "BytesToDownload" => total = v.parse().unwrap_or(0),
+            "StateFlags" => flags = v.parse().unwrap_or(0),
+            _ => {}
+        }
+    }
+    InstallProgress { downloaded, total, installed: flags & STATE_FULLY_INSTALLED != 0 }
+}
+
+/// Every Steam library folder: the root plus those listed in `libraryfolders.vdf`.
+fn steam_libraries() -> Vec<PathBuf> {
+    let Some(root) = steam_root() else { return vec![] };
+    let mut libs = vec![root.clone()];
+    if let Ok(vdf) = fs::read_to_string(root.join("steamapps/libraryfolders.vdf")) {
+        libs.extend(vdf_pairs(&vdf).filter(|(k, _)| *k == "path").map(|(_, v)| PathBuf::from(v)));
+    }
+    libs.sort();
+    libs.dedup();
+    libs
+}
+
+/// None until Steam has written the manifest (the user hasn't confirmed the install yet).
+pub fn steam_install_progress(id: &str) -> Option<InstallProgress> {
+    let app_id = steam_app_id(id)?;
+    steam_libraries()
+        .iter()
+        .map(|lib| lib.join("steamapps").join(format!("appmanifest_{app_id}.acf")))
+        .find_map(|path| fs::read_to_string(path).ok())
+        .map(|text| parse_progress(&text))
 }
 
 /// Numeric app id from a `steam:<appid>` game id; the webview only ever sends ids.
@@ -151,15 +202,8 @@ pub(crate) fn steam_root() -> Option<PathBuf> {
 }
 
 fn steam() -> Vec<Game> {
-    let Some(root) = steam_root() else { return vec![] };
-    let mut libs = vec![root.clone()];
-    if let Ok(vdf) = fs::read_to_string(root.join("steamapps/libraryfolders.vdf")) {
-        libs.extend(vdf_pairs(&vdf).filter(|(k, _)| *k == "path").map(|(_, v)| PathBuf::from(v)));
-    }
-    libs.sort();
-    libs.dedup();
-
-    libs.iter()
+    steam_libraries()
+        .iter()
         .filter_map(|lib| fs::read_dir(lib.join("steamapps")).ok())
         .flatten()
         .flatten()
@@ -251,6 +295,16 @@ fn gog() -> Vec<Game> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_downloading_manifest_is_not_an_installed_game() {
+        let downloading = "\"AppState\"\n{\n\t\"appid\"\t\t\"620\"\n\t\"name\"\t\t\"Portal 2\"\n\t\"StateFlags\"\t\t\"1026\"\n\t\"BytesToDownload\"\t\t\"1000\"\n\t\"BytesDownloaded\"\t\t\"250\"\n}";
+        assert!(parse_acf(downloading).is_none());
+        assert_eq!(parse_progress(downloading), InstallProgress { downloaded: 250, total: 1000, installed: false });
+        let done = downloading.replace("1026", "4");
+        assert_eq!(parse_acf(&done).map(|g| g.id).as_deref(), Some("steam:620"));
+        assert!(parse_progress(&done).installed);
+    }
 
     #[test]
     fn launches_steam_with_separate_app_id_and_install_directory() {

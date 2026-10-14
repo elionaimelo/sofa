@@ -940,11 +940,28 @@ export default function App() {
                           }}
                         >
                           <Cover game={g} />
-                          {!g.installed && (
-                            <span className="install-mark">
-                              {t("installGame")}
-                            </span>
-                          )}
+                          {!g.installed &&
+                            (library.installProgress?.id === g.id ? (
+                              <>
+                                <span className="install-mark installing">
+                                  {t("installing", {
+                                    percent: String(
+                                      library.installProgress.percent,
+                                    ),
+                                  })}
+                                </span>
+                                <span
+                                  className="install-progress"
+                                  style={{
+                                    width: `${library.installProgress.percent}%`,
+                                  }}
+                                />
+                              </>
+                            ) : (
+                              <span className="install-mark">
+                                {t("installGame")}
+                              </span>
+                            ))}
                           {prefs.favorites.includes(g.id) && (
                             <span
                               className="favorite-mark"

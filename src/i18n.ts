@@ -269,6 +269,7 @@ const en = {
   installRequested:
     "Installation requested for {title}. Complete it in {launcher}.",
   installComplete: "Installation complete. The game is ready to play.",
+  installing: "Installing… {percent}%",
   installUnavailable: "This game cannot be installed from Sofa yet.",
   previewInstall: "Installation is unavailable in the demo library.",
   steamLibraryDescription:
@@ -621,6 +622,7 @@ const dicts = {
     installRequested:
       "Instalação de {title} solicitada. Conclua no {launcher}.",
     installComplete: "Instalação concluída. O jogo está pronto para jogar.",
+    installing: "Instalando… {percent}%",
     installUnavailable: "Ainda não é possível instalar este jogo pelo Sofa.",
     previewInstall:
       "A instalação não está disponível na biblioteca de demonstração.",
@@ -969,6 +971,7 @@ const dicts = {
     installRequested:
       "Se solicitó instalar {title}. Completa la instalación en {launcher}.",
     installComplete: "Instalación terminada. El juego está listo para jugar.",
+    installing: "Instalando… {percent}%",
     installUnavailable: "Todavía no se puede instalar este juego desde Sofa.",
     previewInstall:
       "La instalación no está disponible en la biblioteca de demostración.",
