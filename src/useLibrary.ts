@@ -179,6 +179,8 @@ export function useLibrary(onStatus: Notify) {
     games,
     accounts: { steam, epic },
     loading: installed.isFetching,
+    /** The first scan of installed games has finished. */
+    scanned: installed.isSuccess,
     scanError: installed.error ? serviceError(installed.error) : ("" as const),
     refresh: () => queryClient.invalidateQueries({ queryKey: keys.all }),
     downloads: pendingInstalls.flatMap((id) => {

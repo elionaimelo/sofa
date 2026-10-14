@@ -1023,6 +1023,29 @@ dialog::backdrop {
   padding: 6px 0 18px;
   color: var(--muted);
 }
+.onboarding {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 32px clamp(20px, 4vw, 40px) 28px;
+  text-align: center;
+}
+.onboarding h1 {
+  margin: 4px 0 0;
+  font-size: clamp(26px, 3.4vw, 36px);
+}
+.onboarding > .muted {
+  max-width: 560px;
+  margin: 0 0 8px;
+}
+.onboarding .library-accounts {
+  width: 100%;
+  text-align: left;
+}
+.onboarding .detail-actions {
+  justify-content: center;
+  margin-top: 6px;
+}
 .item-list {
   display: grid;
   gap: 8px;

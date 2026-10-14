@@ -61,6 +61,7 @@ import { categoryLabel, useCategories } from "./features/Categories";
 import { Downloads } from "./features/Downloads";
 import { FiltersDrawer, type FilterTab } from "./features/FiltersDrawer";
 import { GameDetails } from "./features/GameDetails";
+import { Onboarding } from "./features/Onboarding";
 import { HudPanel } from "./features/Performance";
 import { PowerMenu, TopBatteries, usePower } from "./features/Power";
 import {
@@ -94,6 +95,7 @@ const pageIcons = {
 };
 const TABS = ["all", "favorites", "steam", "epic", "gog"] as const;
 const preferencesKey = demo ? "sofa.demo.preferences" : "sofa.preferences";
+const onboardingKey = "sofa.onboarding.done";
 /** Whole gigabytes as Windows counts them (1024³), enough for a storage overview. */
 const gb = (bytes: number) => String(Math.round(bytes / 1024 ** 3));
 /** Ticks on its own so the clock doesn't re-render the whole library every 30 s. */
@@ -198,6 +200,30 @@ export default function App() {
   const downloading = Object.fromEntries(
     library.downloads.map((d) => [d.game.id, d.percent]),
   ) as Record<string, number | undefined>;
+  // First run: installed games are found on their own; only when nothing turns up (and no
+  // store account is connected) does Sofa offer to connect the stores. Once, for good.
+  const [onboardingDone, setOnboardingDone] = useState(
+    () => demo || localStorage.getItem(onboardingKey) === "1",
+  );
+  const [onboarding, setOnboarding] = useState(false);
+  const { steam: steamAccount, epic: epicAccount } = library.accounts;
+  const needsOnboarding =
+    !onboardingDone &&
+    library.scanned &&
+    !library.scanError &&
+    library.games.length === 0 &&
+    !steamAccount.busy &&
+    !epicAccount.busy &&
+    !steamAccount.connected &&
+    !epicAccount.connected;
+  useEffect(() => {
+    if (needsOnboarding) setOnboarding(true);
+  }, [needsOnboarding]);
+  const finishOnboarding = () => {
+    localStorage.setItem(onboardingKey, "1");
+    setOnboardingDone(true);
+    setOnboarding(false);
+  };
   // Store prices follow the language unless the user picked a region.
   const region =
     prefs.region ?? (lang === "pt-BR" ? "br" : lang === "es" ? "es" : "us");
@@ -397,6 +423,11 @@ export default function App() {
     }
     if (launchScreen) {
       if (a === "b") setLaunchScreen(null);
+      return;
+    }
+    if (onboarding) {
+      if (a === "b") finishOnboarding();
+      else navigateSpatial(a, document.querySelector("dialog[open]"));
       return;
     }
     if (hudOpen) {
@@ -1170,6 +1201,9 @@ export default function App() {
           }}
           onClose={closeDetails}
         />
+      )}
+      {onboarding && (
+        <Onboarding t={t} library={library} onDone={finishOnboarding} />
       )}
       {settings && (
         <SettingsDialog

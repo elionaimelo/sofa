@@ -148,6 +148,10 @@ const en = {
   connecting: "Connecting…",
   allyProfiles: "Power profile",
   settingsHubIntro: "Choose what you want to adjust.",
+  onboardingTitle: "Welcome to Sofa",
+  onboardingNoGames:
+    "No installed games were found on this device. Connect your stores to bring in your library, including the games you haven’t installed yet.",
+  onboardingContinue: "Continue",
   settingsLibraryDescription: "Accounts, owned games and organization",
   settingsAppearanceDescription: "Language, cover size and Xbox mode",
   settingsPerformanceDescription:
@@ -501,6 +505,10 @@ const dicts = {
     connecting: "Conectando…",
     allyProfiles: "Perfil de potência",
     settingsHubIntro: "Escolha o que deseja ajustar.",
+    onboardingTitle: "Boas-vindas ao Sofa",
+    onboardingNoGames:
+      "Nenhum jogo instalado foi encontrado neste dispositivo. Conecte suas lojas para trazer sua biblioteca, inclusive os jogos que você ainda não instalou.",
+    onboardingContinue: "Continuar",
     settingsLibraryDescription: "Contas, jogos da biblioteca e organização",
     settingsAppearanceDescription: "Idioma, tamanho das capas e modo Xbox",
     settingsPerformanceDescription:
@@ -852,6 +860,10 @@ const dicts = {
     connecting: "Conectando…",
     allyProfiles: "Perfil de potencia",
     settingsHubIntro: "Elige qué quieres ajustar.",
+    onboardingTitle: "Te damos la bienvenida a Sofa",
+    onboardingNoGames:
+      "No se encontraron juegos instalados en este dispositivo. Conecta tus tiendas para traer tu biblioteca, incluidos los juegos que aún no instalaste.",
+    onboardingContinue: "Continuar",
     settingsLibraryDescription: "Cuentas, juegos y organización",
     settingsAppearanceDescription: "Idioma, tamaño de portadas y modo Xbox",
     settingsPerformanceDescription:

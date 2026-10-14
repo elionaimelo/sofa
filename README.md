@@ -2,6 +2,7 @@
 
 Controller-first game library for Windows handhelds and the couch. Tauri 2 (Rust) + React.
 
+- First run needs no setup: installed games are found on their own. Only when nothing is found and no store account is connected, Sofa offers once to connect Steam and Epic.
 - Finds installed games from **Steam**, **Epic** and **GOG** and launches them through their launchers. Connecting a Steam or Epic Games account in Settings adds owned, uninstalled games to the same library; those covers are dimmed and offer installation through the store's launcher. GOG ownership sync is not available yet, so it shows installed games only.
 - Home with contextual game artwork, recently played games, and responsive icon navigation on handhelds. Library filters combine source, search, favorites, play history, cover availability, sorting and multiple categories.
 - Categories are available for detected titles: Steam catalog genres/tags are cached for offline use, and custom categories can organize titles from any provider. Category acquisition depends on public Steam store markup; unavailable/age-gated listings are left unknown.

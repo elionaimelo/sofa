@@ -95,7 +95,7 @@ export function SettingsDialog({
 }
 
 /** Sign-in state and actions for one store account (Steam, Epic). */
-function AccountSection({
+export function AccountSection({
   t,
   provider,
   account,
