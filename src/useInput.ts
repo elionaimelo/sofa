@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { desktop } from "./services";
 export type Action =
   | "up"
   | "down"
@@ -36,6 +37,23 @@ const keys: Record<string, Action> = {
   f: "filters",
   m: "menu",
 };
+/**
+ * Windows' gamepad keys (VK_GAMEPAD_*). Inside the Game Bar widget the WebView itself can
+ * receive the controller this way, with no `key` name, and the host's bridge never sees it.
+ */
+const gamepadKeys: Record<number, Action> = {
+  195: "a",
+  196: "b",
+  203: "up",
+  204: "down",
+  205: "left",
+  206: "right",
+  211: "up",
+  212: "down",
+  213: "right",
+  214: "left",
+};
+const directions: Action[] = ["up", "down", "left", "right"];
 const buttons: [number, Action][] = [
   [0, "a"],
   [1, "b"],
@@ -59,8 +77,30 @@ export function useInput(
   const cb = useRef(onAction);
   cb.current = onAction;
   useEffect(() => {
+    const fire = (a: Action) => {
+      document.documentElement.classList.add("gamepad-input");
+      cb.current(a);
+    };
+    // The widget tells sofa.log once that it loaded and which way controller input arrives,
+    // so a device report shows where navigation stops.
+    const reported = new Set<string>();
+    const report = (path: "ready" | "bridge" | "keys") => {
+      if (!nativeGamepad || reported.has(path)) return;
+      reported.add(path);
+      void desktop("hud_input", { path }).catch(() => undefined);
+    };
+    report("ready");
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+      const pad = nativeGamepad ? gamepadKeys[e.keyCode] : undefined;
+      if (pad) {
+        e.preventDefault();
+        if (!e.repeat || directions.includes(pad)) {
+          report("keys");
+          fire(pad);
+        }
+        return;
+      }
       const target = e.target;
       const editing =
         target instanceof HTMLElement &&
@@ -81,16 +121,16 @@ export function useInput(
     const since = new Map<Action, number>();
     const deferred: Action[] = ["menu", "settings"];
     let chord = false;
-    const fire = (a: Action) => {
-      document.documentElement.classList.add("gamepad-input");
-      cb.current(a);
-    };
     // The UWP host forwards routed gamepad keys; polling the same controller
     // here would execute every action twice and depends on WebView gamepad focus.
     const onNativeGamepad = (event: Event) => {
       const action = (event as CustomEvent<unknown>).detail;
-      if (["up", "down", "left", "right", "a", "b"].includes(action as string))
+      if (
+        ["up", "down", "left", "right", "a", "b"].includes(action as string)
+      ) {
+        report("bridge");
         fire(action as Action);
+      }
     };
     if (nativeGamepad) window.addEventListener("sofa-gamepad", onNativeGamepad);
     let raf = 0;

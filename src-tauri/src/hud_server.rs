@@ -54,6 +54,14 @@ async fn dispatch(app: &tauri::AppHandle, command: &str, args: serde_json::Value
         "current_session" => out(session::current_session(app.clone(), app.state()).await?),
         "running_game" => out(quit::running_game(app.clone()).await?),
         "game_stats" => out(stats::game_stats().await),
+        // The widget page reports once that it loaded and which way controller input reaches it.
+        "hud_input" => {
+            let path: String = parse(arg("path"))?;
+            if ["ready", "bridge", "keys"].contains(&path.as_str()) {
+                crate::log::info(app, format!("hud: widget {path}"));
+            }
+            out(())
+        }
         "close_game" => out(quit::close_game(parse(arg("force"))?, app.clone()).await?),
         "power_status" => out(power::power_status().await?),
         "ally_status" => out(ally::ally_status(app.clone(), app.state()).await?),
