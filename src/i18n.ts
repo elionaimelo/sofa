@@ -20,6 +20,7 @@ const en = {
   uninstallFailed:
     "Removal could not be completed. Close the title and launcher, check folder permissions, and try again.",
   uninstall: "Uninstall",
+  uninstalling: "Uninstalling…",
   uninstallTitle: "Uninstall {title}?",
   uninstallConfirm:
     "Remove this title’s installation folder? Steam closes and reopens in the background during the removal. Saves in Steam Cloud are kept; saves stored inside the game folder are removed.",
@@ -343,7 +344,9 @@ const en = {
   openLog: "Open log",
   serviceStatus: "Steam answered with HTTP status {status}.",
   noUpdate: "You are up to date.",
-  updateCheckFailed: "Could not check for updates: {error}",
+  updateCheckFailed:
+    "Couldn’t check for updates. Check the connection and try again.",
+  checkingUpdates: "Checking for updates…",
   browseLibrary: "Browse library",
   emptyFavorites: "Add favorites from game details.",
   emptyHidden: "No hidden games.",
@@ -374,7 +377,8 @@ const en = {
   language: "Language",
   updateAvailable: "Update {version} available",
   updating: "Installing update {version}…",
-  updateFailed: "Update failed: {error}",
+  updateFailed:
+    "The update didn’t install. Try again; Settings → Updates opens the log.",
 };
 type Dict = Record<keyof typeof en, string>;
 
@@ -402,6 +406,7 @@ const dicts = {
     uninstallFailed:
       "Não foi possível concluir a remoção. Feche o título e o launcher, verifique as permissões da pasta e tente novamente.",
     uninstall: "Desinstalar",
+    uninstalling: "Desinstalando…",
     uninstallTitle: "Desinstalar {title}?",
     uninstallConfirm:
       "Remover a pasta de instalação deste título? A Steam fecha e reabre em segundo plano durante a remoção. Saves na Steam Cloud são mantidos; saves guardados dentro da pasta do jogo são removidos.",
@@ -740,7 +745,9 @@ const dicts = {
     openLog: "Abrir log",
     serviceStatus: "A Steam respondeu com o status HTTP {status}.",
     noUpdate: "Você está na versão mais recente.",
-    updateCheckFailed: "Não foi possível verificar atualizações: {error}",
+    updateCheckFailed:
+      "Não foi possível verificar atualizações. Confira a conexão e tente de novo.",
+    checkingUpdates: "Verificando atualizações…",
     browseLibrary: "Abrir biblioteca",
     emptyFavorites: "Adicione favoritos nos detalhes dos jogos.",
     emptyHidden: "Nenhum jogo oculto.",
@@ -771,7 +778,8 @@ const dicts = {
     language: "Idioma",
     updateAvailable: "Atualização {version} disponível",
     updating: "Instalando atualização {version}…",
-    updateFailed: "Falha na atualização: {error}",
+    updateFailed:
+      "A atualização não foi instalada. Tente de novo; Configurações → Atualizações abre o log.",
   },
   es: {
     uninstallTitleRunning:
@@ -794,6 +802,7 @@ const dicts = {
     uninstallFailed:
       "No se pudo completar la eliminación. Cierra el título y launcher, verifica los permisos e inténtalo de nuevo.",
     uninstall: "Desinstalar",
+    uninstalling: "Desinstalando…",
     uninstallTitle: "¿Desinstalar {title}?",
     uninstallConfirm:
       "¿Eliminar la carpeta de instalación de este título? Steam se cierra y se vuelve a abrir en segundo plano durante la eliminación. Las partidas en Steam Cloud se conservan; las guardadas dentro de la carpeta del juego se eliminan.",
@@ -1129,7 +1138,9 @@ const dicts = {
     openLog: "Abrir registro",
     serviceStatus: "Steam respondió con el estado HTTP {status}.",
     noUpdate: "Estás en la última versión.",
-    updateCheckFailed: "No se pudieron buscar actualizaciones: {error}",
+    updateCheckFailed:
+      "No se pudieron buscar actualizaciones. Revisa la conexión e inténtalo de nuevo.",
+    checkingUpdates: "Buscando actualizaciones…",
     browseLibrary: "Abrir biblioteca",
     emptyFavorites: "Añade favoritos desde los detalles del juego.",
     emptyHidden: "No hay juegos ocultos.",
@@ -1160,7 +1171,8 @@ const dicts = {
     language: "Idioma",
     updateAvailable: "Actualización {version} disponible",
     updating: "Instalando actualización {version}…",
-    updateFailed: "Error al actualizar: {error}",
+    updateFailed:
+      "La actualización no se instaló. Inténtalo de nuevo; Ajustes → Actualizaciones abre el registro.",
   },
 } satisfies Record<string, Dict>;
 

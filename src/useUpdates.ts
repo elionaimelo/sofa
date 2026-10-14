@@ -13,7 +13,8 @@ export function useUpdates(notify: Notify) {
       await relaunch();
     },
     onMutate: (next) => notify("updating", { version: next.version }),
-    onError: (e) => notify("updateFailed", { error: String(e) }),
+    // The raw error can carry URLs; the message says what to do instead.
+    onError: () => notify("updateFailed"),
   });
   const latest = useQuery({
     queryKey: ["update"],
@@ -41,8 +42,7 @@ export function useUpdates(notify: Notify) {
     check: async () => {
       if (!isTauri()) return notify("browserPreview");
       const result = await latest.refetch();
-      if (result.error)
-        notify("updateCheckFailed", { error: String(result.error) });
+      if (result.error) notify("updateCheckFailed");
       else if (!result.data) notify("noUpdate");
     },
     install: () => {

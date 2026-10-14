@@ -1317,7 +1317,9 @@ export default function App() {
                 {(page === "home" || page === "library") &&
                   !details &&
                   !filtersOpen && <kbd>Y</kbd>}
-                {t("updateAvailable", { version: update.version })}
+                {updates.installing
+                  ? t("updating", { version: update.version })
+                  : t("updateAvailable", { version: update.version })}
               </button>
             )}
           </HintBar>

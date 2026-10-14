@@ -652,9 +652,13 @@ export function UpdateSettings({
         }}
       >
         {update ? <DownloadSimpleIcon weight="bold" /> : <ArrowClockwiseIcon />}
-        {update
-          ? t("updateAvailable", { version: update.version })
-          : t("checkUpdates")}
+        {updates.installing
+          ? t("updating", { version: update?.version ?? "" })
+          : updates.checking
+            ? t("checkingUpdates")
+            : update
+              ? t("updateAvailable", { version: update.version })
+              : t("checkUpdates")}
       </button>
     </>
   );

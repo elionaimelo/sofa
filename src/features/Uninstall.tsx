@@ -91,7 +91,7 @@ export function Uninstall({
               onClick={() => void uninstall()}
             >
               <TrashIcon />
-              {t("uninstall")}
+              {t(busy ? "uninstalling" : "uninstall")}
             </button>
           </div>
         </div>
