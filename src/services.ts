@@ -176,6 +176,10 @@ export function navigateSpatial(
   if (best) {
     best.focus();
     best.scrollIntoView({ block: "nearest", inline: "nearest" });
+    // The first control of a scrolling panel brings back what sits above it (the title).
+    const box = scrollParent(best, seen);
+    if (box?.querySelector(focusableSelector) === best)
+      box.scrollTo({ top: 0 });
   }
   return true;
 }
