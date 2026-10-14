@@ -89,6 +89,15 @@ async fn auth_code(app: &tauri::AppHandle, visible: bool) -> Result<Option<Strin
         .center()
         .visible(visible)
         .focused(visible)
+        // "Sign in with Google/Apple/…" opens a popup; Tauri blocks popups unless allowed.
+        // The default popup is a plain browser window without any Tauri capability.
+        .on_new_window(|url, _| {
+            if url.scheme() == "https" {
+                tauri::webview::NewWindowResponse::Allow
+            } else {
+                tauri::webview::NewWindowResponse::Deny
+            }
+        })
         .on_page_load(move |window, payload| {
             if payload.event() != PageLoadEvent::Finished {
                 return;
