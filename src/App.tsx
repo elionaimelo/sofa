@@ -214,6 +214,9 @@ export default function App() {
   const { update, install } = updates;
   const { games, loading, scanError } = library;
   const categories = useCategories(games, lang);
+  // Store prices follow the language unless the user picked a region.
+  const region =
+    prefs.region ?? (lang === "pt-BR" ? "br" : lang === "es" ? "es" : "us");
   useEffect(() => saveLang(lang), [lang]);
   useEffect(() => {
     localStorage.setItem(preferencesKey, JSON.stringify(prefs));
@@ -1370,6 +1373,7 @@ export default function App() {
               t={t}
               lang={lang}
               setLang={setLang}
+              region={region}
               prefs={prefs}
               setPrefs={setPrefs}
               notify={notify}

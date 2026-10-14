@@ -696,6 +696,10 @@ dialog::backdrop {
 .file-browser .item-list li {
   padding: 0 8px;
 }
+.price small {
+  color: var(--muted);
+  font-size: 12px;
+}
 .item-list {
   display: grid;
   gap: 8px;

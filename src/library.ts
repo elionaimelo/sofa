@@ -37,12 +37,17 @@ export type LibraryFilters = {
   played: "any" | "never" | "recent7" | "recent30";
   artwork: "any" | "with" | "without";
 };
+/** Steam store regions the price lookup accepts; the backend holds the same list. */
+export const regions = ["us", "br", "es", "mx", "ar", "pt"] as const;
+export type Region = (typeof regions)[number];
 export type Preferences = {
   favorites: string[];
   hidden: string[];
   recent: Record<string, number>;
   sort: "recent" | "mostPlayed" | "installed" | "title" | "size";
   density: "comfortable" | "compact";
+  /** Unset means "follow the language" (see App). */
+  region?: Region;
   filters: LibraryFilters;
   categories: Record<string, string[]>;
 };
@@ -103,6 +108,9 @@ export function parsePreferences(
     ),
     sort: sorts.find((sort) => sort === p.sort) ?? "recent",
     density: p.density === "compact" ? "compact" : "comfortable",
+    ...(regions.includes(p.region as Region)
+      ? { region: p.region as Region }
+      : {}),
     categories: Object.fromEntries(
       Object.entries(
         p.categories && typeof p.categories === "object" ? p.categories : {},

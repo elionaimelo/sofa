@@ -272,3 +272,15 @@ test("title groups use the first letter and # for everything else", () => {
   assert.equal(titleGroup("'Tis"), "#");
   assert.equal(titleGroup(""), "#");
 });
+
+test("price region is kept only when it is a known store region", () => {
+  assert.equal(
+    parsePreferences(JSON.stringify({ region: "br" }), null).region,
+    "br",
+  );
+  assert.equal(
+    parsePreferences(JSON.stringify({ region: "xx" }), null).region,
+    undefined,
+  );
+  assert.equal(parsePreferences(null, null).region, undefined);
+});

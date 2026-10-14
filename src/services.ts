@@ -282,6 +282,12 @@ export function parseWishlist(raw: string | null): Deal[] {
     return [];
   }
 }
+/** Minor units in a currency, in the interface language's format. */
+export function money(minor: number, currency: string, lang: string) {
+  return new Intl.NumberFormat(lang, { style: "currency", currency }).format(
+    minor / 100,
+  );
+}
 export function usd(value: string, lang: string) {
   const n = Number(value);
   return Number.isFinite(n)

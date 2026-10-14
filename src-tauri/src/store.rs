@@ -171,9 +171,76 @@ pub fn open_deal(id: String) -> Result<(), String> {
     url.query_pairs_mut().append_pair("dealID", &decoded);
     tauri_plugin_opener::open_url(url.as_str(), None::<&str>).map_err(|_| "openFailed".into())
 }
+/// Steam regional prices for the deals that have a Steam id: CheapShark only knows US dollars.
+pub const REGIONS: [&str; 6] = ["us", "br", "es", "mx", "ar", "pt"];
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+pub struct RegionalPrice {
+    currency: String,
+    /// Minor units (cents, centavos), as Steam reports them.
+    initial: u64,
+    r#final: u64,
+    discount: u8,
+}
+
+fn parse_prices(details: &Value) -> std::collections::HashMap<String, RegionalPrice> {
+    let Some(apps) = details.as_object() else { return Default::default() };
+    apps.iter()
+        .filter_map(|(id, entry)| {
+            let price = entry.get("data")?.get("price_overview")?;
+            let currency = price.get("currency")?.as_str()?;
+            if currency.len() != 3 || !currency.bytes().all(|b| b.is_ascii_uppercase()) {
+                return None;
+            }
+            Some((
+                id.clone(),
+                RegionalPrice {
+                    currency: currency.to_owned(),
+                    initial: price.get("initial")?.as_u64()?,
+                    r#final: price.get("final")?.as_u64()?,
+                    discount: price.get("discount_percent")?.as_u64()?.min(100) as u8,
+                },
+            ))
+        })
+        .collect()
+}
+
+#[tauri::command]
+pub async fn steam_prices(
+    ids: Vec<String>,
+    region: String,
+) -> Result<std::collections::HashMap<String, RegionalPrice>, String> {
+    if !REGIONS.contains(&region.as_str()) || ids.is_empty() || ids.len() > 60 {
+        return Err("invalidInput".into());
+    }
+    if ids.iter().any(|id| id.is_empty() || id.len() > 10 || !id.bytes().all(|b| b.is_ascii_digit())) {
+        return Err("invalidInput".into());
+    }
+    let details: Value = network::json(
+        network::client()?
+            .get("https://store.steampowered.com/api/appdetails")
+            .query(&[("appids", ids.join(",").as_str()), ("cc", region.as_str()), ("filters", "price_overview")]),
+    )
+    .await?;
+    Ok(parse_prices(&details))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn regional_prices_keep_only_priced_apps_with_a_currency_code() {
+        let details = serde_json::json!({
+            "10": {"success": true, "data": {"price_overview": {"currency": "BRL", "initial": 5999, "final": 2999, "discount_percent": 50}}},
+            "20": {"success": true, "data": {}},
+            "30": {"success": false},
+            "40": {"success": true, "data": {"price_overview": {"currency": "r$", "initial": 1, "final": 1, "discount_percent": 0}}}
+        });
+        let prices = parse_prices(&details);
+        assert_eq!(prices.len(), 1);
+        assert_eq!(prices["10"], RegionalPrice { currency: "BRL".into(), initial: 5999, r#final: 2999, discount: 50 });
+    }
     #[test]
     fn rejects_non_numeric_game_ids() {
         assert!(valid_game_id("332562"));

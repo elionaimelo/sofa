@@ -13,7 +13,7 @@ import {
 import { Dialog } from "../components/Dialog";
 import { Picker } from "../components/Picker";
 import { LANGS, type Lang, type Translate } from "../i18n";
-import type { Game, Preferences } from "../library";
+import { type Game, type Preferences, type Region, regions } from "../library";
 import {
   commandQuery,
   demo,
@@ -224,6 +224,7 @@ export function AppearanceSettings({
   t,
   lang,
   setLang,
+  region,
   prefs,
   setPrefs,
   notify,
@@ -231,6 +232,7 @@ export function AppearanceSettings({
   t: Translate;
   lang: Lang;
   setLang: (lang: Lang) => void;
+  region: Region;
   prefs: Preferences;
   setPrefs: SetPrefs;
   notify: Notify;
@@ -278,6 +280,18 @@ export function AppearanceSettings({
             label: LANGS[code],
           }))}
           onChange={setLang}
+        />
+      </div>
+      <div className="field">
+        {t("priceRegion")}
+        <Picker
+          label={t("priceRegion")}
+          value={region}
+          options={regions.map((code) => ({
+            value: code,
+            label: t(`region_${code}`),
+          }))}
+          onChange={(region) => setPrefs((p) => ({ ...p, region }))}
         />
       </div>
       <div className="field">
