@@ -31,26 +31,84 @@ mod widget;
 
 use tauri::Manager;
 
-/// Steam raises its main window when it launches a game; keep Sofa (or the game) in front.
-/// Retries for a few seconds because the window appears after the launch call returns.
+/// Launchers that raise their own window when asked to start a game.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn is_launcher(exe: &str) -> bool {
+    const LAUNCHERS: [&str; 9] = [
+        "steam.exe",
+        "steamwebhelper.exe",
+        "epicgameslauncher.exe",
+        "epicwebhelper.exe",
+        "galaxyclient.exe",
+        "eadesktop.exe",
+        "upc.exe",
+        "battle.net.exe",
+        "ubisoftconnect.exe",
+    ];
+    LAUNCHERS.contains(&exe.to_ascii_lowercase().as_str())
+}
+
+/// File name of the process that owns the foreground window, and that window.
 #[cfg(windows)]
-fn minimize_steam_window() {
-    use windows_sys::Win32::UI::WindowsAndMessaging::{FindWindowW, IsWindowVisible, ShowWindow, SW_MINIMIZE};
-    std::thread::spawn(|| {
-        let title: Vec<u16> = "Steam\0".encode_utf16().collect();
-        for _ in 0..20 {
-            std::thread::sleep(std::time::Duration::from_millis(500));
-            // Null class, exact title; null-terminated UTF-16.
-            let hwnd = unsafe { FindWindowW(std::ptr::null(), title.as_ptr()) };
-            if !hwnd.is_null() && unsafe { IsWindowVisible(hwnd) } != 0 {
-                unsafe { ShowWindow(hwnd, SW_MINIMIZE) };
+fn foreground() -> Option<(String, windows_sys::Win32::Foundation::HWND)> {
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
+    // No arguments; returns null when nothing has the foreground.
+    let hwnd = unsafe { GetForegroundWindow() };
+    if hwnd.is_null() {
+        return None;
+    }
+    let mut pid = 0u32;
+    // `hwnd` was just returned by Windows; `pid` outlives the call.
+    unsafe { GetWindowThreadProcessId(hwnd, &mut pid) };
+    if pid == std::process::id() {
+        return Some(("sofa".into(), hwnd));
+    }
+    // Query-only access to read the image name.
+    let process = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if process.is_null() {
+        return None;
+    }
+    let mut buffer = [0u16; 1024];
+    let mut size = buffer.len() as u32;
+    // Writes at most `size` UTF-16 units into `buffer` and updates `size`.
+    let ok = unsafe { QueryFullProcessImageNameW(process, PROCESS_NAME_WIN32, buffer.as_mut_ptr(), &mut size) };
+    // Opened just above.
+    unsafe { CloseHandle(process) };
+    if ok == 0 {
+        return None;
+    }
+    let path = String::from_utf16_lossy(&buffer[..size as usize]);
+    Some((path.rsplit('\\').next().unwrap_or_default().to_owned(), hwnd))
+}
+
+/// After a launch request, the launcher (Steam, Epic…) jumps in front of Sofa. Push it down and
+/// bring Sofa back until the game itself takes the foreground, so closing the game returns to
+/// Sofa. Gives up after 90 s or as soon as anything else (the game, the user) is in front.
+#[cfg(windows)]
+fn keep_sofa_in_front(app: tauri::AppHandle) {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{SW_MINIMIZE, ShowWindow};
+    std::thread::spawn(move || {
+        let started = std::time::Instant::now();
+        while started.elapsed() < std::time::Duration::from_secs(90) {
+            std::thread::sleep(std::time::Duration::from_millis(400));
+            let Some((exe, hwnd)) = foreground() else { continue };
+            if exe == "sofa" {
+                continue;
+            }
+            if !is_launcher(&exe) {
+                log::info(&app, format!("launch: {exe} took the foreground"));
                 return;
             }
+            // The launcher's own window, just reported by Windows.
+            unsafe { ShowWindow(hwnd, SW_MINIMIZE) };
+            let _ = bring_to_front(&app);
         }
     });
 }
 #[cfg(not(windows))]
-fn minimize_steam_window() {}
+fn keep_sofa_in_front(_app: tauri::AppHandle) {}
 
 /// `System32\<name>` resolved through Windows, so nothing planted on PATH runs instead.
 #[cfg(windows)]
@@ -115,7 +173,6 @@ async fn launch(id: String, app: tauri::AppHandle) -> Result<(), String> {
         library::scan().into_iter().find(|g| g.id == game_id)
     }).await.map_err(|_| "openFailed")?.ok_or("openFailed")?;
     game_settings::apply(&app, &id).await;
-    let is_steam = game.source == "steam";
     log::info(&app, format!("launch: requesting {id}"));
     let r = tauri::async_runtime::spawn_blocking(move || library::launch_game(&game))
         .await.map_err(|_| "openFailed")?;
@@ -124,9 +181,7 @@ async fn launch(id: String, app: tauri::AppHandle) -> Result<(), String> {
         return Err("openFailed".into());
     }
     log::info(&app, format!("launch: request dispatched for {id}"));
-    if is_steam {
-        minimize_steam_window();
-    }
+    keep_sofa_in_front(app);
     Ok(())
 }
 
@@ -173,4 +228,18 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![scan_library, install_progress, focus_main, launch, uninstall::uninstall_game, categories::cached_categories, categories::game_categories, store::store_deals, store::store_shops, store::store_game, store::open_deal, store::steam_prices, hud::open_hud, hud::language, hud::set_language, session::current_session, session::playtimes, log::open_log, storage::storage_status, storage::open_storage_settings, apps::apps_list, apps::browse, apps::browse_up, apps::add_app, apps::remove_app, apps::launch_app, sizes::game_size_estimate, game_settings::game_settings, game_settings::set_game_settings, power::power_status, power::perform_power, ally::ally_status, ally::set_ally_profile, ally::set_tdp, ally::set_fan_curve, ally_pad::set_controller_lighting, ally_pad::set_controller_mode, ally_pad::builtin_controller, ally_pad::set_builtin_controller, rtss::framerate_status, rtss::set_framerate_limit, display::set_auto_hdr, audio::volume_status, audio::set_volume, bluetooth::bluetooth_scan, bluetooth::bluetooth_pair, bluetooth::open_bluetooth_settings, publisher::publisher_status, publisher::partner_offers, publisher::open_partner_offer, accounts::connect_steam_library, accounts::disconnect_steam_library, accounts::install_owned_game, epic::connect_epic_library, epic::disconnect_epic_library, display::display_status, display::set_display_mode, display::set_brightness, display::set_cpu_boost, xbox_mode::xbox_mode_status, xbox_mode::set_xbox_mode_startup, xbox_mode::enter_xbox_mode])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn launchers_are_recognised_by_file_name_only() {
+        assert!(is_launcher("steam.exe"));
+        assert!(is_launcher("SteamWebHelper.exe"));
+        assert!(is_launcher("EpicGamesLauncher.exe"));
+        assert!(!is_launcher("eldenring.exe"));
+        assert!(!is_launcher("sofa.exe"));
+    }
 }
