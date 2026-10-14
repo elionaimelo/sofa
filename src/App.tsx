@@ -49,7 +49,6 @@ import {
   HeartIcon,
   HouseIcon,
   InfoIcon,
-  LightningIcon,
   PlayIcon,
   PowerIcon,
   SlidersHorizontalIcon,
@@ -1049,15 +1048,6 @@ export default function App() {
                   <GearSixIcon aria-hidden />
                   <strong>{t("appearance")}</strong>
                   <span>{t("settingsAppearanceDescription")}</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setHudOpen(true);
-                  }}
-                >
-                  <LightningIcon aria-hidden />
-                  <strong>{t("energy")}</strong>
-                  <span>{t("settingsEnergyDescription")}</span>
                 </button>
                 <button onClick={openHud}>
                   <GaugeIcon aria-hidden />

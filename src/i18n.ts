@@ -119,8 +119,6 @@ const en = {
   store: "Store",
   hud: "HUD",
   energy: "Power",
-  settingsEnergyDescription:
-    "Power profile, TDP, brightness and the other quick settings, right here",
   discover: "Discover",
   wishlist: "Wishlist",
   storeIntro: "Find your next game.",
@@ -472,8 +470,6 @@ const dicts = {
     store: "Loja",
     hud: "HUD",
     energy: "Energia",
-    settingsEnergyDescription:
-      "Perfil de potência, TDP, brilho e os outros ajustes rápidos, aqui mesmo",
     discover: "Descobrir",
     wishlist: "Lista de desejos",
     storeIntro: "Encontre seu próximo jogo.",
@@ -827,8 +823,6 @@ const dicts = {
     store: "Tienda",
     hud: "HUD",
     energy: "Energía",
-    settingsEnergyDescription:
-      "Perfil de potencia, TDP, brillo y los demás ajustes rápidos, aquí mismo",
     discover: "Descubrir",
     wishlist: "Lista de deseos",
     storeIntro: "Encuentra tu próximo juego.",
