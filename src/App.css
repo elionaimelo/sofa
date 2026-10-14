@@ -2698,10 +2698,26 @@ select:focus-visible,
   animation: art-reveal 0.24s ease-out;
 }
 dialog[open] {
-  animation: dialog-enter 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: dialog-enter 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 dialog::backdrop {
-  animation: art-reveal 0.18s ease-out;
+  animation: art-reveal 0.22s ease-out;
+}
+/* The closing copy (Dialog's fadeOut): where the dialog was, above the app, never clickable. */
+dialog.dialog-ghost {
+  position: fixed;
+  z-index: 1000;
+  margin: 0;
+  max-height: none;
+  pointer-events: none;
+  animation: none;
+}
+.dialog-ghost-shade {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgb(0 0 0 / 0.6);
+  pointer-events: none;
 }
 @keyframes drawer-in {
   from {
@@ -2716,7 +2732,7 @@ dialog::backdrop {
 @keyframes dialog-enter {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.985);
+    transform: translateY(16px) scale(0.97);
   }
   to {
     opacity: 1;
@@ -2748,10 +2764,12 @@ dialog::backdrop {
   .game-row .tile,
   .picker-list,
   .library-filters,
-  .backdrop,
-  dialog[open],
-  dialog::backdrop {
+  .backdrop {
     animation: none;
+  }
+  /* Reduced motion keeps the dialogs' fade, without the movement. */
+  dialog[open] {
+    animation-name: art-reveal;
   }
 }
 
