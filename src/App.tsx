@@ -208,8 +208,11 @@ export default function App() {
   const updates = useUpdates(notify);
   // Expected download of an owned Steam game, from its store requirements.
   const sizeEstimate = useQuery({
-    ...commandQuery<number | null>("game_size_estimate", { id: details?.id }),
-    enabled: !!details && !details.installed && details.id.startsWith("steam:"),
+    ...commandQuery<number | null>("game_size_estimate", {
+      id: details?.id,
+      title: details?.title,
+    }),
+    enabled: !!details && !details.installed && isTauri(),
     staleTime: Number.POSITIVE_INFINITY,
   });
   // Fixed disks for the storage card; looked up again when the user comes back to Sofa.
