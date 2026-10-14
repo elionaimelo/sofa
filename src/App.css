@@ -467,6 +467,10 @@ main::before {
   background: #1f2530;
   box-shadow: 0 14px 34px rgb(0 0 0 / 0.5);
 }
+.picker-list[data-align="end"] {
+  left: auto;
+  right: 0;
+}
 .picker-list button {
   min-height: 44px;
   padding: 8px 14px;

@@ -75,8 +75,16 @@ function PickerList<V extends string>({
   onClose: () => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
+  const [alignEnd, setAlignEnd] = useState(false);
   useEffect(() => {
-    root.current?.querySelector<HTMLElement>("[aria-selected='true']")?.focus();
+    const list = root.current;
+    list?.querySelector<HTMLElement>("[aria-selected='true']")?.focus();
+    // Near the right edge (the sort control, a drawer) the list hangs off screen; flip it.
+    if (list) {
+      const rect = list.getBoundingClientRect();
+      const limit = list.closest("dialog")?.getBoundingClientRect().right;
+      setAlignEnd(rect.right > (limit ?? window.innerWidth) - 8);
+    }
   }, []);
   // While open, the controller talks only to the list (App routes through pickerInput).
   useFeatureInput(pickerInput, (a) => {
@@ -89,6 +97,7 @@ function PickerList<V extends string>({
       role="listbox"
       aria-label={label}
       className="picker-list"
+      data-align={alignEnd ? "end" : undefined}
       onKeyDown={(e) => {
         if (e.key === "Escape") {
           // Also keeps a surrounding <dialog> from treating it as its own cancel.
