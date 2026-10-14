@@ -558,7 +558,7 @@ dialog {
   border-radius: 20px;
   background: rgb(27 33 43 / 0.97);
   width: min(1000px, 90vw);
-  max-height: 86dvh;
+  max-height: 92dvh;
   overflow-y: auto;
   box-shadow: 0 30px 90px rgb(0 0 0 / 0.5);
 }
@@ -567,7 +567,7 @@ dialog::backdrop {
   backdrop-filter: blur(10px);
 }
 .detail-banner {
-  height: clamp(210px, 39vh, 400px);
+  height: clamp(170px, 30vh, 360px);
   position: relative;
   background-position: center;
   background-size: cover;
@@ -582,7 +582,7 @@ dialog::backdrop {
 }
 .detail-banner > div {
   z-index: 1;
-  padding: 30px;
+  padding: 22px 26px;
 }
 .detail-banner p {
   font-size: 12px;
@@ -601,10 +601,10 @@ dialog::backdrop {
   padding: 4px 14px;
 }
 .detail-body {
-  padding: 10px 30px 30px;
+  padding: 6px 26px 22px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 .muted {
   color: var(--muted);
@@ -1999,8 +1999,8 @@ dialog::backdrop {
   margin-left: 8px;
 }
 .category-editor {
-  margin: 24px 0;
-  padding: 20px 0;
+  margin: 6px 0;
+  padding: 12px 0;
   border-block: 1px solid rgb(255 255 255 / 0.08);
   position: relative;
 }
