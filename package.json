@@ -10,6 +10,8 @@
     "tauri": "tauri",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "lint": "biome ci",
+    "check": "npm run lint && tsc --noEmit && npm test && vite build && sh scripts/check-rust.sh",
+    "prepare": "git config core.hooksPath .githooks",
     "format": "biome check --write"
   },
   "dependencies": {

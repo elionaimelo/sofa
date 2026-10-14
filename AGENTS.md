@@ -15,16 +15,17 @@ Each directory has its own `AGENTS.md` with the rules for that layer:
 ## Commands
 
 ```sh
-npm install
+npm install                # also points git at .githooks (prepare)
 npm run tauri dev          # app with hot reload
+npm run check              # everything the CI runs; the pre-push hook runs this
 npx tsc --noEmit           # typecheck
-npm run lint               # Biome: lint, format and import order (npm run format fixes)
+npm run lint               # biome ci: lint, format and import order (npm run format fixes)
 npm test                   # tests/*.test.ts (Node 22.6+)
 npx vite build             # frontend build
-cargo test --manifest-path src-tauri/Cargo.toml
+sh scripts/check-rust.sh   # cargo test (zero warnings) + the crate compiled for Windows
 ```
 
-Run all of them before you call a change done. The release CI (`.github/workflows/release.yml`) runs `npm test` and `cargo test` on `windows-latest`, so Windows-only code (`#[cfg(windows)]`) must compile there even if you develop on macOS. `cargo check --target x86_64-pc-windows-msvc` fails locally on `ring`'s C build; check Windows-only modules in a scratch crate that includes them with `#[path]` and skips `reqwest`.
+Errors must surface here, never in CI. The versioned git hooks enforce it: `pre-commit` runs lint and typecheck (seconds); `pre-push` runs `npm run check`. The release CI (`.github/workflows/release.yml`) runs the same on `windows-latest`, so Windows-only code (`#[cfg(windows)]`) must compile there even if you develop on macOS: `scripts/check-rust.sh` compiles the whole crate for `x86_64-pc-windows-gnu` (needs `rustup target add x86_64-pc-windows-gnu` and `brew install mingw-w64`; the MSVC target can't build `ring` from macOS). Never bypass the hooks with `--no-verify`.
 
 Agent skills (TanStack Query, React composition, web interface guidelines) are pinned in `skills-lock.json`; restore them with `npx skills experimental_install`.
 

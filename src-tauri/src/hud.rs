@@ -1,5 +1,6 @@
+use tauri::Manager;
 #[cfg(not(windows))]
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{WebviewUrl, WebviewWindowBuilder};
 /// The Game Bar widget runs on another origin and can't see the library's localStorage,
 /// so the chosen language is kept in `language.txt` (app data dir) for it.
 const LANGUAGES: [&str; 3] = ["en", "pt-BR", "es"];

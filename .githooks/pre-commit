@@ -1,0 +1,5 @@
+#!/bin/sh
+# Seconds, on every commit: formatting, lint and types. Heavier checks run on push.
+set -e
+npx biome ci
+npx tsc --noEmit

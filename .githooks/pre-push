@@ -1,0 +1,5 @@
+#!/bin/sh
+# Everything the release CI runs, including the Windows build of the Rust crate,
+# so a red CI never happens after a green push.
+set -e
+npm run check
