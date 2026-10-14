@@ -83,7 +83,7 @@ pub fn cached_categories(
     load(&app, &cache, steam_locale(&lang)?)
 }
 /// Title comparison for the store search: case, accents-insensitive-ish and punctuation-free.
-fn same_title(a: &str, b: &str) -> bool {
+pub(crate) fn same_title(a: &str, b: &str) -> bool {
     let key = |s: &str| {
         s.chars()
             .filter(|c| c.is_alphanumeric())
@@ -96,7 +96,7 @@ fn same_title(a: &str, b: &str) -> bool {
 
 /// Steam app id whose name is exactly this title, from the store's public search.
 #[derive(Deserialize)]
-struct SearchResponse {
+pub(crate) struct SearchResponse {
     #[serde(default)]
     items: Vec<SearchItem>,
 }
@@ -105,8 +105,20 @@ struct SearchItem {
     name: String,
     id: u64,
 }
-fn matching_app(response: &SearchResponse, title: &str) -> Option<u64> {
+pub(crate) fn matching_app(response: &SearchResponse, title: &str) -> Option<u64> {
     response.items.iter().find(|item| same_title(&item.name, title)).map(|item| item.id)
+}
+
+/// Steam app id of the title with exactly this name, through the store's public search.
+/// Epic and GOG games borrow Steam's page for genres and sizes this way.
+pub(crate) async fn steam_app_for_title(title: &str) -> Result<Option<u64>, String> {
+    let response: SearchResponse = network::json(
+        network::client()?
+            .get("https://store.steampowered.com/api/storesearch/")
+            .query(&[("term", title.trim()), ("l", "english"), ("cc", "US")]),
+    )
+    .await?;
+    Ok(matching_app(&response, title))
 }
 
 /// Epic and GOG titles have no genre source of their own; Steam's page for the same
@@ -133,13 +145,7 @@ pub async fn game_categories(
                     return entry_labels(entry);
                 }
             }
-            let response: SearchResponse = network::json(
-                network::client()?
-                    .get("https://store.steampowered.com/api/storesearch/")
-                    .query(&[("term", title.trim()), ("l", locale), ("cc", "US")]),
-            )
-            .await?;
-            match matching_app(&response, &title) {
+            match steam_app_for_title(&title).await? {
                 Some(app_id) => app_id.to_string(),
                 None => {
                     store(&app, &cache, locale, id, Vec::new());

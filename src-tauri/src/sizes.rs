@@ -1,5 +1,6 @@
 //! Expected install size of an owned, uninstalled game: Steam publishes it in the page's
-//! system requirements. Epic's catalog carries no size, so only Steam ids answer.
+//! system requirements. Epic and GOG titles use the Steam page of the same name, as the
+//! categories do.
 use crate::network;
 
 fn storage_bytes(requirements: &str) -> Option<u64> {
@@ -29,8 +30,21 @@ fn storage_bytes(requirements: &str) -> Option<u64> {
 }
 
 #[tauri::command]
-pub async fn game_size_estimate(id: String) -> Result<Option<u64>, String> {
-    let app_id = crate::library::steam_app_id(&id).ok_or("invalidGame")?;
+pub async fn game_size_estimate(id: String, title: Option<String>) -> Result<Option<u64>, String> {
+    let app_id = match crate::library::steam_app_id(&id) {
+        Some(app_id) => app_id.to_owned(),
+        None => {
+            if !(id.starts_with("epic:") || id.starts_with("gog:")) {
+                return Err("invalidGame".into());
+            }
+            let title = title.filter(|t| !t.trim().is_empty() && t.len() <= 200).ok_or("invalidGame")?;
+            match crate::categories::steam_app_for_title(&title).await? {
+                Some(app_id) => app_id.to_string(),
+                None => return Ok(None),
+            }
+        }
+    };
+    let app_id = app_id.as_str();
     let details: serde_json::Value = network::json(
         network::client()?
             .get("https://store.steampowered.com/api/appdetails")
