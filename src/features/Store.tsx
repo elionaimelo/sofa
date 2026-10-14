@@ -5,14 +5,13 @@ import {
   CaretRightIcon,
   HeartIcon,
   MagnifyingGlassIcon,
-  SparkleIcon,
 } from "@phosphor-icons/react";
-import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DetailFrame } from "../components/DetailFrame";
 import { SearchField } from "../components/SearchField";
 import type { Lang, Translate } from "../i18n";
-import { type Region, rankSimilar, type Similar } from "../library";
+import type { Region, Similar } from "../library";
 import {
   commandQuery,
   type Deal,
@@ -60,12 +59,11 @@ const fromSimilar = (s: Similar): Deal => ({
   thumb: "",
   steamAppID: s.appId,
 });
-const tabs = ["discover", "forYou", "wishlist"] as const;
+const tabs = ["discover", "wishlist"] as const;
 export function Store({
   t,
   lang,
   region,
-  seeds,
   owned,
   input,
   onBack,
@@ -73,8 +71,6 @@ export function Store({
   t: Translate;
   lang: Lang;
   region: Region;
-  /** Steam titles that best describe the player's taste (see `tasteSeeds`). */
-  seeds: { appId: string; title: string }[];
   /** Steam app ids the player already has, never recommended. */
   owned: Set<string>;
   input: InputRef;
@@ -161,36 +157,16 @@ export function Store({
       enabled: !!selected?.steamAppID && !demo,
       staleTime: 60 * 60_000,
     }).data ?? [];
-  // For you: what Steam lists as similar to the games the player plays most.
-  const similarLists = useQueries({
-    queries: seeds.map((seed) => ({
-      ...commandQuery<Similar[]>("store_similar", { appId: seed.appId }),
-      enabled: !demo,
-      staleTime: 60 * 60_000,
-    })),
-  });
-  const similarKey = similarLists.map((q) => q.dataUpdatedAt).join(",");
-  // biome-ignore lint/correctness/useExhaustiveDependencies: similarKey changes whenever a list arrives.
-  const forYou = useMemo(
+  const visible = useMemo(
     () =>
-      rankSimilar(
-        similarLists.map((q) => q.data ?? []),
-        new Set([...owned, ...seeds.map((s) => s.appId)]),
-      ).map(fromSimilar),
-    [similarKey, owned, seeds],
+      tab === "discover"
+        ? deals
+        : wishlist.filter((d) =>
+            d.title.toLowerCase().includes(query.toLowerCase()),
+          ),
+    [deals, wishlist, tab, query],
   );
-  const forYouLoading = similarLists.some((q) => q.isPending) && !demo;
-  const visible = useMemo(() => {
-    const matching = (list: Deal[]) =>
-      list.filter((d) => d.title.toLowerCase().includes(query.toLowerCase()));
-    return tab === "discover"
-      ? deals
-      : tab === "forYou"
-        ? matching(forYou)
-        : matching(wishlist);
-  }, [deals, forYou, wishlist, tab, query]);
-  // Steam's own price in the region, for Steam offers and recommendations (every region:
-  // recommendations carry no CheapShark price).
+  // Steam's own price in the region, for Steam offers and the selected game.
   const steamIds = [
     ...new Set(
       [...visible, ...(selected ? [selected] : [])]
@@ -233,7 +209,7 @@ export function Store({
   /** Steam's own price in the region, for a Steam offer of the selected game. */
   const steamPrice = (d: Deal | null) =>
     d?.steamAppID ? regional[d.steamAppID] : undefined;
-  /** The deal's own discount, or Steam's for Steam offers and recommendations. */
+  /** The deal's own discount, or Steam's for Steam offers. */
   const discount = (d: Deal) =>
     d.storeID === STEAM_STORE && steamPrice(d)
       ? (steamPrice(d)?.discount ?? 0)
@@ -378,13 +354,6 @@ export function Store({
             {t("discover")}
           </button>
           <button
-            aria-pressed={tab === "forYou"}
-            onClick={() => setTab("forYou")}
-          >
-            <SparkleIcon />
-            {t("forYou")}
-          </button>
-          <button
             aria-pressed={tab === "wishlist"}
             onClick={() => setTab("wishlist")}
           >
@@ -429,18 +398,7 @@ export function Store({
       {tab === "wishlist" && (
         <p className="inline-note">{t("wishlistPriceNote")}</p>
       )}
-      {tab === "forYou" && seeds.length > 0 && (
-        <p className="inline-note">
-          {t("forYouBasedOn", {
-            games: seeds
-              .map((s) => s.title)
-              .filter(Boolean)
-              .join(", "),
-          })}
-        </p>
-      )}
-      {(loading && tab === "discover") ||
-      (forYouLoading && tab === "forYou") ? (
+      {loading && tab === "discover" ? (
         <div
           className="store-grid skeleton-grid"
           aria-label={t("loadingOffers")}
@@ -458,20 +416,8 @@ export function Store({
         </div>
       ) : !visible.length ? (
         <div className="feature-empty">
-          {tab === "forYou" ? (
-            <SparkleIcon size={42} />
-          ) : (
-            <HeartIcon size={42} />
-          )}
-          <h2>
-            {t(
-              tab === "wishlist"
-                ? "emptyWishlist"
-                : tab === "forYou" && !seeds.length
-                  ? "forYouEmpty"
-                  : "noMatches",
-            )}
-          </h2>
+          <HeartIcon size={42} />
+          <h2>{t(tab === "wishlist" ? "emptyWishlist" : "noMatches")}</h2>
         </div>
       ) : (
         <div className="store-grid" ref={grid}>

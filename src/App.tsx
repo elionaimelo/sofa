@@ -30,7 +30,6 @@ import {
   gameMeta,
   hero,
   parsePreferences,
-  tasteSeeds,
   titleGroup,
 } from "./library";
 import { useInput } from "./useInput";
@@ -225,17 +224,7 @@ export default function App() {
     setOnboardingDone(true);
     setOnboarding(false);
   };
-  // The store's "For you" starts from the games the player plays most, and never suggests
-  // what they already have.
-  const tasteSeedGames = useMemo(
-    () =>
-      tasteSeeds(library.games, prefs).map((appId) => ({
-        appId,
-        title:
-          library.games.find((g) => g.id === `steam:${appId}`)?.title ?? "",
-      })),
-    [library.games, prefs],
-  );
+  // "You may also like" never suggests what the player already has.
   const ownedSteam = useMemo(
     () =>
       new Set(
@@ -1059,7 +1048,6 @@ export default function App() {
               t={t}
               lang={lang}
               region={region}
-              seeds={tasteSeedGames}
               owned={ownedSteam}
               input={featureInput}
               onBack={() => setPage("home")}

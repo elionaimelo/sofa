@@ -55,10 +55,6 @@ const en = {
   nextPage: "Next",
   clearSearch: "Clear search",
   convertedFrom: "Converted from {price} at today’s reference rate",
-  forYou: "For you",
-  forYouBasedOn: "Similar to what you play most: {games}",
-  forYouEmpty:
-    "Play a few Steam games through Sofa or connect your Steam account to get recommendations.",
   alsoLike: "You may also like",
   filterOptions: "Options",
   favoritesOnly: "Favorites only",
@@ -414,10 +410,6 @@ const dicts = {
     nextPage: "Próxima",
     clearSearch: "Limpar busca",
     convertedFrom: "Convertido de {price} pela taxa de referência de hoje",
-    forYou: "Para você",
-    forYouBasedOn: "Parecidos com o que você mais joga: {games}",
-    forYouEmpty:
-      "Jogue alguns jogos da Steam pelo Sofa ou conecte sua conta Steam para receber recomendações.",
     alsoLike: "Você também pode gostar de",
     filterOptions: "Opções",
     favoritesOnly: "Somente favoritos",
@@ -777,10 +769,6 @@ const dicts = {
     nextPage: "Siguiente",
     clearSearch: "Borrar búsqueda",
     convertedFrom: "Convertido de {price} con la tasa de referencia de hoy",
-    forYou: "Para ti",
-    forYouBasedOn: "Parecidos a lo que más juegas: {games}",
-    forYouEmpty:
-      "Juega algunos juegos de Steam desde Sofa o conecta tu cuenta de Steam para recibir recomendaciones.",
     alsoLike: "También te puede gustar",
     filterOptions: "Opciones",
     favoritesOnly: "Solo favoritos",
