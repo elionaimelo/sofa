@@ -156,6 +156,10 @@ const en = {
   hudRefreshRate: "Refresh rate",
   hudBrightness: "Brightness",
   hudTapToChange: "Tap to change",
+  storage: "Storage",
+  storageFree: "{name} {free} GB free of {total} GB",
+  settingsStorageDescription:
+    "Free space on this device; opens Windows storage settings.",
   hudFramerateLimit: "Framerate limit",
   hudAutoHdrNote: "Windows setting; needs an HDR screen",
   hudFanCurve: "Fan curve",
@@ -468,6 +472,10 @@ const dicts = {
     hudRefreshRate: "Taxa de atualização",
     hudBrightness: "Brilho",
     hudTapToChange: "Toque para alterar",
+    storage: "Armazenamento",
+    storageFree: "{name} {free} GB livres de {total} GB",
+    settingsStorageDescription:
+      "Espaço livre neste dispositivo; abre o armazenamento do Windows.",
     hudFramerateLimit: "Limite de FPS",
     hudAutoHdrNote: "Ajuste do Windows; precisa de tela HDR",
     hudFanCurve: "Curva da ventoinha",
@@ -777,6 +785,10 @@ const dicts = {
     hudRefreshRate: "Frecuencia de actualización",
     hudBrightness: "Brillo",
     hudTapToChange: "Toca para cambiar",
+    storage: "Almacenamiento",
+    storageFree: "{name} {free} GB libres de {total} GB",
+    settingsStorageDescription:
+      "Espacio libre en este dispositivo; abre el almacenamiento de Windows.",
     hudFramerateLimit: "Límite de FPS",
     hudAutoHdrNote: "Ajuste de Windows; requiere pantalla HDR",
     hudFanCurve: "Curva del ventilador",

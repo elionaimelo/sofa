@@ -28,7 +28,7 @@ tauri-plugin-process = "2"
 reqwest = { version = "0.13", features = ["json", "query"] }
 tokio = { version = "1", features = ["time"] }
 tiny_http = "0.12"
-sysinfo = { version = "0.39", default-features = false, features = ["system"] }
+sysinfo = { version = "0.39", default-features = false, features = ["system", "disk"] }
 starship-battery = "0.12"
 scraper = "0.27"
 flate2 = "1"

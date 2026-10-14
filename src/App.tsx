@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { AnimatePresence } from "motion/react";
 import {
@@ -33,6 +33,7 @@ import {
   ArrowRightIcon,
   GaugeIcon,
   GearSixIcon,
+  HardDrivesIcon,
   HeartIcon,
   HouseIcon,
   PlayIcon,
@@ -59,6 +60,7 @@ import {
 import { Store } from "./features/Store";
 import { Uninstall } from "./features/Uninstall";
 import {
+  commandQuery,
   demo,
   desktop,
   type InputRef,
@@ -77,6 +79,8 @@ const pageIcons = {
 };
 const TABS = ["all", "favorites", "steam", "epic", "gog", "hidden"] as const;
 const preferencesKey = demo ? "sofa.demo.preferences" : "sofa.preferences";
+/** Whole gigabytes as Windows counts them (1024³), enough for a storage overview. */
+const gb = (bytes: number) => String(Math.round(bytes / 1024 ** 3));
 /** Steam's portrait art is missing for some titles; its landscape header rarely is. */
 function coverSources(game: Game): string[] {
   const sources = game.cover ? [game.cover] : [];
@@ -175,6 +179,14 @@ export default function App() {
   );
   const library = useLibrary(notify);
   const updates = useUpdates(notify);
+  // Fixed disks for the storage card; looked up again when the user comes back to Sofa.
+  const storage = useQuery({
+    ...commandQuery<{ name: string; total: number; available: number }[]>(
+      "storage_status",
+    ),
+    enabled: page === "settings" && isTauri(),
+    refetchOnWindowFocus: true,
+  });
   const { update, install } = updates;
   const { games, loading, scanError } = library;
   const categories = useCategories(games);
@@ -1108,6 +1120,30 @@ export default function App() {
                   <GaugeIcon aria-hidden />
                   <strong>{t("hud")}</strong>
                   <span>{t("settingsPerformanceDescription")}</span>
+                </button>
+                <button
+                  onClick={() =>
+                    void desktop("open_storage_settings").catch((error) =>
+                      notify(serviceError(error)),
+                    )
+                  }
+                >
+                  <HardDrivesIcon aria-hidden />
+                  <strong>{t("storage")}</strong>
+                  <span>
+                    {storage.data?.length
+                      ? storage.data.map((disk) => (
+                          <Fragment key={disk.name}>
+                            {t("storageFree", {
+                              name: disk.name,
+                              free: gb(disk.available),
+                              total: gb(disk.total),
+                            })}
+                            <br />
+                          </Fragment>
+                        ))
+                      : t("settingsStorageDescription")}
+                  </span>
                 </button>
                 <button
                   className={update ? "has-update" : undefined}
