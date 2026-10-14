@@ -1,5 +1,32 @@
 #[cfg(not(windows))]
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+/// The Game Bar widget runs on another origin and can't see the library's localStorage,
+/// so the chosen language is kept in `language.txt` (app data dir) for it.
+const LANGUAGES: [&str; 3] = ["en", "pt-BR", "es"];
+
+fn language_file(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    app.path().app_data_dir().ok().map(|d| d.join("language.txt"))
+}
+
+#[tauri::command]
+pub async fn language(app: tauri::AppHandle) -> Option<String> {
+    let saved = std::fs::read_to_string(language_file(&app)?).ok()?;
+    let saved = saved.trim();
+    LANGUAGES.contains(&saved).then(|| saved.to_owned())
+}
+
+#[tauri::command]
+pub async fn set_language(lang: String, app: tauri::AppHandle) -> Result<(), String> {
+    if !LANGUAGES.contains(&lang.as_str()) {
+        return Err("invalidInput".into());
+    }
+    let path = language_file(&app).ok_or("serviceUnavailable")?;
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    std::fs::write(path, lang).map_err(|_| "serviceUnavailable".into())
+}
+
 #[cfg(windows)]
 fn show_hud(app: &tauri::AppHandle) -> Result<(), String> {
     crate::widget::open_game_bar(app)

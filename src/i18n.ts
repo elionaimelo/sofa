@@ -1,3 +1,5 @@
+import { invoke, isTauri } from "@tauri-apps/api/core";
+
 const en = {
   uninstallTitleRunning:
     "Close this title and Epic Launcher before uninstalling. Sofa stays open.",
@@ -910,7 +912,12 @@ export function initialLang(): Lang {
 export function saveLang(l: Lang) {
   localStorage.setItem(LANG_KEY, l);
   document.documentElement.lang = l;
+  // The Game Bar widget is another origin; the backend hands it the language.
+  if (isTauri())
+    void invoke("set_language", { lang: l }).catch(() => undefined);
 }
+export const isLang = (value: unknown): value is Lang =>
+  langs.includes(value as Lang);
 
 export const translator =
   (l: Lang) =>

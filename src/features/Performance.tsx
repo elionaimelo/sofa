@@ -15,7 +15,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type ComponentType, useEffect, useRef, useState } from "react";
 import type { Translate } from "../i18n";
-import { initialLang, translator } from "../i18n";
+import { initialLang, isLang, translator } from "../i18n";
 import type { Game } from "../library";
 import {
   commandQuery,
@@ -143,7 +143,14 @@ function Tile({
 const inWidget = new URLSearchParams(location.search).get("widget") === "1";
 /** Game Bar widget page and the native HUD preview on non-Windows platforms. */
 export function Hud() {
-  const t = translator(initialLang());
+  // The widget can't read the library's localStorage: ask the backend, then the browser.
+  const saved = useQuery({
+    ...commandQuery<string | null>("language"),
+    staleTime: Number.POSITIVE_INFINITY,
+  }).data;
+  const lang = isLang(saved) ? saved : initialLang();
+  document.documentElement.lang = lang;
+  const t = translator(lang);
   const inputRef: InputRef = useRef(null);
   useInput(
     (a) => inputRef.current?.(a),
