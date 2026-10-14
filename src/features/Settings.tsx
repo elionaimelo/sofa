@@ -161,14 +161,16 @@ export function LibrarySettings({
 }) {
   return (
     <>
-      {providers.map((provider) => (
-        <AccountSection
-          key={provider}
-          t={t}
-          provider={provider}
-          account={library.accounts[provider]}
-        />
-      ))}
+      <div className="library-accounts">
+        {providers.map((provider) => (
+          <AccountSection
+            key={provider}
+            t={t}
+            provider={provider}
+            account={library.accounts[provider]}
+          />
+        ))}
+      </div>
       <p className="muted">{t("otherSourcesInstalledOnly")}</p>
       {/* The one place to rescan installed games and refresh owned store games. */}
       <button

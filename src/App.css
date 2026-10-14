@@ -2297,6 +2297,12 @@ footer kbd {
 .settings-head h1 {
   font-size: 32px;
 }
+/* Store accounts side by side; each card wraps to its own row only on narrow screens. */
+.library-accounts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
 .library-account {
   display: flex;
   flex-direction: column;
