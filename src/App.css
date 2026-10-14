@@ -2247,13 +2247,15 @@ main:not(.floating-hud) :is(button, input, select):not(.tile, .deal-card) {
   background: #151b24;
   border-color: rgb(255 255 255 / 0.2);
 }
+/* Owned but not installed: clearly darker and desaturated, readable again when focused. */
 .tile[data-installed="false"] img {
-  opacity: 0.48;
-  filter: grayscale(0.35);
+  opacity: 0.28;
+  filter: grayscale(0.7) brightness(0.8);
 }
 .tile[data-installed="false"]:focus img,
 .tile[data-installed="false"]:hover img {
-  opacity: 0.68;
+  opacity: 0.6;
+  filter: grayscale(0.3);
 }
 .install-mark {
   position: absolute;
