@@ -31,7 +31,7 @@ Decided with the product owner; keep every new screen inside it.
 
 ## Text, errors and accessibility
 
-- All UI text goes through `t(key)`; add the key to all three dictionaries in `i18n.ts` (the `Dict` type enforces it). Brand names (Steam, CPU Boost) are the only literals.
+- All UI text goes through `t(key)`; add the key to all three dictionaries in `i18n.ts` (the `Dict` type enforces it). Brand names (Steam, CPU Boost) are the only literals. More languages are planned: a new one is a dictionary plus its `LANGS` entry, the Steam locale in `categories::steam_locale`, the default price region in `App.tsx`, and `LANGUAGES` in `hud.rs`; keep keys language-neutral and never branch on a language outside those maps.
 - Backend errors are i18n keys. Map them with `serviceError(e, known?)`, which returns a typed `MessageKey`; never show raw error text (it can contain URLs or tokens). Store errors as `MessageKey | ""`.
 - Call the backend through `desktop<T>(command, args)`; it throws `desktopRequired` in the browser preview. `?demo` gives a demo library in dev.
 - Icon-only buttons need `aria-label`; status messages use `role="status"`; toggles and selections use `aria-pressed` / `aria-expanded` (CSS styles off those attributes).
