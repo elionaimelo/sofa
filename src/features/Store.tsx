@@ -11,7 +11,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { DetailFrame } from "../components/DetailFrame";
 import { SearchField } from "../components/SearchField";
 import type { Lang, Translate } from "../i18n";
-import type { Region, Similar } from "../library";
+import {
+  byTaste,
+  type Region,
+  type Similar,
+  type TagWeights,
+  tasteProfile,
+} from "../library";
 import {
   commandQuery,
   type Deal,
@@ -65,6 +71,7 @@ export function Store({
   lang,
   region,
   owned,
+  taste,
   input,
   onBack,
 }: {
@@ -73,6 +80,8 @@ export function Store({
   region: Region;
   /** Steam app ids the player already has, never recommended. */
   owned: Set<string>;
+  /** The player's Steam titles and how much each says about their taste (`tasteWeights`). */
+  taste: { appId: string; weight: number }[];
   input: InputRef;
   onBack: () => void;
 }) {
@@ -112,10 +121,42 @@ export function Store({
     queryFn: () => (demo ? demoShops : desktop<Shop[]>("store_shops")),
     staleTime: 60 * 60_000,
   });
-  const deals = dealsQuery.data?.deals ?? [];
+  const pageDeals = dealsQuery.data?.deals ?? [];
   const pages = dealsQuery.data?.pages ?? 1;
   const shops = shopsQuery.data ?? [];
-  const loading = dealsQuery.isFetching || shopsQuery.isPending;
+  // Each page is ordered by the player's taste: Steam tags of their games, weighted by hours,
+  // recent sessions and favourites, against each deal's tags. Unrelated deals keep their
+  // order behind; without play history the order doesn't change.
+  const tasteTags = useQuery({
+    ...commandQuery<TagWeights>("steam_tags", {
+      ids: taste.map((g) => g.appId),
+    }),
+    enabled: !demo && taste.length > 0,
+    staleTime: 60 * 60_000,
+  }).data;
+  const profile = useMemo(
+    () => tasteProfile(taste, tasteTags ?? {}),
+    [taste, tasteTags],
+  );
+  const dealIds = [
+    ...new Set(
+      pageDeals.map((d) => d.steamAppID).filter((id): id is string => !!id),
+    ),
+  ];
+  const dealTagsQuery = useQuery({
+    ...commandQuery<TagWeights>("steam_tags", { ids: dealIds }),
+    enabled: !demo && profile.size > 0 && dealIds.length > 0,
+    staleTime: 60 * 60_000,
+  });
+  const deals = useMemo(
+    () => byTaste(pageDeals, profile, dealTagsQuery.data ?? {}),
+    [pageDeals, profile, dealTagsQuery.data],
+  );
+  // Wait for the tags before showing a page, so the grid doesn't reorder under the cursor.
+  const loading =
+    dealsQuery.isFetching ||
+    shopsQuery.isPending ||
+    (profile.size > 0 && dealIds.length > 0 && dealTagsQuery.isPending);
   const error = queryError(dealsQuery.error ?? shopsQuery.error);
   const refresh = () => {
     void dealsQuery.refetch();

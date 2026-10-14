@@ -30,6 +30,7 @@ import {
   gameMeta,
   hero,
   parsePreferences,
+  tasteWeights,
   titleGroup,
 } from "./library";
 import { useInput } from "./useInput";
@@ -233,6 +234,11 @@ export default function App() {
           .map((g) => g.id.slice(6)),
       ),
     [library.games],
+  );
+  // The store orders deals by these: the player's Steam titles weighted by play.
+  const taste = useMemo(
+    () => tasteWeights(library.games, prefs),
+    [library.games, prefs],
   );
   // Store prices follow the language unless the user picked a region.
   const region =
@@ -1049,6 +1055,7 @@ export default function App() {
               lang={lang}
               region={region}
               owned={ownedSteam}
+              taste={taste}
               input={featureInput}
               onBack={() => setPage("home")}
             />

@@ -67,6 +67,74 @@ export function gameMeta(
     .join(" · ");
 }
 export type Similar = { appId: string; name: string };
+/** Steam user tags per app id, with how strongly players applied each. */
+export type TagWeights = Record<string, { tagid: number; weight: number }[]>;
+/**
+ * How much each Steam title says about the player's taste: hours played (log-scaled, so one
+ * huge game doesn't drown the rest), recent sessions and favourites.
+ */
+export function tasteWeights(
+  games: Game[],
+  p: Pick<Preferences, "favorites" | "recent">,
+  now = Date.now(),
+  limit = 40,
+): { appId: string; weight: number }[] {
+  const favorites = new Set(p.favorites);
+  return games
+    .filter((g) => /^steam:\d+$/.test(g.id))
+    .map((g) => {
+      const last = Math.max(p.recent[g.id] ?? 0, (g.last_played ?? 0) * 1000);
+      const days = last ? (now - last) / 86_400_000 : Number.POSITIVE_INFINITY;
+      return {
+        appId: g.id.slice(6),
+        weight:
+          Math.log1p(g.playtime ?? 0) +
+          (days <= 30 ? 3 : days <= 180 ? 1 : 0) +
+          (favorites.has(g.id) ? 4 : 0),
+      };
+    })
+    .filter((g) => g.weight > 0)
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, limit);
+}
+/** A title's tags as shares of its own total weight, so long tag lists don't count double. */
+function shares(tags: TagWeights[string] | undefined) {
+  const total = tags?.reduce((sum, t) => sum + t.weight, 0) ?? 0;
+  return total
+    ? (tags ?? []).map((t) => [t.tagid, t.weight / total] as const)
+    : [];
+}
+/** The player's taste as a weight per Steam tag. */
+export function tasteProfile(
+  weights: { appId: string; weight: number }[],
+  tags: TagWeights,
+): Map<number, number> {
+  const profile = new Map<number, number>();
+  for (const { appId, weight } of weights)
+    for (const [tagid, share] of shares(tags[appId]))
+      profile.set(tagid, (profile.get(tagid) ?? 0) + weight * share);
+  return profile;
+}
+/**
+ * Items closest to the player's taste first; ties and items with nothing in common (or no
+ * Steam id) keep their original order behind them.
+ */
+export function byTaste<T extends { steamAppID: string | null }>(
+  items: T[],
+  profile: Map<number, number>,
+  tags: TagWeights,
+): T[] {
+  if (!profile.size) return items;
+  const score = (item: T) =>
+    shares(item.steamAppID ? tags[item.steamAppID] : undefined).reduce(
+      (sum, [tagid, share]) => sum + share * (profile.get(tagid) ?? 0),
+      0,
+    );
+  return items
+    .map((item, index) => ({ item, index, score: score(item) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((entry) => entry.item);
+}
 /** Heading for a title-sorted group: its first letter, or "#" for digits and symbols. */
 export function titleGroup(title: string): string {
   const first = title.trim().charAt(0).toLocaleUpperCase();

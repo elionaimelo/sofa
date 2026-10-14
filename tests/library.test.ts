@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  byTaste,
   categoryOptions,
   cleanCategories,
   defaults,
@@ -10,6 +11,8 @@ import {
   hoursPlayed,
   mergeLibrary,
   parsePreferences,
+  tasteProfile,
+  tasteWeights,
   titleGroup,
 } from "../src/library.ts";
 
@@ -293,4 +296,47 @@ test("sizes and hours read the way a console shows them", () => {
   assert.equal(hoursPlayed(3), "");
   assert.equal(hoursPlayed(90), "1.5 h");
   assert.equal(hoursPlayed(1230), "21 h");
+});
+
+test("the store puts deals closest to the player's taste first, the rest keeps its order", () => {
+  const now = Date.UTC(2026, 9, 14);
+  const game = (id: string, extra: Partial<Game> = {}): Game => ({
+    id,
+    title: id,
+    source: "steam",
+    launch: "",
+    installed: true,
+    ...extra,
+  });
+  const weights = tasteWeights(
+    [
+      game("steam:1", { playtime: 3000 }),
+      game("steam:2", { playtime: 10 }),
+      game("steam:3"),
+      game("epic:x", { playtime: 9000, source: "epic" }),
+    ],
+    { favorites: [], recent: {} },
+    now,
+  );
+  assert.deepEqual(
+    weights.map((w) => w.appId),
+    ["1", "2"],
+  );
+  const tags = {
+    "1": [
+      { tagid: 100, weight: 900 },
+      { tagid: 200, weight: 100 },
+    ],
+    "2": [{ tagid: 300, weight: 500 }],
+    "10": [{ tagid: 999, weight: 1 }],
+    "20": [{ tagid: 100, weight: 50 }],
+    "30": [{ tagid: 300, weight: 50 }],
+  };
+  const deals = ["10", "30", null, "20"].map((steamAppID) => ({ steamAppID }));
+  const ranked = byTaste(deals, tasteProfile(weights, tags), tags);
+  assert.deepEqual(
+    ranked.map((d) => d.steamAppID),
+    ["20", "30", "10", null],
+  );
+  assert.equal(byTaste(deals, new Map(), tags), deals);
 });

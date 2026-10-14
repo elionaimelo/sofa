@@ -360,6 +360,87 @@ pub async fn store_lookup(app_id: String) -> Result<Option<Deal>, String> {
     }))
 }
 
+/// One of a Steam title's user tags and how strongly players applied it.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct TagWeight {
+    tagid: u32,
+    weight: u32,
+}
+
+fn parse_tags(response: &Value) -> Vec<(String, Vec<TagWeight>)> {
+    response["response"]["store_items"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|item| {
+            let id = item["appid"].as_u64()?.to_string();
+            let tags = item["tags"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|t| {
+                    Some(TagWeight {
+                        tagid: u32::try_from(t["tagid"].as_u64()?).ok()?,
+                        weight: u32::try_from(t["weight"].as_u64()?).ok()?,
+                    })
+                })
+                .collect();
+            Some((id, tags))
+        })
+        .collect()
+}
+
+/// Weighted user tags of Steam titles, in one batch from the store's public item API (no
+/// key). Each title is cached for a week; titles Steam doesn't return are cached as untagged.
+#[tauri::command]
+pub async fn steam_tags(
+    ids: Vec<String>,
+    cache: tauri::State<'_, StoreCache>,
+) -> Result<HashMap<String, Vec<TagWeight>>, String> {
+    if ids.len() > 100 || ids.iter().any(|id| !numeric_id(id)) {
+        return Err("invalidInput".into());
+    }
+    let mut found = HashMap::new();
+    let mut missing = Vec::new();
+    {
+        let entries = cache.0.lock().map_err(|_| "serviceUnavailable")?;
+        for id in &ids {
+            match entries
+                .get(&format!("tags:{id}"))
+                .filter(|(at, _)| at.elapsed() < Duration::from_secs(7 * 24 * 3600))
+                .and_then(|(_, v)| serde_json::from_value::<Vec<TagWeight>>(v.clone()).ok())
+            {
+                Some(tags) => drop(found.insert(id.clone(), tags)),
+                None => missing.push(id.clone()),
+            }
+        }
+    }
+    if missing.is_empty() {
+        return Ok(found);
+    }
+    let request = serde_json::json!({
+        "ids": missing.iter().filter_map(|id| id.parse::<u64>().ok()).map(|appid| serde_json::json!({ "appid": appid })).collect::<Vec<_>>(),
+        "context": { "language": "english", "country_code": "US" },
+        "data_request": { "include_tag_count": 20 },
+    });
+    let response: Value = network::json(
+        network::client()?
+            .get("https://api.steampowered.com/IStoreBrowseService/GetItems/v1/")
+            .query(&[("input_json", request.to_string())]),
+    )
+    .await?;
+    let mut fetched: HashMap<String, Vec<TagWeight>> = parse_tags(&response).into_iter().collect();
+    let mut entries = cache.0.lock().map_err(|_| "serviceUnavailable")?;
+    for id in missing {
+        let tags = fetched.remove(&id).unwrap_or_default();
+        if let Ok(value) = serde_json::to_value(&tags) {
+            entries.insert(format!("tags:{id}"), (Instant::now(), value));
+        }
+        found.insert(id, tags);
+    }
+    Ok(found)
+}
+
 /// The currency shoppers in a store region pay in.
 fn region_currency(region: &str) -> Option<&'static str> {
     match region {
@@ -430,6 +511,22 @@ mod tests {
         assert_eq!(
             parse_similar(html, "1145360"),
             vec![Similar { app_id: "1280930".into(), name: "Astral Ascent".into() }]
+        );
+    }
+
+    #[test]
+    fn tags_come_with_their_weights_per_title() {
+        let response = serde_json::json!({"response": {"store_items": [
+            {"appid": 1145360, "tags": [{"tagid": 42804, "weight": 1051}, {"tagid": 3959, "weight": 766}]},
+            {"appid": 620},
+            {"id": 7, "tags": [{"tagid": 1, "weight": 1}]}
+        ]}});
+        assert_eq!(
+            parse_tags(&response),
+            vec![
+                ("1145360".to_string(), vec![TagWeight { tagid: 42804, weight: 1051 }, TagWeight { tagid: 3959, weight: 766 }]),
+                ("620".to_string(), vec![]),
+            ]
         );
     }
 
