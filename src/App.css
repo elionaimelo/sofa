@@ -34,6 +34,9 @@ button {
   border-radius: 10px;
   padding: 12px 18px;
   cursor: pointer;
+  /* The handheld's touchscreen: no double-tap zoom delay, no grey flash on tap. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 /* Buttons read as icon + label; icon-only buttons keep the icon centred. */
 button > svg:not(:only-child) {
@@ -3050,7 +3053,14 @@ footer kbd {
 }
 
 /* Scrollers: a thin bar for mouse and TV users; don't chain scroll to the page. */
-:is(.grid, .feature-page, .floating-hud, dialog, .settings-hub) {
+:is(
+  .grid,
+  .feature-page,
+  .floating-hud,
+  dialog,
+  .settings-hub,
+  .library-filters
+) {
   scrollbar-width: thin;
   overscroll-behavior: contain;
 }

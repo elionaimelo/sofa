@@ -6,7 +6,11 @@ import {
   HeartIcon,
   MagnifyingGlassIcon,
 } from "@phosphor-icons/react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Cover, CoverImage } from "../components/Cover";
 import { DetailFrame } from "../components/DetailFrame";
@@ -97,6 +101,7 @@ export function Store({
   onBack: () => void;
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number]>("discover");
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -293,8 +298,10 @@ export function Store({
   const resolve = async (d: Deal): Promise<Deal | null> => {
     if (d.gameID || !d.steamAppID) return d;
     try {
-      const found = await desktop<Deal | null>("store_lookup", {
-        appId: d.steamAppID,
+      // Through the query cache: opening the same recommendation again doesn't refetch.
+      const found = await queryClient.fetchQuery({
+        ...commandQuery<Deal | null>("store_lookup", { appId: d.steamAppID }),
+        staleTime: 60 * 60_000,
       });
       if (!found) setStatus(t("noOffers"));
       return found;
