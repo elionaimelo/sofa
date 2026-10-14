@@ -5,7 +5,9 @@ import {
   cleanCategories,
   defaults,
   filterGames,
+  formatSize,
   type Game,
+  hoursPlayed,
   mergeLibrary,
   parsePreferences,
   titleGroup,
@@ -283,4 +285,12 @@ test("price region is kept only when it is a known store region", () => {
     undefined,
   );
   assert.equal(parsePreferences(null, null).region, undefined);
+});
+
+test("sizes and hours read the way a console shows them", () => {
+  assert.equal(formatSize(1.5 * 1024 ** 3), "1.5 GB");
+  assert.equal(formatSize(700 * 1024 ** 2), "700 MB");
+  assert.equal(hoursPlayed(3), "");
+  assert.equal(hoursPlayed(90), "1.5 h");
+  assert.equal(hoursPlayed(1230), "21 h");
 });

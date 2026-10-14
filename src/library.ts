@@ -26,6 +26,46 @@ export function mergeLibrary(installed: Game[], owned: Game[]): Game[] {
   }
   return [...merged.values()].sort((a, b) => a.title.localeCompare(b.title));
 }
+/** Hours with one decimal from Steam's minutes; nothing under six minutes. */
+export const hoursPlayed = (minutes: number) =>
+  minutes >= 6 ? `${(minutes / 60).toFixed(minutes >= 600 ? 0 : 1)} h` : "";
+/** One decimal above a gigabyte, whole megabytes below. */
+export const formatSize = (bytes: number) =>
+  bytes >= 1024 ** 3
+    ? `${(bytes / 1024 ** 3).toFixed(1)} GB`
+    : `${Math.round(bytes / 1024 ** 2)} MB`;
+/** One line of facts under a title: last session, hours, size on disk or to download. */
+export function gameMeta(
+  game: Game,
+  t: (
+    key:
+      | "lastPlayed"
+      | "neverPlayed"
+      | "hoursPlayed"
+      | "diskSpaceUsed"
+      | "downloadEstimate",
+    vars?: Record<string, string>,
+  ) => string,
+  lang: string,
+  lastAt?: number,
+  estimate?: number,
+): string {
+  return [
+    lastAt
+      ? t("lastPlayed", { date: new Date(lastAt).toLocaleDateString(lang) })
+      : t("neverPlayed"),
+    game.playtime
+      ? t("hoursPlayed", { hours: hoursPlayed(game.playtime) })
+      : "",
+    game.installed && game.size != null
+      ? t("diskSpaceUsed", { size: formatSize(game.size) })
+      : estimate != null
+        ? t("downloadEstimate", { size: formatSize(estimate) })
+        : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 /** Heading for a title-sorted group: its first letter, or "#" for digits and symbols. */
 export function titleGroup(title: string): string {
   const first = title.trim().charAt(0).toLocaleUpperCase();

@@ -29,6 +29,7 @@ import {
   useState,
 } from "react";
 import { Dialog } from "../components/Dialog";
+import { ItemRow } from "../components/ItemRow";
 import { Picker } from "../components/Picker";
 import { LANGS, type Lang, type Translate } from "../i18n";
 import { type Game, type Preferences, type Region, regions } from "../library";
@@ -225,13 +226,12 @@ export function LibrarySettings({
         ) : (
           <ul className="item-list">
             {hidden.map((game) => (
-              <li key={game.id}>
-                <span>{game.title}</span>
+              <ItemRow key={game.id} name={game.title}>
                 <button onClick={() => onRestore(game)}>
                   <EyeIcon />
                   {t("restoreGame")}
                 </button>
-              </li>
+              </ItemRow>
             ))}
           </ul>
         )}
@@ -507,28 +507,25 @@ export function AppsSettings({ t, notify }: { t: Translate; notify: Notify }) {
       {apps.data && apps.data.length > 0 && (
         <ul className="item-list">
           {apps.data.map((app) => (
-            <li key={app.id}>
-              <span>{app.name}</span>
-              <span className="detail-actions">
-                {app.kind === "custom" && (
-                  <button
-                    aria-disabled={busy}
-                    onClick={() => !busy && remove.mutate(app)}
-                  >
-                    <TrashIcon />
-                    {t("removeApp")}
-                  </button>
-                )}
+            <ItemRow key={app.id} name={app.name}>
+              {app.kind === "custom" && (
                 <button
-                  className="accent"
                   aria-disabled={busy}
-                  onClick={() => !busy && launch.mutate(app)}
+                  onClick={() => !busy && remove.mutate(app)}
                 >
-                  <PlayIcon weight="fill" />
-                  {t("openApp")}
+                  <TrashIcon />
+                  {t("removeApp")}
                 </button>
-              </span>
-            </li>
+              )}
+              <button
+                className="accent"
+                aria-disabled={busy}
+                onClick={() => !busy && launch.mutate(app)}
+              >
+                <PlayIcon weight="fill" />
+                {t("openApp")}
+              </button>
+            </ItemRow>
           ))}
         </ul>
       )}
@@ -592,8 +589,7 @@ export function ControllerSettings({
       {scan.data && scan.data.length > 0 && (
         <ul className="item-list">
           {scan.data.map((device) => (
-            <li key={device.id}>
-              <span>{device.name}</span>
+            <ItemRow key={device.id} name={device.name}>
               <button
                 aria-disabled={busy}
                 aria-busy={pair.isPending && pair.variables?.id === device.id}
@@ -606,7 +602,7 @@ export function ControllerSettings({
                     : "bluetoothPair",
                 )}
               </button>
-            </li>
+            </ItemRow>
           ))}
         </ul>
       )}

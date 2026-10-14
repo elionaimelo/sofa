@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Cover } from "./components/Cover";
 import { Dialog } from "./components/Dialog";
 import { LaunchScreen } from "./components/LaunchScreen";
 import { Picker } from "./components/Picker";
@@ -24,6 +25,7 @@ import {
   defaultFilters,
   filterGames,
   type Game,
+  gameMeta,
   hero,
   parsePreferences,
   titleGroup,
@@ -35,14 +37,10 @@ import "./App.css";
 import "@fontsource-variable/outfit";
 import {
   AppWindowIcon,
-  ArrowCounterClockwiseIcon,
   ArrowRightIcon,
   ArrowSquareOutIcon,
   BluetoothIcon,
-  CheckIcon,
   DownloadSimpleIcon,
-  EyeIcon,
-  EyeSlashIcon,
   GaugeIcon,
   GearSixIcon,
   HardDrivesIcon,
@@ -56,11 +54,9 @@ import {
   StorefrontIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import {
-  CategoryEditor,
-  categoryLabel,
-  useCategories,
-} from "./features/Categories";
+import { categoryLabel, useCategories } from "./features/Categories";
+import { FiltersDrawer, type FilterTab } from "./features/FiltersDrawer";
+import { GameDetails } from "./features/GameDetails";
 import { HudPanel } from "./features/Performance";
 import { PowerMenu, TopBatteries, usePower } from "./features/Power";
 import {
@@ -73,7 +69,6 @@ import {
   UpdateSettings,
 } from "./features/Settings";
 import { Store } from "./features/Store";
-import { Uninstall } from "./features/Uninstall";
 import {
   commandQuery,
   demo,
@@ -96,55 +91,6 @@ const TABS = ["all", "favorites", "steam", "epic", "gog"] as const;
 const preferencesKey = demo ? "sofa.demo.preferences" : "sofa.preferences";
 /** Whole gigabytes as Windows counts them (1024³), enough for a storage overview. */
 const gb = (bytes: number) => String(Math.round(bytes / 1024 ** 3));
-/** Hours with one decimal from Steam's minutes; nothing under six minutes. */
-const hoursPlayed = (minutes: number) =>
-  minutes >= 6 ? `${(minutes / 60).toFixed(minutes >= 600 ? 0 : 1)} h` : "";
-/** One decimal above a gigabyte, whole megabytes below. */
-const formatSize = (bytes: number) =>
-  bytes >= 1024 ** 3
-    ? `${(bytes / 1024 ** 3).toFixed(1)} GB`
-    : `${Math.round(bytes / 1024 ** 2)} MB`;
-/**
- * Steam's portrait art is missing for some titles and, for newer ones, so is the header on
- * the legacy CDN (their assets moved to hashed paths); the hero banner is the last resort.
- */
-function coverSources(game: Game): string[] {
-  const sources = game.cover ? [game.cover] : [];
-  const appId = game.id.startsWith("steam:") ? game.id.slice(6) : "";
-  if (/^\d+$/.test(appId))
-    sources.push(
-      `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`,
-      `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_hero.jpg`,
-    );
-  return sources.filter((source, i) => sources.indexOf(source) === i);
-}
-/** The art alone, trying each source in turn; nothing when all fail. */
-function CoverImage({ game }: { game: Game }) {
-  const [failed, setFailed] = useState(0);
-  const src = coverSources(game)[failed];
-  return (
-    src && (
-      <img
-        src={src}
-        alt=""
-        loading="lazy"
-        data-fallback={failed > 0 || undefined}
-        onError={() => setFailed((n) => n + 1)}
-      />
-    )
-  );
-}
-function Cover({ game }: { game: Game }) {
-  return (
-    <>
-      <CoverImage game={game} />
-      <span className="title">
-        <span>{game.title}</span>
-      </span>
-      <span className="badge">{game.source}</span>
-    </>
-  );
-}
 /** Ticks on its own so the clock doesn't re-render the whole library every 30 s. */
 function Clock({ lang }: { lang: Lang }) {
   const [now, setNow] = useState(() => new Date());
@@ -162,12 +108,9 @@ export default function App() {
   const [page, setPage] = useState<(typeof PAGES)[number] | "settings">("home");
   const [tabChoice, setTab] = useState<(typeof TABS)[number]>("all");
   const [query, setQuery] = useState("");
-  const [categoryQuery, setCategoryQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   // The drawer's two tabs: the (possibly long) category list, and the other filters.
-  const [filterTab, setFilterTab] = useState<"categories" | "options">(
-    "categories",
-  );
+  const [filterTab, setFilterTab] = useState<FilterTab>("categories");
   const [focus, setFocus] = useState(0);
   const [prefs, setPrefs] = useState(() =>
     parsePreferences(
@@ -237,30 +180,6 @@ export default function App() {
   const { update, install } = updates;
   const { games, loading, scanError } = library;
   const categories = useCategories(games, lang);
-  // One line of facts under a title: last session, hours, size on disk or to download.
-  const gameMeta = (game: Game, lastAt?: number, estimate?: number) =>
-    [
-      lastAt
-        ? t("lastPlayed", { date: new Date(lastAt).toLocaleDateString(lang) })
-        : t("neverPlayed"),
-      game.playtime
-        ? t("hoursPlayed", { hours: hoursPlayed(game.playtime) })
-        : "",
-      game.installed && game.size != null
-        ? t("diskSpaceUsed", { size: formatSize(game.size) })
-        : estimate != null
-          ? t("downloadEstimate", { size: formatSize(estimate) })
-          : "",
-    ]
-      .filter(Boolean)
-      .join(" · ");
-  // Active filters per drawer tab, shown on the tab itself.
-  const filterCount = (tab: "categories" | "options") =>
-    tab === "categories"
-      ? prefs.filters.categories.length
-      : Number(prefs.filters.played !== "any") +
-        Number(prefs.filters.artwork !== "any") +
-        Number(prefs.filters.favoritesOnly);
   // Store prices follow the language unless the user picked a region.
   const region =
     prefs.region ?? (lang === "pt-BR" ? "br" : lang === "es" ? "es" : "us");
@@ -814,201 +733,18 @@ export default function App() {
                 </div>
               )}
               {filtersOpen && (
-                <button
-                  className="drawer-backdrop"
-                  aria-label={t("close")}
-                  onClick={() => setFiltersOpen(false)}
+                <FiltersDrawer
+                  t={t}
+                  lang={lang}
+                  prefs={prefs}
+                  setPrefs={setPrefs}
+                  tab={filterTab}
+                  setTab={setFilterTab}
+                  choices={categoryChoices}
+                  categories={categories}
+                  onToggleCategory={toggleCategory}
+                  onClose={() => setFiltersOpen(false)}
                 />
-              )}
-              {filtersOpen && (
-                <div
-                  className="library-filters"
-                  id="library-filters"
-                  data-filter-panel
-                >
-                  <div className="drawer-head">
-                    <h2>{t("filters")}</h2>
-                    {activeFilters(prefs.filters) > 0 && (
-                      <span className="drawer-count">
-                        {activeFilters(prefs.filters)}
-                      </span>
-                    )}
-                    <button
-                      className="close"
-                      onClick={() => setFiltersOpen(false)}
-                      aria-label={t("close")}
-                    >
-                      <XIcon />
-                    </button>
-                  </div>
-                  <div className="segmented filter-tabs" role="tablist">
-                    {(["categories", "options"] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        role="tab"
-                        aria-selected={filterTab === tab}
-                        onClick={() => setFilterTab(tab)}
-                      >
-                        {t(
-                          tab === "categories" ? "categories" : "filterOptions",
-                        )}
-                        {filterCount(tab) > 0 && (
-                          <span>{filterCount(tab)}</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                  {filterTab === "categories" && (
-                    <section
-                      className="category-filter"
-                      aria-labelledby="category-filter-title"
-                      data-tabpanel
-                    >
-                      <div className="category-filter-heading">
-                        <div>
-                          <h2 id="category-filter-title">{t("categories")}</h2>
-                          <p>{t("categoryMatchAny")}</p>
-                        </div>
-                        <SearchField
-                          aria-label={t("searchCategories")}
-                          placeholder={t("searchCategories")}
-                          value={categoryQuery}
-                          onChange={(e) => setCategoryQuery(e.target.value)}
-                          onClear={() => setCategoryQuery("")}
-                          clearLabel={t("clearSearch")}
-                        />
-                      </div>
-                      <div className="category-options">
-                        {categoryChoices
-                          .filter((c) =>
-                            categoryLabel(c.label, lang)
-                              .toLocaleLowerCase()
-                              .includes(categoryQuery.toLocaleLowerCase()),
-                          )
-                          .map((c) => (
-                            <button
-                              key={c.key}
-                              aria-pressed={prefs.filters.categories.includes(
-                                c.key,
-                              )}
-                              onClick={() => toggleCategory(c.key)}
-                            >
-                              <span>{categoryLabel(c.label, lang)}</span>
-                              <small>{c.count}</small>
-                            </button>
-                          ))}
-                      </div>
-                      {!categoryChoices.length && (
-                        <p className="muted">
-                          {t(
-                            categories.loading
-                              ? "categoriesLoading"
-                              : "noCategories",
-                          )}
-                        </p>
-                      )}
-                      {categoryChoices.length > 0 && categories.loading && (
-                        <p className="muted" role="status">
-                          {t("categoriesLoading")}
-                        </p>
-                      )}
-                      {categories.unavailable && (
-                        <p className="category-sync-note">
-                          {t("categoriesOffline")}{" "}
-                          <button
-                            onClick={() =>
-                              !categories.loading && categories.retry()
-                            }
-                            aria-disabled={categories.loading}
-                          >
-                            {t("retry")}
-                          </button>
-                        </p>
-                      )}
-                      {categoryChoices.length > 0 &&
-                        categoryQuery &&
-                        !categoryChoices.some((c) =>
-                          categoryLabel(c.label, lang)
-                            .toLocaleLowerCase()
-                            .includes(categoryQuery.toLocaleLowerCase()),
-                        ) && <p className="muted">{t("noCategorySearch")}</p>}
-                    </section>
-                  )}
-                  {filterTab === "options" && (
-                    <div className="filter-options" data-tabpanel>
-                      <div className="field">
-                        {t("playedFilter")}
-                        <Picker
-                          label={t("playedFilter")}
-                          value={prefs.filters.played}
-                          options={[
-                            { value: "any", label: t("anyHistory") },
-                            { value: "never", label: t("neverPlayedFilter") },
-                            { value: "recent7", label: t("recent7") },
-                            { value: "recent30", label: t("recent30") },
-                          ]}
-                          onChange={(played) =>
-                            setPrefs((p) => ({
-                              ...p,
-                              filters: { ...p.filters, played },
-                            }))
-                          }
-                        />
-                      </div>
-                      <div className="field">
-                        {t("artworkFilter")}
-                        <Picker
-                          label={t("artworkFilter")}
-                          value={prefs.filters.artwork}
-                          options={[
-                            { value: "any", label: t("anyArtwork") },
-                            { value: "with", label: t("withArtwork") },
-                            { value: "without", label: t("withoutArtwork") },
-                          ]}
-                          onChange={(artwork) =>
-                            setPrefs((p) => ({
-                              ...p,
-                              filters: { ...p.filters, artwork },
-                            }))
-                          }
-                        />
-                      </div>
-                      <label className="filter-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={prefs.filters.favoritesOnly}
-                          onChange={(e) =>
-                            setPrefs((p) => ({
-                              ...p,
-                              filters: {
-                                ...p.filters,
-                                favoritesOnly: e.target.checked,
-                              },
-                            }))
-                          }
-                        />
-                        {t("favoritesOnly")}
-                      </label>
-                    </div>
-                  )}
-                  <div className="filter-actions">
-                    <button
-                      onClick={() =>
-                        setPrefs((p) => ({ ...p, filters: defaultFilters }))
-                      }
-                    >
-                      <ArrowCounterClockwiseIcon />
-                      {t("clearFilters")}
-                    </button>
-                    <button
-                      className="accent"
-                      onClick={() => setFiltersOpen(false)}
-                    >
-                      <CheckIcon weight="bold" />
-                      {t("showResults")}
-                    </button>
-                  </div>
-                </div>
               )}
             </section>
           )}
@@ -1067,7 +803,9 @@ export default function App() {
                       )}
                     </span>
                     <h1>{selected.title}</h1>
-                    <p>{gameMeta(selected, prefs.recent[selected.id])}</p>
+                    <p>
+                      {gameMeta(selected, t, lang, prefs.recent[selected.id])}
+                    </p>
                     <div className="hero-actions">
                       <button
                         className="accent primary-action"
@@ -1347,119 +1085,27 @@ export default function App() {
         />
       )}
       {details && (
-        <Dialog
-          label={`${t("details")} · ${details.title}`}
+        <GameDetails
+          game={details}
+          t={t}
+          lang={lang}
+          prefs={prefs}
+          setPrefs={setPrefs}
+          catalog={categories.catalog}
+          sizeEstimate={sizeEstimate.data}
+          launching={launching}
+          onPlay={(game) => void play(game)}
+          onInstall={(game) => void installGame(game)}
+          onToggleFavorite={toggleFavorite}
+          onToggleHidden={toggleHidden}
+          onUninstallStarted={(id, completed) => {
+            if (completed) void library.refresh();
+            else library.watchUninstall(id);
+            setDetails(null);
+            setStatus(t(completed ? "uninstallComplete" : "uninstallStarted"));
+          }}
           onClose={closeDetails}
-        >
-          {/* Fixed-size: the cover and the title never move; only the details column scrolls. */}
-          <div
-            className="detail-layout"
-            style={{ backgroundImage: `url("${hero(details)}")` }}
-          >
-            <button
-              className="close"
-              onClick={closeDetails}
-              aria-label={t("close")}
-            >
-              <XIcon />
-            </button>
-            <div className="detail-cover" aria-hidden>
-              <CoverImage key={details.id} game={details} />
-            </div>
-            <div className="detail-body">
-              <p className="detail-meta">
-                {details.source.toUpperCase()} ·{" "}
-                {t(details.installed ? "installed" : "availableToInstall")}
-              </p>
-              <h1>{details.title}</h1>
-              <p className="detail-meta-line">
-                {gameMeta(
-                  details,
-                  prefs.recent[details.id],
-                  details.installed
-                    ? undefined
-                    : (sizeEstimate.data ?? undefined),
-                )}
-              </p>
-              <CategoryEditor
-                key={details.id}
-                game={details}
-                prefs={prefs}
-                catalog={categories.catalog}
-                t={t}
-                lang={lang}
-                onChange={(labels) =>
-                  setPrefs((p) => ({
-                    ...p,
-                    categories: { ...p.categories, [details.id]: labels },
-                  }))
-                }
-              />
-              <p className="muted">
-                {t(details.installed ? "launchHint" : "installHint")}
-              </p>
-              <div className="detail-actions">
-                <button
-                  data-initial-focus
-                  className="accent"
-                  aria-disabled={details.installed && launching}
-                  aria-busy={details.installed && launching}
-                  onClick={() =>
-                    void (details.installed
-                      ? play(details)
-                      : installGame(details))
-                  }
-                >
-                  {details.installed ? (
-                    <PlayIcon weight="fill" />
-                  ) : (
-                    <DownloadSimpleIcon weight="bold" />
-                  )}
-                  {t(details.installed ? "play" : "installGame")}
-                </button>
-                <button onClick={() => toggleFavorite(details)}>
-                  <HeartIcon
-                    weight={
-                      prefs.favorites.includes(details.id) ? "fill" : "regular"
-                    }
-                  />
-                  {t(
-                    prefs.favorites.includes(details.id)
-                      ? "removeFavorite"
-                      : "addFavorite",
-                  )}
-                </button>
-                <button onClick={() => toggleHidden(details)}>
-                  {prefs.hidden.includes(details.id) ? (
-                    <EyeIcon />
-                  ) : (
-                    <EyeSlashIcon />
-                  )}
-                  {t(
-                    prefs.hidden.includes(details.id)
-                      ? "restoreGame"
-                      : "hideGame",
-                  )}
-                </button>
-              </div>
-              {details.installed && (
-                <Uninstall
-                  key={details.id}
-                  game={details}
-                  t={t}
-                  onStarted={(id, completed) => {
-                    if (completed) void library.refresh();
-                    else library.watchUninstall(id);
-                    setDetails(null);
-                    setStatus(
-                      t(completed ? "uninstallComplete" : "uninstallStarted"),
-                    );
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        </Dialog>
+        />
       )}
       {settings && (
         <SettingsDialog
