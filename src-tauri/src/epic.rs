@@ -1,7 +1,7 @@
 //! Epic Games account: sign-in on Epic's own page, owned games from the launcher's public
 //! APIs. Same shape as `accounts` (Steam): the session lives in the webview cookie store.
 use crate::{library, network};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -38,6 +38,57 @@ struct Session {
 #[derive(Deserialize)]
 struct Token {
     access_token: String,
+    /// Rotates on every exchange; it is what keeps the account connected across restarts,
+    /// the way Steam's refresh cookie does.
+    refresh_token: String,
+    /// Seconds the refresh token stays valid.
+    #[serde(default)]
+    refresh_expires: u64,
+}
+
+/// The refresh token on disk (`epic-session.json`, app data dir). Never logged.
+#[derive(Serialize, Deserialize)]
+struct Stored {
+    refresh_token: String,
+    refresh_expires_at: u64,
+}
+
+fn now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or_default()
+}
+
+fn session_file(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    app.path().app_data_dir().ok().map(|d| d.join("epic-session.json"))
+}
+
+fn stored_refresh(app: &tauri::AppHandle) -> Option<String> {
+    let stored: Stored = session_file(app)
+        .and_then(|f| std::fs::read_to_string(f).ok())
+        .and_then(|t| serde_json::from_str(&t).ok())?;
+    (stored.refresh_expires_at > now() + 60).then_some(stored.refresh_token)
+}
+
+fn remember(app: &tauri::AppHandle, token: &Token) {
+    let Some(path) = session_file(app) else { return };
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let stored = Stored {
+        refresh_token: token.refresh_token.clone(),
+        refresh_expires_at: now() + token.refresh_expires,
+    };
+    if let Ok(json) = serde_json::to_vec(&stored) {
+        let _ = std::fs::write(path, json);
+    }
+}
+
+fn forget(app: &tauri::AppHandle) {
+    if let Some(path) = session_file(app) {
+        let _ = std::fs::remove_file(path);
+    }
 }
 
 #[derive(Deserialize)]
@@ -140,18 +191,37 @@ async fn auth_code(app: &tauri::AppHandle, visible: bool) -> Result<Option<Strin
     }
 }
 
-async fn exchange(app: &tauri::AppHandle, code: &str) -> Result<String, String> {
+/// Trades an authorization code or a refresh token for an access token, and keeps the new
+/// refresh token for the next start.
+async fn exchange(app: &tauri::AppHandle, grant: &str) -> Result<String, String> {
     let token: Token = network::json(
         network::client()?
             .post(TOKEN_URL)
             .basic_auth(CLIENT_ID, Some(CLIENT_SECRET))
             .header("Content-Type", "application/x-www-form-urlencoded")
-            // The code is hexadecimal; nothing to percent-encode.
-            .body(format!("grant_type=authorization_code&code={code}&token_type=eg1")),
+            // Codes and tokens are hexadecimal; nothing to percent-encode.
+            .body(format!("{grant}&token_type=eg1")),
     )
     .await
     .inspect_err(|e| crate::log::info(app, format!("epic: token exchange failed: {e}")))?;
+    remember(app, &token);
     Ok(token.access_token)
+}
+
+/// Access token from the refresh token on disk; `None` when there is none or Epic rejected it.
+async fn refreshed(app: &tauri::AppHandle) -> Option<String> {
+    let refresh = stored_refresh(app)?;
+    crate::log::info(app, "epic: renewing the session from the saved refresh token");
+    match exchange(app, &format!("grant_type=refresh_token&refresh_token={refresh}")).await {
+        Ok(access) => Some(access),
+        Err(error) => {
+            // Rejected tokens are gone for good; anything else (offline) may still work later.
+            if error == "authFailed" || error == "accessDenied" || error.starts_with("http:4") {
+                forget(app);
+            }
+            None
+        }
+    }
 }
 
 /// Catalog entry for one asset: None for DLC, mods and anything the catalog doesn't know.
@@ -253,16 +323,21 @@ async fn owned_games(
         attempts += 1;
         let current = match token.take() {
             Some(t) => t,
-            None => {
-                let saved = if has_saved_session(app) { auth_code(app, false).await? } else { None };
-                let code = match saved {
-                    Some(c) => c,
-                    None if sign_in => auth_code(app, true).await?.ok_or("epicSessionExpired")?,
-                    None if has_saved_session(app) => return Err("epicSessionExpired".into()),
-                    None => return Err("notConnected".into()),
-                };
-                exchange(app, &code).await?
-            }
+            None => match refreshed(app).await {
+                Some(access) => access,
+                None => {
+                    let saved = if has_saved_session(app) { auth_code(app, false).await? } else { None };
+                    let code = match saved {
+                        Some(c) => c,
+                        None if sign_in => auth_code(app, true).await?.ok_or("epicSessionExpired")?,
+                        None if has_saved_session(app) || stored_refresh(app).is_some() => {
+                            return Err("epicSessionExpired".into());
+                        }
+                        None => return Err("notConnected".into()),
+                    };
+                    exchange(app, &format!("grant_type=authorization_code&code={code}")).await?
+                }
+            },
         };
         match fetch_owned(app, &current).await {
             Ok(games) => {
@@ -319,6 +394,7 @@ pub async fn disconnect_epic_library(
         session.games = None;
         session.token = None;
     }
+    forget(&app);
     let main = app.get_webview_window("main").ok_or("serviceUnavailable")?;
     for cookie in main.cookies().map_err(|_| "serviceUnavailable")? {
         if cookie.domain().is_some_and(|d| d.ends_with("epicgames.com")) {
