@@ -57,6 +57,7 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import { categoryLabel, useCategories } from "./features/Categories";
+import { Downloads } from "./features/Downloads";
 import { FiltersDrawer, type FilterTab } from "./features/FiltersDrawer";
 import { GameDetails } from "./features/GameDetails";
 import { HudPanel } from "./features/Performance";
@@ -184,6 +185,10 @@ export default function App() {
   const { update, install } = updates;
   const { games, loading, scanError } = library;
   const categories = useCategories(games, lang);
+  // Percent per game being downloaded, for the tiles.
+  const downloading = Object.fromEntries(
+    library.downloads.map((d) => [d.game.id, d.percent]),
+  ) as Record<string, number | undefined>;
   // Store prices follow the language unless the user picked a region.
   const region =
     prefs.region ?? (lang === "pt-BR" ? "br" : lang === "es" ? "es" : "us");
@@ -868,6 +873,7 @@ export default function App() {
                     </div>
                   </section>
                 )}
+                <Downloads t={t} downloads={library.downloads} />
                 <section className="collection" id="content" tabIndex={-1}>
                   <div className="collection-heading">
                     <CollectionHeading>
@@ -928,8 +934,19 @@ export default function App() {
                           )}
                         <button
                           className="tile"
-                          style={{ "--i": i % 18 } as CSSProperties}
+                          style={
+                            {
+                              "--i": i % 18,
+                              "--p":
+                                downloading[g.id] != null
+                                  ? (downloading[g.id] ?? 0) / 100
+                                  : undefined,
+                            } as CSSProperties
+                          }
                           data-installed={g.installed}
+                          data-downloading={
+                            downloading[g.id] != null || undefined
+                          }
                           aria-current={i === focus}
                           aria-label={`${g.title} · ${g.source} · ${t(g.installed ? "installed" : "availableToInstall")}`}
                           onFocus={() => setFocus(i)}
@@ -941,19 +958,17 @@ export default function App() {
                         >
                           <Cover game={g} />
                           {!g.installed &&
-                            (library.installProgress?.id === g.id ? (
+                            (downloading[g.id] != null ? (
                               <>
                                 <span className="install-mark installing">
                                   {t("installing", {
-                                    percent: String(
-                                      library.installProgress.percent,
-                                    ),
+                                    percent: String(downloading[g.id] ?? 0),
                                   })}
                                 </span>
                                 <span
                                   className="install-progress"
                                   style={{
-                                    width: `${library.installProgress.percent}%`,
+                                    width: `${downloading[g.id] ?? 0}%`,
                                   }}
                                 />
                               </>

@@ -67,13 +67,17 @@ async fn scan_library() -> Vec<library::Game> {
     library::scan()
 }
 
-/// Steam download state for an install Sofa requested; other stores report nothing.
+/// Steam download state of the installs Sofa requested; other stores report nothing.
 #[tauri::command]
-async fn install_progress(id: String) -> Option<library::InstallProgress> {
-    tauri::async_runtime::spawn_blocking(move || library::steam_install_progress(&id))
-        .await
-        .ok()
-        .flatten()
+async fn install_progress(ids: Vec<String>) -> std::collections::HashMap<String, library::InstallProgress> {
+    tauri::async_runtime::spawn_blocking(move || {
+        ids.iter()
+            .take(20)
+            .filter_map(|id| library::steam_install_progress(id).map(|p| (id.clone(), p)))
+            .collect()
+    })
+    .await
+    .unwrap_or_default()
 }
 
 /// Brings Sofa back in front once the launcher no longer needs the user (download started).

@@ -33,6 +33,7 @@ demoGames.push({
 
 export type Provider = "steam" | "epic";
 export const providers: Provider[] = ["steam", "epic"];
+type Progress = { downloaded: number; total: number; installed: boolean };
 /** Everything under "library" is refreshed together. */
 const keys = {
   all: ["library"] as const,
@@ -128,28 +129,31 @@ export function useLibrary(onStatus: Notify) {
   });
   const steam = useAccount("steam", onStatus);
   const epic = useAccount("epic", onStatus);
-  // Steam's manifest reports the download; Sofa comes back in front once it has started.
-  const watching = pendingInstalls[0];
+  // Steam's manifest reports each download; Sofa comes back in front once one has started.
+  const pendingKey = pendingInstalls.join(",");
   const progress = useQuery({
-    queryKey: ["install_progress", watching],
+    queryKey: ["install_progress", pendingKey],
     queryFn: () =>
-      invoke<{ downloaded: number; total: number; installed: boolean } | null>(
-        "install_progress",
-        { id: watching },
-      ),
-    enabled: !!watching && isTauri() && !demo,
+      invoke<Record<string, Progress>>("install_progress", {
+        ids: pendingKey.split(","),
+      }),
+    enabled: pendingKey !== "" && isTauri() && !demo,
     refetchInterval: 2000,
   });
-  const focused = useRef<string | null>(null);
+  const focused = useRef(new Set<string>());
   useEffect(() => {
-    if (!watching || !progress.data || focused.current === watching) return;
-    focused.current = watching;
+    const started = Object.keys(progress.data ?? {}).filter(
+      (id) => !focused.current.has(id),
+    );
+    if (!started.length) return;
+    for (const id of started) focused.current.add(id);
     void invoke("focus_main").catch(() => undefined);
-  }, [watching, progress.data]);
+  }, [progress.data]);
+  const finished = Object.values(progress.data ?? {}).some((p) => p.installed);
   useEffect(() => {
-    if (progress.data?.installed)
+    if (finished)
       void queryClient.invalidateQueries({ queryKey: keys.installed });
-  }, [progress.data?.installed, queryClient]);
+  }, [finished, queryClient]);
 
   // Each scan settles pending launcher work; never claim it before the scan shows it.
   const scanned = installed.data;
@@ -191,18 +195,23 @@ export function useLibrary(onStatus: Notify) {
     scanError: installed.error ? serviceError(installed.error) : ("" as const),
     refresh: () => queryClient.invalidateQueries({ queryKey: keys.all }),
     watchUninstall: setPendingUninstall,
-    installProgress:
-      watching && progress.data && progress.data.total > 0
-        ? {
-            id: watching,
-            percent: Math.min(
-              100,
-              Math.round(
-                (progress.data.downloaded / progress.data.total) * 100,
+    downloads: pendingInstalls.flatMap((id) => {
+      const p = progress.data?.[id];
+      const game = games.find((g) => g.id === id);
+      return p && game && p.total > 0 && !p.installed
+        ? [
+            {
+              game,
+              downloaded: p.downloaded,
+              total: p.total,
+              percent: Math.min(
+                100,
+                Math.round((p.downloaded / p.total) * 100),
               ),
-            ),
-          }
-        : null,
+            },
+          ]
+        : [];
+    }),
     watchInstall: (id: string) =>
       setPendingInstalls((ids) => (ids.includes(id) ? ids : [...ids, id])),
   };
