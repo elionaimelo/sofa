@@ -956,30 +956,14 @@ export default function App() {
                               : "library",
                           )
                         : t("filteredCount", {
-                            visible: String(visible.length),
-                            total: String(
-                              filterGames(
-                                games,
-                                { ...prefs, filters: defaultFilters },
-                                tab,
-                                "",
-                                false,
-                              ).length,
+                            installed: String(
+                              visible.filter((game) => game.installed).length,
                             ),
+                            total: String(visible.length),
                           })}
                     </CollectionHeading>
                     {page === "library" && (
                       <div className="collection-actions">
-                        <span className="library-stats">
-                          {t("availabilitySummary", {
-                            installed: String(
-                              visible.filter((game) => game.installed).length,
-                            ),
-                            available: String(
-                              visible.filter((game) => !game.installed).length,
-                            ),
-                          })}
-                        </span>
                         {/* Sorting sits right above the list it orders; LB/RB change it when focused; UP from the list brings focus here. */}
                         <select
                           ref={sortSelect}

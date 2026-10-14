@@ -2210,11 +2210,6 @@ main:not(.floating-hud) :is(button, input, select):not(.tile, .deal-card) {
 .partner-offers h2 {
   font-size: 25px;
 }
-.library-stats {
-  color: var(--muted);
-  font-size: 16px;
-  text-align: right;
-}
 .game-row .tile {
   flex-basis: clamp(170px, 15vw, 260px);
   height: min(35vh, 390px);

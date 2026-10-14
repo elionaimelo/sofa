@@ -64,7 +64,7 @@ const en = {
   sortSize: "Disk space",
   titleAsc: "Name (A–Z)",
   filterNoMatches: "No games match these filters.",
-  filteredCount: "{visible} of {total} games",
+  filteredCount: "{installed} of {total} games installed",
   filterHint: "Change option",
   showResults: "Show games",
   partnerOffers: "Partner stores",
@@ -212,10 +212,10 @@ const en = {
   retry: "Try again",
   installed: "Installed",
   availableToInstall: "Ready to install",
-  availabilitySummary: "{installed} installed · {available} ready to install",
   installGame: "Install",
   installHint: "Install this game through its launcher to play it.",
-  installRequested: "Installation requested for {title}. Complete it in Steam.",
+  installRequested:
+    "Installation requested for {title}. Complete it in {launcher}.",
   installComplete: "Installation complete. The game is ready to play.",
   installUnavailable: "This game cannot be installed from Sofa yet.",
   previewInstall: "Installation is unavailable in the demo library.",
@@ -348,7 +348,7 @@ const dicts = {
     sortSize: "Espaço em disco",
     titleAsc: "Nome (A–Z)",
     filterNoMatches: "Nenhum jogo corresponde a esses filtros.",
-    filteredCount: "{visible} de {total} jogos",
+    filteredCount: "{installed} de {total} jogos instalados",
     filterHint: "Alterar opção",
     showResults: "Ver jogos",
     partnerOffers: "Lojas parceiras",
@@ -501,11 +501,10 @@ const dicts = {
     retry: "Tentar novamente",
     installed: "Instalado",
     availableToInstall: "Disponível para instalar",
-    availabilitySummary:
-      "{installed} instalados · {available} disponíveis para instalar",
     installGame: "Instalar",
     installHint: "Instale este jogo pelo launcher para poder jogar.",
-    installRequested: "Instalação de {title} solicitada. Conclua na Steam.",
+    installRequested:
+      "Instalação de {title} solicitada. Conclua no {launcher}.",
     installComplete: "Instalação concluída. O jogo está pronto para jogar.",
     installUnavailable: "Ainda não é possível instalar este jogo pelo Sofa.",
     previewInstall:
@@ -635,7 +634,7 @@ const dicts = {
     sortSize: "Espacio en disco",
     titleAsc: "Nombre (A–Z)",
     filterNoMatches: "Ningún juego coincide con estos filtros.",
-    filteredCount: "{visible} de {total} juegos",
+    filteredCount: "{installed} de {total} juegos instalados",
     filterHint: "Cambiar opción",
     showResults: "Ver juegos",
     partnerOffers: "Tiendas asociadas",
@@ -786,12 +785,10 @@ const dicts = {
     retry: "Reintentar",
     installed: "Instalado",
     availableToInstall: "Disponible para instalar",
-    availabilitySummary:
-      "{installed} instalados · {available} disponibles para instalar",
     installGame: "Instalar",
     installHint: "Instala este juego desde su launcher para poder jugar.",
     installRequested:
-      "Se solicitó instalar {title}. Completa la instalación en Steam.",
+      "Se solicitó instalar {title}. Completa la instalación en {launcher}.",
     installComplete: "Instalación terminada. El juego está listo para jugar.",
     installUnavailable: "Todavía no se puede instalar este juego desde Sofa.",
     previewInstall:
