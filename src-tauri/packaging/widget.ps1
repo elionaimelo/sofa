@@ -36,7 +36,10 @@ try {
   if (-not (Get-ChildItem Cert:\LocalMachine\TrustedPeople | Where-Object Thumbprint -eq $thumb)) {
     Import-Certificate -FilePath $certificate -CertStoreLocation Cert:\LocalMachine\TrustedPeople -ErrorAction Stop | Out-Null
   }
-  Add-AppxPackage -Path "$dir\Sofa.Widget.msix" -ForceUpdateFromAnyVersion -ErrorAction Stop
+  # Game Bar keeps the previous widget loaded; the package can't be replaced while it runs
+  # (HRESULT 0x80073D02). Windows starts it again on the next Win+G.
+  Get-Process -Name GameBar, GameBarFTServer, GameBarPresenceWriter -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+  Add-AppxPackage -Path "$dir\Sofa.Widget.msix" -ForceUpdateFromAnyVersion -ForceApplicationShutdown -ErrorAction Stop
 } catch {
   Log "install failed: $(FirstLine $_)"
   exit 1
