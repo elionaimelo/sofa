@@ -434,8 +434,9 @@ export function Store({
           label={`${t("compare")} · ${selected.title}`}
           onClose={() => setSelected(null)}
         >
+          {/* Same frame as the game details: art blurred behind, cover fixed on the left. */}
           <div
-            className="detail-banner"
+            className="detail-layout"
             style={{ backgroundImage: `url("${dealArt(selected, true)}")` }}
           >
             <button
@@ -445,106 +446,115 @@ export function Store({
             >
               <XIcon />
             </button>
-            <div>
-              <p>{t("compare")}</p>
+            <div className="detail-cover" aria-hidden>
+              <img
+                src={dealArt(selected)}
+                alt=""
+                onError={(e) => {
+                  e.currentTarget.style.visibility = "hidden";
+                }}
+              />
+            </div>
+            <div className="detail-body">
+              <p className="detail-meta">
+                {t("compare")} · {name(selected.storeID)}
+              </p>
               <h1>{selected.title}</h1>
-            </div>
-          </div>
-          <div className="detail-body">
-            <div className="compare-summary">
-              <p>{t(demo ? "demoPrices" : "storeNote")}</p>
-              <button data-initial-focus onClick={() => toggle(selected)}>
-                <HeartIcon
-                  weight={
+              <div className="compare-summary">
+                <p className="muted">{t(demo ? "demoPrices" : "storeNote")}</p>
+                <button data-initial-focus onClick={() => toggle(selected)}>
+                  <HeartIcon
+                    weight={
+                      wishlist.some((g) => g.gameID === selected.gameID)
+                        ? "fill"
+                        : "regular"
+                    }
+                  />
+                  {t(
                     wishlist.some((g) => g.gameID === selected.gameID)
-                      ? "fill"
-                      : "regular"
-                  }
-                />
-                {t(
-                  wishlist.some((g) => g.gameID === selected.gameID)
-                    ? "removeWishlist"
-                    : "addWishlist",
-                )}
-              </button>
-            </div>
-            {compareError ? (
-              <div className="inline-error" role="alert">
-                {t(compareError as MessageKey)}
-                <button onClick={() => void compareQuery.refetch()}>
-                  {t("retry")}
+                      ? "removeWishlist"
+                      : "addWishlist",
+                  )}
                 </button>
               </div>
-            ) : !comparison ? (
-              <div
-                className="skeleton offer-skeleton"
-                role="status"
-                aria-label={t("loadingOffers")}
-              />
-            ) : (
-              <>
-                <div className="offer-list">
-                  {[...comparison.deals]
-                    .sort((a, b) => Number(a.price) - Number(b.price))
-                    .map((offer, i) => (
-                      <div
-                        className={`offer-row ${i === 0 ? "best-offer" : ""}`}
-                        key={offer.dealID}
-                      >
-                        <span>{name(offer.storeID)}</span>
-                        <strong>{usd(offer.price, lang)}</strong>
-                        <button
-                          className={i === 0 ? "accent" : ""}
-                          onClick={() => void buy(offer.dealID)}
-                        >
-                          {t("buy")}
-                          <ArrowUpRightIcon />
-                        </button>
-                      </div>
-                    ))}
+              {compareError ? (
+                <div className="inline-error" role="alert">
+                  {t(compareError as MessageKey)}
+                  <button onClick={() => void compareQuery.refetch()}>
+                    {t("retry")}
+                  </button>
                 </div>
-                {!comparison.deals.length && <p>{t("noOffers")}</p>}
-                {!demo && comparison.cheapestPriceEver && (
-                  <p className="muted">
-                    {t("lowestPrice")}:{" "}
-                    {usd(comparison.cheapestPriceEver.price, lang)}
-                  </p>
-                )}
-              </>
-            )}
-            {partners.length > 0 && (
-              <section className="partner-offers">
-                <h2>{t("partnerOffers")}</h2>
-                <p className="muted">{t("affiliateDisclosure")}</p>
-                {partners.map((offer) => (
-                  <div className="offer-row" key={offer.id}>
-                    <span>{offer.shop}</span>
-                    {offer.quote &&
-                    offer.quote.expires_at > Date.now() / 1000 ? (
-                      <strong>
-                        {new Intl.NumberFormat(lang, {
-                          style: "currency",
-                          currency: offer.quote.currency,
-                        }).format(Number(offer.quote.amount))}
-                      </strong>
-                    ) : (
-                      <span className="muted">{t("checkPriceOnStore")}</span>
-                    )}
-                    <button
-                      onClick={() => {
-                        void desktop("open_partner_offer", {
-                          id: offer.id,
-                        }).catch((e) => setStatus(t(serviceError(e))));
-                      }}
-                    >
-                      {t("buy")}
-                      <ArrowUpRightIcon />
-                    </button>
+              ) : !comparison ? (
+                <div
+                  className="skeleton offer-skeleton"
+                  role="status"
+                  aria-label={t("loadingOffers")}
+                />
+              ) : (
+                <>
+                  <div className="offer-list">
+                    {[...comparison.deals]
+                      .sort((a, b) => Number(a.price) - Number(b.price))
+                      .map((offer, i) => (
+                        <div
+                          className={`offer-row ${i === 0 ? "best-offer" : ""}`}
+                          key={offer.dealID}
+                        >
+                          <span>{name(offer.storeID)}</span>
+                          <strong>{usd(offer.price, lang)}</strong>
+                          <button
+                            className={i === 0 ? "accent" : ""}
+                            onClick={() => void buy(offer.dealID)}
+                          >
+                            {t("buy")}
+                            <ArrowUpRightIcon />
+                          </button>
+                        </div>
+                      ))}
                   </div>
-                ))}
-              </section>
-            )}
-            <p role="status">{status}</p>
+                  {!comparison.deals.length && <p>{t("noOffers")}</p>}
+                  {!demo && comparison.cheapestPriceEver && (
+                    <p className="muted">
+                      {t("lowestPrice")}:{" "}
+                      {usd(comparison.cheapestPriceEver.price, lang)}
+                    </p>
+                  )}
+                </>
+              )}
+              {partners.length > 0 && (
+                <section className="partner-offers">
+                  <h2>{t("partnerOffers")}</h2>
+                  <p className="muted">{t("affiliateDisclosure")}</p>
+                  {partners.map((offer) => (
+                    <div className="offer-row" key={offer.id}>
+                      <span>{offer.shop}</span>
+                      {offer.quote &&
+                      offer.quote.expires_at > Date.now() / 1000 ? (
+                        <strong>
+                          {new Intl.NumberFormat(lang, {
+                            style: "currency",
+                            currency: offer.quote.currency,
+                          }).format(Number(offer.quote.amount))}
+                        </strong>
+                      ) : (
+                        <span className="muted">{t("checkPriceOnStore")}</span>
+                      )}
+                      <button
+                        onClick={() => {
+                          void desktop("open_partner_offer", {
+                            id: offer.id,
+                          }).catch((e) => setStatus(t(serviceError(e))));
+                        }}
+                      >
+                        {t("buy")}
+                        <ArrowUpRightIcon />
+                      </button>
+                    </div>
+                  ))}
+                </section>
+              )}
+              <p role="status">{status}</p>
+            </div>
           </div>
         </Dialog>
       )}

@@ -607,38 +607,6 @@ dialog::backdrop {
   background: rgb(0 0 0 / 0.6);
   backdrop-filter: blur(10px);
 }
-/* Store comparison: the deal's art as a banner with the title over its bottom edge. */
-.detail-banner {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  height: clamp(170px, 30vh, 360px);
-  background-position: center;
-  background-size: cover;
-}
-.detail-banner::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(transparent, #1b212b);
-}
-.detail-banner > div {
-  z-index: 1;
-  padding: 22px 26px;
-}
-.detail-banner p {
-  margin: 0 0 8px;
-  color: #d9b2c0;
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 2px;
-}
-.detail-banner h1 {
-  margin: 0;
-  padding-right: 64px;
-  font-size: clamp(26px, 3.6vw, 40px);
-  line-height: 1.05;
-}
 /* Game details: fixed height, the game's art blurred behind, its cover crisp on the left. */
 .detail-layout {
   position: relative;
@@ -2733,7 +2701,7 @@ footer kbd {
 :is(.power-confirm-copy, .empty p, .muted) {
   text-wrap: pretty;
 }
-:is(.detail-body h1, .detail-banner h1, .hero-copy h1, .deal-copy h2) {
+:is(.detail-body h1, .hero-copy h1, .deal-copy h2) {
   overflow-wrap: anywhere;
 }
 .offer-row > span {
