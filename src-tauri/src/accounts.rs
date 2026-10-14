@@ -21,6 +21,9 @@ struct Session {
 }
 
 const TOKEN_URL: &str = "https://store.steampowered.com/pointssummary/ajaxgetasyncconfig";
+/// `steamLoginSecure` lasts a day; the refresh cookie on login.steampowered.com lasts months.
+/// This page renews the former from the latter, then redirects to the token page.
+const REFRESH_URL: &str = "https://login.steampowered.com/jwt/refresh?redir=https%3A%2F%2Fstore.steampowered.com%2Fpointssummary%2Fajaxgetasyncconfig";
 const TOKEN_REUSE: Duration = Duration::from_secs(30 * 60);
 /// The token page's title once the script below has read its JSON.
 const TITLE_PREFIX: &str = "sofa-token:";
@@ -69,13 +72,22 @@ fn saved_cookie(app: &tauri::AppHandle) -> Option<String> {
         .map(|c| c.value().to_owned())
 }
 
+/// A signed-in account that can renew its day-long store cookie: connected until sign-out.
+fn has_session(app: &tauri::AppHandle) -> bool {
+    let refresh = app
+        .get_webview_window("main")
+        .and_then(|w| w.cookies_for_url("https://login.steampowered.com/".parse().unwrap()).ok())
+        .is_some_and(|cookies| cookies.iter().any(|c| c.name() == "steamRefresh_steam"));
+    saved_cookie(app).is_some() || refresh
+}
+
 /// Reads a web API token from inside a Steam window, so Steam's redirects, session renewal
 /// and bot checks see a real browser (a direct request from Sofa got HTTP 302).
 /// Hidden: uses the saved session. Visible: Steam's own login page first, so Sofa never sees
 /// the password. `Ok(None)` when Steam has no usable session.
 async fn steam_token(app: &tauri::AppHandle, visible: bool) -> Result<Option<String>, String> {
     let stale = saved_cookie(app);
-    let page = if visible { "https://store.steampowered.com/login/" } else { TOKEN_URL };
+    let page = if visible { "https://store.steampowered.com/login/" } else { REFRESH_URL };
     crate::log::info(app, format!("steam: token via {} window", if visible { "visible" } else { "hidden" }));
     let answer: Arc<Mutex<Option<String>>> = Arc::default();
     let sink = answer.clone();
@@ -194,11 +206,11 @@ async fn owned_games(
         let current = match token.take() {
             Some(t) => t,
             None => {
-                let saved = if saved_cookie(app).is_some() { steam_token(app, false).await? } else { None };
+                let saved = if has_session(app) { steam_token(app, false).await? } else { None };
                 match saved {
                     Some(t) => t,
                     None if sign_in => steam_token(app, true).await?.ok_or("steamSessionExpired")?,
-                    None if saved_cookie(app).is_some() => return Err("steamSessionExpired".into()),
+                    None if has_session(app) => return Err("steamSessionExpired".into()),
                     None => return Err("notConnected".into()),
                 }
             }
