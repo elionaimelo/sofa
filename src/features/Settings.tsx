@@ -66,13 +66,11 @@ export function LibrarySettings({
   t,
   library,
   prefs,
-  setPrefs,
   onShowHidden,
 }: {
   t: Translate;
   library: ReturnType<typeof useLibrary>;
   prefs: Preferences;
-  setPrefs: SetPrefs;
   onShowHidden: () => void;
 }) {
   // Signing out deletes the saved session; ask once, like power actions do.
@@ -92,14 +90,6 @@ export function LibrarySettings({
               })}
             </span>
             <div className="detail-actions">
-              <button
-                data-initial-focus
-                aria-disabled={library.loading}
-                aria-busy={library.loading}
-                onClick={() => void library.refresh()}
-              >
-                {t("refresh")}
-              </button>
               {!demo && !confirming && (
                 <button
                   aria-disabled={library.steamBusy}
@@ -157,22 +147,14 @@ export function LibrarySettings({
         <p className="muted">{t("steamLibraryPrivacy")}</p>
       </section>
       <p className="muted">{t("otherSourcesInstalledOnly")}</p>
-      <label>
-        {t("sort")}
-        <select
-          value={prefs.sort}
-          onChange={(e) =>
-            setPrefs((p) => ({
-              ...p,
-              sort: e.target.value as typeof p.sort,
-            }))
-          }
-        >
-          <option value="recent">{t("recent")}</option>
-          <option value="title">{t("titleAsc")}</option>
-          <option value="titleDesc">{t("titleDesc")}</option>
-        </select>
-      </label>
+      {/* The one place to rescan installed games and refresh owned Steam games. */}
+      <button
+        aria-disabled={library.loading}
+        aria-busy={library.loading}
+        onClick={() => !library.loading && void library.refresh()}
+      >
+        {t("refresh")}
+      </button>
       <button onClick={onShowHidden}>
         {t("hidden")} ({prefs.hidden.length})
       </button>

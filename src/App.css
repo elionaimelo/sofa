@@ -405,8 +405,12 @@ main::before {
   min-width: 0;
   max-width: 390px;
 }
-.tools button {
+.tools button,
+.tools select {
   font-size: 13px;
+}
+.tools select {
+  min-height: 44px;
 }
 .empty {
   margin: auto;

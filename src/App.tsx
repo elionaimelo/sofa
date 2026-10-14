@@ -625,13 +625,22 @@ export default function App() {
                   placeholder={t("searchHint")}
                   aria-label={t("searchGames")}
                 />
-                <button
-                  aria-disabled={loading}
-                  aria-busy={loading}
-                  onClick={() => !loading && void library.refresh()}
+                {/* Sorting sits with the list it orders; LB/RB change it when focused. */}
+                <select
+                  value={prefs.sort}
+                  aria-label={t("sort")}
+                  title={t("sort")}
+                  onChange={(e) =>
+                    setPrefs((p) => ({
+                      ...p,
+                      sort: e.target.value as typeof p.sort,
+                    }))
+                  }
                 >
-                  {t("refresh")}
-                </button>
+                  <option value="recent">{t("recent")}</option>
+                  <option value="title">{t("titleAsc")}</option>
+                  <option value="titleDesc">{t("titleDesc")}</option>
+                </select>
                 <button
                   className="filter-toggle"
                   aria-expanded={filtersOpen}
@@ -877,16 +886,6 @@ export default function App() {
                     {t("clearFilters")}
                   </button>
                 )}
-                <button
-                  onClick={() => {
-                    setPage("library");
-                    setTab("all");
-                    setQuery("");
-                    void library.refresh();
-                  }}
-                >
-                  {t("refresh")}
-                </button>
               </div>
             ) : (
               <>
@@ -1227,7 +1226,6 @@ export default function App() {
               t={t}
               library={library}
               prefs={prefs}
-              setPrefs={setPrefs}
               onShowHidden={() => {
                 setPage("library");
                 setTab("hidden");
