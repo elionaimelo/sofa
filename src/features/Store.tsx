@@ -9,6 +9,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog } from "../components/Dialog";
 import type { Lang, Translate } from "../i18n";
+import type { Region } from "../library";
 import {
   commandQuery,
   type Deal,
@@ -19,7 +20,9 @@ import {
   type InputRef,
   keyboardOnActivate,
   type MessageKey,
+  money,
   navigateControls,
+  navigateSpatial,
   type PartnerOffer,
   parseWishlist,
   queryError,
@@ -34,14 +37,23 @@ const demoShops: Shop[] = [
   { storeID: "1", storeName: "Steam", isActive: 1 },
   { storeID: "7", storeName: "GOG", isActive: 1 },
 ];
+type DealsPage = { deals: Deal[]; pages: number };
+type RegionalPrice = {
+  currency: string;
+  initial: number;
+  final: number;
+  discount: number;
+};
 export function Store({
   t,
   lang,
+  region,
   input,
   onBack,
 }: {
   t: Translate;
   lang: Lang;
+  region: Region;
   input: InputRef;
   onBack: () => void;
 }) {
@@ -54,6 +66,8 @@ export function Store({
     parseWishlist(localStorage.getItem(storageKey)),
   );
   const [selected, setSelected] = useState<Deal | null>(null);
+  // CheapShark pages of 48; a new search starts over.
+  const [page, setPage] = useState(0);
   const [focus, setFocus] = useState(0);
   const grid = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -61,13 +75,16 @@ export function Store({
   }, [wishlist, storageKey]);
   // Prices move slowly; revisiting the store or a game within 5 minutes reuses the cache.
   const dealsQuery = useQuery({
-    queryKey: ["store_deals", search],
-    queryFn: () =>
+    queryKey: ["store_deals", search, page],
+    queryFn: (): Promise<DealsPage> | DealsPage =>
       demo
-        ? demoDeals.filter((d) =>
-            d.title.toLowerCase().includes(search.toLowerCase()),
-          )
-        : desktop<Deal[]>("store_deals", { query: search }),
+        ? {
+            deals: demoDeals.filter((d) =>
+              d.title.toLowerCase().includes(search.toLowerCase()),
+            ),
+            pages: 1,
+          }
+        : desktop<DealsPage>("store_deals", { query: search, page }),
     staleTime: 5 * 60_000,
     placeholderData: keepPreviousData,
   });
@@ -76,7 +93,8 @@ export function Store({
     queryFn: () => (demo ? demoShops : desktop<Shop[]>("store_shops")),
     staleTime: 60 * 60_000,
   });
-  const deals = dealsQuery.data ?? [];
+  const deals = dealsQuery.data?.deals ?? [];
+  const pages = dealsQuery.data?.pages ?? 1;
   const shops = shopsQuery.data ?? [];
   const loading = dealsQuery.isFetching || shopsQuery.isPending;
   const error = queryError(dealsQuery.error ?? shopsQuery.error);
@@ -129,6 +147,24 @@ export function Store({
           ),
     [deals, wishlist, tab, query],
   );
+  // CheapShark prices are US dollars; outside the US, Steam's price in the user's region
+  // replaces them for every deal that has a Steam id.
+  const steamIds = visible
+    .map((d) => d.steamAppID)
+    .filter((id): id is string => !!id)
+    .sort()
+    .join(",");
+  const regionalQuery = useQuery({
+    queryKey: ["steam_prices", region, steamIds],
+    queryFn: () =>
+      desktop<Record<string, RegionalPrice>>("steam_prices", {
+        ids: steamIds.split(","),
+        region,
+      }),
+    enabled: region !== "us" && !demo && steamIds !== "",
+    staleTime: 5 * 60_000,
+  });
+  const regional = regionalQuery.data ?? {};
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new tab or search starts at the first deal.
   useEffect(() => setFocus(0), [tab, search]);
   useEffect(() => {
@@ -173,6 +209,13 @@ export function Store({
       setTab((s) => (s === "discover" ? "wishlist" : "discover"));
       return;
     }
+    // The pager below the grid: DOWN from the last row reaches it, UP returns to the tiles.
+    const pager = document.querySelector<HTMLElement>(".store-pager");
+    if (pager?.contains(document.activeElement)) {
+      if (a === "up") (document.activeElement as HTMLElement).blur();
+      else navigateSpatial(a, pager);
+      return;
+    }
     if (a === "a" && visible[focus]) setSelected(visible[focus]);
     if (a === "x" && visible[focus]) toggle(visible[focus]);
     if (a === "y") refresh();
@@ -190,10 +233,19 @@ export function Store({
               ? cols
               : 0;
     if (delta) {
+      if (a === "down" && pager && focus + cols >= visible.length) {
+        pager.querySelector<HTMLElement>("button:not(:disabled)")?.focus();
+        return;
+      }
       (document.activeElement as HTMLElement)?.blur();
       setFocus((f) => Math.max(0, Math.min(visible.length - 1, f + delta)));
     }
   });
+  const goToPage = (next: number) => {
+    setPage(next);
+    setFocus(0);
+    (document.activeElement as HTMLElement)?.blur();
+  };
   const name = (id: string) =>
     shops.find((s) => s.storeID === id)?.storeName ?? `${t("store")} ${id}`;
   return (
@@ -229,6 +281,7 @@ export function Store({
         onSubmit={(e) => {
           e.preventDefault();
           setSearch(query.trim());
+          setPage(0);
         }}
       >
         <MagnifyingGlassIcon aria-hidden />
@@ -311,17 +364,62 @@ export function Store({
               <div className="deal-copy">
                 <span className="deal-shop">{name(d.storeID)}</span>
                 <h2>{d.title}</h2>
-                <div className="price">
-                  <strong>{usd(d.salePrice, lang)}</strong>
-                  {Number(d.normalPrice) > Number(d.salePrice) && (
-                    <del>{usd(d.normalPrice, lang)}</del>
-                  )}
-                  <ArrowUpRightIcon />
-                </div>
+                {d.steamAppID && regional[d.steamAppID] ? (
+                  <div className="price">
+                    <strong>
+                      {money(
+                        regional[d.steamAppID].final,
+                        regional[d.steamAppID].currency,
+                        lang,
+                      )}
+                    </strong>
+                    {regional[d.steamAppID].discount > 0 && (
+                      <del>
+                        {money(
+                          regional[d.steamAppID].initial,
+                          regional[d.steamAppID].currency,
+                          lang,
+                        )}
+                      </del>
+                    )}
+                    <small>Steam</small>
+                    <ArrowUpRightIcon />
+                  </div>
+                ) : (
+                  <div className="price">
+                    <strong>{usd(d.salePrice, lang)}</strong>
+                    {Number(d.normalPrice) > Number(d.salePrice) && (
+                      <del>{usd(d.normalPrice, lang)}</del>
+                    )}
+                    <ArrowUpRightIcon />
+                  </div>
+                )}
               </div>
             </button>
           ))}
         </div>
+      )}
+      {tab === "discover" && !loading && pages > 1 && (
+        <nav
+          className="store-pager"
+          aria-label={t("pageOf", {
+            page: String(page + 1),
+            pages: String(pages),
+          })}
+        >
+          <button disabled={page === 0} onClick={() => goToPage(page - 1)}>
+            {t("previousPage")}
+          </button>
+          <span>
+            {t("pageOf", { page: String(page + 1), pages: String(pages) })}
+          </span>
+          <button
+            disabled={page + 1 >= pages}
+            onClick={() => goToPage(page + 1)}
+          >
+            {t("nextPage")}
+          </button>
+        </nav>
       )}
       <p className="feature-status" role="status">
         {status}

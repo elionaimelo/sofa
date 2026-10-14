@@ -1153,6 +1153,7 @@ export default function App() {
             <Store
               t={t}
               lang={lang}
+              region={region}
               input={featureInput}
               onBack={() => setPage("home")}
             />
