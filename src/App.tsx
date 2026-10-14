@@ -95,21 +95,26 @@ function coverSources(game: Game): string[] {
     );
   return sources.filter((source, i) => sources.indexOf(source) === i);
 }
-function Cover({ game }: { game: Game }) {
+/** The art alone, trying each source in turn; nothing when all fail. */
+function CoverImage({ game }: { game: Game }) {
   const [failed, setFailed] = useState(0);
-  const sources = coverSources(game);
-  const src = sources[failed];
+  const src = coverSources(game)[failed];
+  return (
+    src && (
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        data-fallback={failed > 0 || undefined}
+        onError={() => setFailed((n) => n + 1)}
+      />
+    )
+  );
+}
+function Cover({ game }: { game: Game }) {
   return (
     <>
-      {src && (
-        <img
-          src={src}
-          alt=""
-          loading="lazy"
-          data-fallback={failed > 0 || undefined}
-          onError={() => setFailed((n) => n + 1)}
-        />
-      )}
+      <CoverImage game={game} />
       <span className="title">
         <span>{game.title}</span>
       </span>
@@ -1215,8 +1220,9 @@ export default function App() {
           label={`${t("details")} · ${details.title}`}
           onClose={closeDetails}
         >
+          {/* Fixed-size: the cover and the title never move; only the details column scrolls. */}
           <div
-            className="detail-banner"
+            className="detail-layout"
             style={{ backgroundImage: `url("${hero(details)}")` }}
           >
             <button
@@ -1226,85 +1232,86 @@ export default function App() {
             >
               <XIcon />
             </button>
-            <div>
-              <p>
+            <div className="detail-cover" aria-hidden>
+              <CoverImage key={details.id} game={details} />
+            </div>
+            <div className="detail-body">
+              <p className="detail-meta">
                 {details.source.toUpperCase()} ·{" "}
                 {t(details.installed ? "installed" : "availableToInstall")}
               </p>
               <h1>{details.title}</h1>
-            </div>
-          </div>
-          <div className="detail-body">
-            <p>
-              {prefs.recent[details.id]
-                ? t("lastPlayed", {
-                    date: new Date(prefs.recent[details.id]).toLocaleString(
-                      lang,
-                    ),
-                  })
-                : t("neverPlayed")}
-            </p>
-            <CategoryEditor
-              key={details.id}
-              game={details}
-              prefs={prefs}
-              catalog={categories.catalog}
-              t={t}
-              lang={lang}
-              onChange={(labels) =>
-                setPrefs((p) => ({
-                  ...p,
-                  categories: { ...p.categories, [details.id]: labels },
-                }))
-              }
-            />
-            <p className="muted">
-              {t(details.installed ? "launchHint" : "installHint")}
-            </p>
-            <div className="detail-actions">
-              <button
-                data-initial-focus
-                className="accent"
-                aria-disabled={details.installed && launching}
-                aria-busy={details.installed && launching}
-                onClick={() =>
-                  void (details.installed
-                    ? play(details)
-                    : installGame(details))
-                }
-              >
-                {t(details.installed ? "play" : "installGame")}
-              </button>
-              <button onClick={() => toggleFavorite(details)}>
-                {t(
-                  prefs.favorites.includes(details.id)
-                    ? "removeFavorite"
-                    : "addFavorite",
-                )}
-              </button>
-              <button onClick={() => toggleHidden(details)}>
-                {t(
-                  prefs.hidden.includes(details.id)
-                    ? "restoreGame"
-                    : "hideGame",
-                )}
-              </button>
-            </div>
-            {details.installed && (
-              <Uninstall
+              <p>
+                {prefs.recent[details.id]
+                  ? t("lastPlayed", {
+                      date: new Date(prefs.recent[details.id]).toLocaleString(
+                        lang,
+                      ),
+                    })
+                  : t("neverPlayed")}
+              </p>
+              <CategoryEditor
                 key={details.id}
                 game={details}
+                prefs={prefs}
+                catalog={categories.catalog}
                 t={t}
-                onStarted={(id, completed) => {
-                  if (completed) void library.refresh();
-                  else library.watchUninstall(id);
-                  setDetails(null);
-                  setStatus(
-                    t(completed ? "uninstallComplete" : "uninstallStarted"),
-                  );
-                }}
+                lang={lang}
+                onChange={(labels) =>
+                  setPrefs((p) => ({
+                    ...p,
+                    categories: { ...p.categories, [details.id]: labels },
+                  }))
+                }
               />
-            )}
+              <p className="muted">
+                {t(details.installed ? "launchHint" : "installHint")}
+              </p>
+              <div className="detail-actions">
+                <button
+                  data-initial-focus
+                  className="accent"
+                  aria-disabled={details.installed && launching}
+                  aria-busy={details.installed && launching}
+                  onClick={() =>
+                    void (details.installed
+                      ? play(details)
+                      : installGame(details))
+                  }
+                >
+                  {t(details.installed ? "play" : "installGame")}
+                </button>
+                <button onClick={() => toggleFavorite(details)}>
+                  {t(
+                    prefs.favorites.includes(details.id)
+                      ? "removeFavorite"
+                      : "addFavorite",
+                  )}
+                </button>
+                <button onClick={() => toggleHidden(details)}>
+                  {t(
+                    prefs.hidden.includes(details.id)
+                      ? "restoreGame"
+                      : "hideGame",
+                  )}
+                </button>
+              </div>
+              {details.installed && (
+                <Uninstall
+                  key={details.id}
+                  game={details}
+                  t={t}
+                  onStarted={(id, completed) => {
+                    if (completed) void library.refresh();
+                    else library.watchUninstall(id);
+                    setDetails(null);
+                    setStatus(
+                      t(completed ? "uninstallComplete" : "uninstallStarted"),
+                    );
+                  }}
+                />
+              )}
+            </div>
           </div>
         </Dialog>
       )}
