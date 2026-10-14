@@ -58,22 +58,28 @@ async fn scan_library() -> Vec<library::Game> {
 }
 
 /// Takes a game id, never a raw path: the webview can only start things the scan found.
-/// Goes through the OS opener, so the frontend opener scope needn't allow custom schemes.
+/// Steam on Windows uses its executable; other launchers use the OS opener.
 // ponytail: rescans per launch (ms on a normal library); cache in app state if it shows up.
 #[tauri::command]
 async fn launch(id: String, app: tauri::AppHandle) -> Result<(), String> {
-    let game = library::scan().into_iter().find(|g| g.id == id).ok_or("unknown game")?;
+    let game_id = id.clone();
+    let game = tauri::async_runtime::spawn_blocking(move || {
+        library::scan().into_iter().find(|g| g.id == game_id)
+    }).await.map_err(|_| "openFailed")?.ok_or("openFailed")?;
     game_settings::apply(&app, &id).await;
-    let target = game.launch;
-    let r = if target.contains("://") {
-        tauri_plugin_opener::open_url(&target, None::<&str>)
-    } else {
-        tauri_plugin_opener::open_path(&target, None::<&str>)
-    };
-    if r.is_ok() && game.source == "steam" {
+    let is_steam = game.source == "steam";
+    log::info(&app, format!("launch: requesting {id}"));
+    let r = tauri::async_runtime::spawn_blocking(move || library::launch_game(&game))
+        .await.map_err(|_| "openFailed")?;
+    if let Err(error) = r {
+        log::info(&app, format!("launch: {id} failed: {error}"));
+        return Err("openFailed".into());
+    }
+    log::info(&app, format!("launch: request dispatched for {id}"));
+    if is_steam {
         minimize_steam_window();
     }
-    r.map_err(|e| e.to_string())
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

@@ -148,7 +148,7 @@ function Tile({
   );
 }
 const inWidget = new URLSearchParams(location.search).get("widget") === "1";
-/** The HUD window (floating, over windowed games) and the Game Bar widget page. */
+/** Game Bar widget page and the native HUD preview on non-Windows platforms. */
 export function Hud() {
   const t = translator(initialLang());
   const inputRef: InputRef = useRef(null);
@@ -165,8 +165,7 @@ export function Hud() {
 }
 
 /**
- * HUD content. Rendered as its own window/page, or `embedded` in a dialog inside Sofa: in
- * Xbox mode Sofa is fullscreen and Windows won't show a second always-on-top window.
+ * HUD content hosted by Game Bar on Windows, or `embedded` in the browser demo dialog.
  */
 export function HudPanel({
   t,
@@ -456,7 +455,6 @@ export function HudPanel({
         />
       </div>
       <ControllerBatteries t={t} data={power.data} />
-      {embedded && <WidgetStatus t={t} />}
       {/* Live regions stay mounted so screen readers announce changes, not insertions. */}
       <p role="status">{message}</p>
       {metricsQuery.error && (
@@ -492,7 +490,7 @@ function Options({
   );
 }
 /** Game Bar widget install state, with a repair for when the installer couldn't add it. */
-function WidgetStatus({ t }: { t: Translate }) {
+export function WidgetStatus({ t }: { t: Translate }) {
   const status = useQuery({
     ...commandQuery<string | null>("widget_status"),
     // The elevated install runs outside Sofa; look again when the user comes back.

@@ -2,6 +2,16 @@
 //! re-runs `packaging/widget.ps1` elevated (UAC) when the installer couldn't add it.
 use tauri::Manager;
 
+/// Let Game Bar host the HUD over games, including the Xbox full screen experience.
+/// External apps can open Game Bar; widget-to-widget activation APIs require a widget context.
+#[cfg(windows)]
+pub fn open_game_bar(app: &tauri::AppHandle) -> Result<(), String> {
+    crate::log::info(app, "hud: opening Xbox Game Bar");
+    tauri_plugin_opener::open_url("ms-gamebar:", None::<&str>)
+        .map_err(|_| "openFailed".to_string())?;
+    Ok(())
+}
+
 /// Installed widget version, or None.
 #[tauri::command]
 pub async fn widget_status(app: tauri::AppHandle) -> Option<String> {

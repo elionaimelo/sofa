@@ -82,6 +82,34 @@ pub fn steam_game(app_id: impl std::fmt::Display, title: String, installed: bool
     }
 }
 
+/// Use Steam's executable on Windows so launching does not depend on the URL association.
+/// The client handles both a cold start and forwarding to an already running instance.
+pub fn launch_game(game: &Game) -> Result<(), String> {
+    #[cfg(windows)]
+    if game.source == "steam" {
+        let root = steam_root().ok_or("Steam installation not found")?;
+        return steam_launch_command(&root, &game.id)?
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("Steam launch failed: {e}"));
+    }
+    if game.launch.contains("://") {
+        tauri_plugin_opener::open_url(&game.launch, None::<&str>)
+    } else {
+        tauri_plugin_opener::open_path(&game.launch, None::<&str>)
+    }
+    .map_err(|e| e.to_string())
+}
+
+#[cfg(any(windows, test))]
+fn steam_launch_command(root: &Path, id: &str) -> Result<std::process::Command, String> {
+    let app_id = steam_app_id(id).ok_or("Invalid Steam app id")?;
+    let mut command = std::process::Command::new(root.join("steam.exe"));
+    // Client flags must precede -applaunch; subsequent arguments belong to the game.
+    command.current_dir(root).args(["-silent", "-applaunch", app_id]);
+    Ok(command)
+}
+
 /// The Steam app currently running, as reported by the Steam client.
 pub fn running_steam_app() -> Option<u32> {
     #[cfg(windows)]
@@ -224,6 +252,22 @@ fn gog() -> Vec<Game> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn launches_steam_with_separate_app_id_and_install_directory() {
+        let root = Path::new("C:/Program Files (x86)/Steam");
+        let command = steam_launch_command(root, "steam:1245620").unwrap();
+        assert_eq!(command.get_program(), root.join("steam.exe"));
+        assert_eq!(command.get_current_dir(), Some(root));
+        assert_eq!(command.get_args().collect::<Vec<_>>(), ["-silent", "-applaunch", "1245620"]);
+    }
+
+    #[test]
+    fn rejects_invalid_steam_launch_ids() {
+        for id in ["steam:", "steam:620 -shutdown", "steam:1/2", "steam:12345678901", "epic:620", "steam://rungameid/620"] {
+            assert!(steam_launch_command(Path::new("Steam"), id).is_err());
+        }
+    }
 
     #[test]
     fn parses_acf() {

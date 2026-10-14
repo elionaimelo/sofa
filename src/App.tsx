@@ -1,5 +1,5 @@
+import { useMutation } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { AnimatePresence } from "motion/react";
 import {
   useCallback,
@@ -45,7 +45,7 @@ import {
   categoryLabel,
   useCategories,
 } from "./features/Categories";
-import { HudPanel } from "./features/Performance";
+import { HudPanel, WidgetStatus } from "./features/Performance";
 import { PowerMenu, TopBatteries, usePower } from "./features/Power";
 import {
   AppearanceSettings,
@@ -58,6 +58,7 @@ import { Store } from "./features/Store";
 import { Uninstall } from "./features/Uninstall";
 import {
   demo,
+  desktop,
   type InputRef,
   keyboardOnActivate,
   type Notify,
@@ -118,12 +119,6 @@ export default function App() {
     ),
   );
   const [status, setStatus] = useState("");
-  // View + Menu while Sofa has focus: the native watcher asks this window to toggle the panel.
-  useEffect(() => {
-    if (!isTauri()) return;
-    const stop = listen("toggle-hud", () => setHudOpen((open) => !open));
-    return () => void stop.then((unlisten) => unlisten());
-  }, []);
   // Status lines are transient feedback; a stale "installing…" or error misleads later.
   useEffect(() => {
     if (!status) return;
@@ -330,9 +325,14 @@ export default function App() {
       setLaunching(false);
     }
   };
-  // In Sofa the HUD is a panel, not a window: in Xbox mode Sofa is fullscreen and Windows
-  // won't show another always-on-top window over it. The floating window is for games.
-  const openHud = () => setHudOpen(true);
+  const hudLaunch = useMutation({
+    mutationFn: () => desktop("open_hud"),
+    onError: (error) => notify(serviceError(error)),
+  });
+  const openHud = () => {
+    if (demo) setHudOpen(true);
+    else if (!hudLaunch.isPending) hudLaunch.mutate();
+  };
   const installGame = async (game: Game) => {
     if (game.installed) return;
     if (demo || !isTauri()) {
@@ -1092,6 +1092,7 @@ export default function App() {
                   </span>
                 </button>
               </div>
+              {isTauri() && <WidgetStatus t={t} />}
             </section>
           )}
         </Scene>

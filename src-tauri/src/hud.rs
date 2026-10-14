@@ -3,6 +3,7 @@ use std::{
     sync::Mutex,
     time::{Duration, Instant},
 };
+#[cfg(not(windows))]
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 pub struct Telemetry(Mutex<Sample>);
 struct Sample {
@@ -48,6 +49,13 @@ fn read_metrics(state: &Telemetry) -> Result<Metrics, String> {
 pub async fn system_metrics(state: tauri::State<'_, Telemetry>) -> Result<Metrics, String> {
     read_metrics(&state)
 }
+#[cfg(windows)]
+fn show_hud(app: &tauri::AppHandle) -> Result<(), String> {
+    crate::widget::open_game_bar(app)
+}
+
+// Desktop preview only. In Windows games, Game Bar owns the overlay surface.
+#[cfg(not(windows))]
 fn show_hud(app: &tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("hud") {
         window.show().map_err(|_| "openFailed")?;
@@ -71,14 +79,14 @@ fn show_hud(app: &tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn open_hud(app: tauri::AppHandle) -> Result<(), String> {
-    show_hud(&app)
+    tauri::async_runtime::spawn_blocking(move || show_hud(&app))
+        .await.map_err(|_| "openFailed")?
 }
 
-/// Holding View + Menu on any XInput pad toggles the HUD, even while a game has focus.
-/// Game Bar owns the Xbox/Command Center buttons; Sofa can't claim them without a UWP widget.
+/// View + Menu opens Game Bar from Sofa or a game, just like Sofa's HUD buttons.
+/// The Xbox/Command Center buttons remain owned by Windows and the device software.
 #[cfg(windows)]
 pub fn watch_controller(app: tauri::AppHandle) {
-    use tauri::Emitter;
     use windows_sys::Win32::UI::Input::XboxController::*;
     std::thread::spawn(move || {
         let mut connected = [true; 4];
@@ -97,18 +105,8 @@ pub fn watch_controller(app: tauri::AppHandle) {
                 held |= *live && state.Gamepad.wButtons & chord == chord;
             }
             if held && !was_held {
-                // Sofa in front (e.g. Xbox mode, fullscreen): its own panel; over a game: the window.
-                let sofa_focused = app
-                    .get_webview_window("main")
-                    .and_then(|w| w.is_focused().ok())
-                    .unwrap_or(false);
-                if sofa_focused {
-                    let _ = app.emit_to("main", "toggle-hud", ());
-                } else {
-                    match app.get_webview_window("hud") {
-                        Some(window) => drop(window.close()),
-                        None => drop(show_hud(&app)),
-                    }
+                if let Err(error) = show_hud(&app) {
+                    crate::log::info(&app, format!("hud: Game Bar launch failed: {error}"));
                 }
             }
             was_held = held;
