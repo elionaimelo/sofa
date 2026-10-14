@@ -65,6 +65,18 @@ export function navigateControls(a: Action, root: Element | null): boolean {
 const focusableSelector =
   'button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]:not(.skip-link), [tabindex="0"]';
 
+/** Nearest ancestor that scrolls vertically, or null when only the page would. */
+function scrollParent(element: Element): HTMLElement | null {
+  for (let p = element.parentElement; p; p = p.parentElement) {
+    const overflow = getComputedStyle(p).overflowY;
+    if (
+      (overflow === "auto" || overflow === "scroll") &&
+      p.scrollHeight > p.clientHeight
+    )
+      return p;
+  }
+  return null;
+}
 export function navigateSpatial(
   a: Action,
   root: Element | null,
@@ -117,9 +129,17 @@ export function navigateSpatial(
   const direction = a === "up" || a === "left" ? -1 : 1;
   let best: HTMLElement | null = null;
   let bestScore = Infinity;
+  const scroller = scrollParent(current);
   for (const candidate of controls) {
     if (candidate === current) continue;
     const rect = candidate.getBoundingClientRect();
+    // Entering another scroll container: only what it currently shows counts. A tile that
+    // scrolled out above the grid sits geometrically above the tabs, but isn't a neighbour.
+    const container = scrollParent(candidate);
+    if (container !== scroller && container) {
+      const box = container.getBoundingClientRect();
+      if (rect.bottom <= box.top || rect.top >= box.bottom) continue;
+    }
     const x = rect.left + rect.width / 2;
     const y = rect.top + rect.height / 2;
     const primary = (vertical ? y - cy : x - cx) * direction;
