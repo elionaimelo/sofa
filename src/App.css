@@ -1058,7 +1058,7 @@ select:focus-visible,
   color: var(--muted);
   padding: 10px 16px;
 }
-.segmented button[aria-pressed="true"] {
+.segmented button:is([aria-pressed="true"], [aria-selected="true"]) {
   background: #353841;
   color: white;
   box-shadow: inset 0 1px rgb(255 255 255 / 0.1);
@@ -1906,8 +1906,26 @@ select:focus-visible,
 .library-filters .category-filter-heading input {
   width: 100%;
 }
+/* In its own tab the category list uses the drawer's height; the drawer scrolls. */
 .library-filters .category-options {
-  max-height: 34vh;
+  max-height: none;
+  overflow: visible;
+}
+.library-filters .close {
+  top: 14px;
+  right: 14px;
+}
+.library-filters .filter-tabs {
+  display: flex;
+}
+.library-filters .filter-tabs button {
+  flex: 1;
+  min-height: 44px;
+}
+.filter-options {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 .library-filters :is(label, .field) {
   font-size: 14px;

@@ -152,6 +152,10 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [categoryQuery, setCategoryQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // The drawer's two tabs: the (possibly long) category list, and the other filters.
+  const [filterTab, setFilterTab] = useState<"categories" | "options">(
+    "categories",
+  );
   const [focus, setFocus] = useState(0);
   const [prefs, setPrefs] = useState(() =>
     parsePreferences(
@@ -300,14 +304,15 @@ export default function App() {
   }, [games, details]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new tab, search, page or filter starts at the first tile.
   useEffect(() => setFocus(0), [tab, query, page, prefs.filters, prefs.sort]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new tab shows new controls; focus the first one.
   useEffect(() => {
     if (filtersOpen)
       document
         .querySelector<HTMLElement>(
-          "[data-filter-panel] button, [data-filter-panel] select",
+          "[data-filter-panel] [data-tabpanel] :is(button:not(:disabled), input)",
         )
         ?.focus();
-  }, [filtersOpen]);
+  }, [filtersOpen, filterTab]);
   useEffect(
     () => setFocus((f) => Math.min(f, Math.max(0, visible.length - 1))),
     [visible.length],
@@ -470,25 +475,11 @@ export default function App() {
     ) {
       if (a === "b") setFiltersOpen(false);
       else if (a === "y") setPrefs((p) => ({ ...p, filters: defaultFilters }));
-      else if (a === "lb" || a === "rb") {
-        // Shoulder buttons jump between the drawer's sections, so a long list of
-        // categories never has to be crossed to reach the fields or the actions below.
-        const sections = [
-          ...document.querySelectorAll<HTMLElement>(
-            "[data-filter-panel] [data-section]",
-          ),
-        ];
-        const current = sections.findIndex((section) =>
-          section.contains(document.activeElement),
+      else if (a === "lb" || a === "rb")
+        setFilterTab((tab) =>
+          tab === "categories" ? "options" : "categories",
         );
-        const next =
-          (current + (a === "lb" ? -1 : 1) + sections.length) % sections.length;
-        const target = sections[next]?.querySelector<HTMLElement>(
-          "button:not(:disabled), input, [tabindex='0']",
-        );
-        target?.focus();
-        target?.scrollIntoView({ block: "nearest" });
-      } else navigateSpatial(a, document.querySelector("[data-filter-panel]"));
+      else navigateSpatial(a, document.querySelector("[data-filter-panel]"));
       return;
     }
     if (a === "b") {
@@ -608,7 +599,7 @@ export default function App() {
           : filtersOpen && page === "library"
             ? [
                 ["A", t("selectAction")],
-                ["LB/RB", t("sections")],
+                ["LB/RB", t("filterTabs")],
                 ["Y", t("clearFilters")],
                 ["B", t("close")],
               ]
@@ -803,134 +794,161 @@ export default function App() {
                         {activeFilters(prefs.filters)}
                       </span>
                     )}
+                    <button
+                      className="close"
+                      onClick={() => setFiltersOpen(false)}
+                      aria-label={t("close")}
+                    >
+                      <XIcon />
+                    </button>
                   </div>
-                  <section
-                    className="category-filter"
-                    aria-labelledby="category-filter-title"
-                    data-section
-                  >
-                    <div className="category-filter-heading">
-                      <div>
-                        <h2 id="category-filter-title">{t("categories")}</h2>
-                        <p>{t("categoryMatchAny")}</p>
+                  <div className="segmented filter-tabs" role="tablist">
+                    {(["categories", "options"] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        role="tab"
+                        aria-selected={filterTab === tab}
+                        onClick={() => setFilterTab(tab)}
+                      >
+                        {t(
+                          tab === "categories" ? "categories" : "filterOptions",
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  {filterTab === "categories" && (
+                    <section
+                      className="category-filter"
+                      aria-labelledby="category-filter-title"
+                      data-tabpanel
+                    >
+                      <div className="category-filter-heading">
+                        <div>
+                          <h2 id="category-filter-title">{t("categories")}</h2>
+                          <p>{t("categoryMatchAny")}</p>
+                        </div>
+                        <input
+                          {...keyboardOnActivate}
+                          aria-label={t("searchCategories")}
+                          placeholder={t("searchCategories")}
+                          value={categoryQuery}
+                          onChange={(e) => setCategoryQuery(e.target.value)}
+                        />
                       </div>
-                      <input
-                        {...keyboardOnActivate}
-                        aria-label={t("searchCategories")}
-                        placeholder={t("searchCategories")}
-                        value={categoryQuery}
-                        onChange={(e) => setCategoryQuery(e.target.value)}
-                      />
-                    </div>
-                    <div className="category-options">
-                      {categoryChoices
-                        .filter((c) =>
+                      <div className="category-options">
+                        {categoryChoices
+                          .filter((c) =>
+                            categoryLabel(c.label, lang)
+                              .toLocaleLowerCase()
+                              .includes(categoryQuery.toLocaleLowerCase()),
+                          )
+                          .map((c) => (
+                            <button
+                              key={c.key}
+                              aria-pressed={prefs.filters.categories.includes(
+                                c.key,
+                              )}
+                              onClick={() => toggleCategory(c.key)}
+                            >
+                              <span>{categoryLabel(c.label, lang)}</span>
+                              <small>{c.count}</small>
+                            </button>
+                          ))}
+                      </div>
+                      {!categoryChoices.length && (
+                        <p className="muted">
+                          {t(
+                            categories.loading
+                              ? "categoriesLoading"
+                              : "noCategories",
+                          )}
+                        </p>
+                      )}
+                      {categoryChoices.length > 0 && categories.loading && (
+                        <p className="muted" role="status">
+                          {t("categoriesLoading")}
+                        </p>
+                      )}
+                      {categories.unavailable && (
+                        <p className="category-sync-note">
+                          {t("categoriesOffline")}{" "}
+                          <button
+                            onClick={() =>
+                              !categories.loading && categories.retry()
+                            }
+                            aria-disabled={categories.loading}
+                          >
+                            {t("retry")}
+                          </button>
+                        </p>
+                      )}
+                      {categoryChoices.length > 0 &&
+                        categoryQuery &&
+                        !categoryChoices.some((c) =>
                           categoryLabel(c.label, lang)
                             .toLocaleLowerCase()
                             .includes(categoryQuery.toLocaleLowerCase()),
-                        )
-                        .map((c) => (
-                          <button
-                            key={c.key}
-                            aria-pressed={prefs.filters.categories.includes(
-                              c.key,
-                            )}
-                            onClick={() => toggleCategory(c.key)}
-                          >
-                            <span>{categoryLabel(c.label, lang)}</span>
-                            <small>{c.count}</small>
-                          </button>
-                        ))}
-                    </div>
-                    {!categoryChoices.length && (
-                      <p className="muted">
-                        {t(
-                          categories.loading
-                            ? "categoriesLoading"
-                            : "noCategories",
-                        )}
-                      </p>
-                    )}
-                    {categoryChoices.length > 0 && categories.loading && (
-                      <p className="muted" role="status">
-                        {t("categoriesLoading")}
-                      </p>
-                    )}
-                    {categories.unavailable && (
-                      <p className="category-sync-note">
-                        {t("categoriesOffline")}{" "}
-                        <button
-                          onClick={() =>
-                            !categories.loading && categories.retry()
+                        ) && <p className="muted">{t("noCategorySearch")}</p>}
+                    </section>
+                  )}
+                  {filterTab === "options" && (
+                    <div className="filter-options" data-tabpanel>
+                      <div className="field">
+                        {t("playedFilter")}
+                        <Picker
+                          label={t("playedFilter")}
+                          value={prefs.filters.played}
+                          options={[
+                            { value: "any", label: t("anyHistory") },
+                            { value: "never", label: t("neverPlayedFilter") },
+                            { value: "recent7", label: t("recent7") },
+                            { value: "recent30", label: t("recent30") },
+                          ]}
+                          onChange={(played) =>
+                            setPrefs((p) => ({
+                              ...p,
+                              filters: { ...p.filters, played },
+                            }))
                           }
-                          aria-disabled={categories.loading}
-                        >
-                          {t("retry")}
-                        </button>
-                      </p>
-                    )}
-                    {categoryChoices.length > 0 &&
-                      categoryQuery &&
-                      !categoryChoices.some((c) =>
-                        categoryLabel(c.label, lang)
-                          .toLocaleLowerCase()
-                          .includes(categoryQuery.toLocaleLowerCase()),
-                      ) && <p className="muted">{t("noCategorySearch")}</p>}
-                  </section>
-                  <div className="field" data-section>
-                    {t("playedFilter")}
-                    <Picker
-                      label={t("playedFilter")}
-                      value={prefs.filters.played}
-                      options={[
-                        { value: "any", label: t("anyHistory") },
-                        { value: "never", label: t("neverPlayedFilter") },
-                        { value: "recent7", label: t("recent7") },
-                        { value: "recent30", label: t("recent30") },
-                      ]}
-                      onChange={(played) =>
-                        setPrefs((p) => ({
-                          ...p,
-                          filters: { ...p.filters, played },
-                        }))
-                      }
-                    />
-                  </div>
-                  <div className="field" data-section>
-                    {t("artworkFilter")}
-                    <Picker
-                      label={t("artworkFilter")}
-                      value={prefs.filters.artwork}
-                      options={[
-                        { value: "any", label: t("anyArtwork") },
-                        { value: "with", label: t("withArtwork") },
-                        { value: "without", label: t("withoutArtwork") },
-                      ]}
-                      onChange={(artwork) =>
-                        setPrefs((p) => ({
-                          ...p,
-                          filters: { ...p.filters, artwork },
-                        }))
-                      }
-                    />
-                  </div>
-                  <label className="filter-checkbox" data-section>
-                    <input
-                      type="checkbox"
-                      checked={prefs.filters.favoritesOnly}
-                      onChange={(e) =>
-                        setPrefs((p) => ({
-                          ...p,
-                          filters: {
-                            ...p.filters,
-                            favoritesOnly: e.target.checked,
-                          },
-                        }))
-                      }
-                    />
-                    {t("favoritesOnly")}
-                  </label>
-                  <div className="filter-actions" data-section>
+                        />
+                      </div>
+                      <div className="field">
+                        {t("artworkFilter")}
+                        <Picker
+                          label={t("artworkFilter")}
+                          value={prefs.filters.artwork}
+                          options={[
+                            { value: "any", label: t("anyArtwork") },
+                            { value: "with", label: t("withArtwork") },
+                            { value: "without", label: t("withoutArtwork") },
+                          ]}
+                          onChange={(artwork) =>
+                            setPrefs((p) => ({
+                              ...p,
+                              filters: { ...p.filters, artwork },
+                            }))
+                          }
+                        />
+                      </div>
+                      <label className="filter-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={prefs.filters.favoritesOnly}
+                          onChange={(e) =>
+                            setPrefs((p) => ({
+                              ...p,
+                              filters: {
+                                ...p.filters,
+                                favoritesOnly: e.target.checked,
+                              },
+                            }))
+                          }
+                        />
+                        {t("favoritesOnly")}
+                      </label>
+                    </div>
+                  )}
+                  <div className="filter-actions">
                     <button
                       onClick={() =>
                         setPrefs((p) => ({ ...p, filters: defaultFilters }))
