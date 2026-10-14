@@ -52,6 +52,7 @@ import {
   SlidersHorizontalIcon,
   SquaresFourIcon,
   StorefrontIcon,
+  WifiSlashIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import { categoryLabel, useCategories } from "./features/Categories";
@@ -79,6 +80,7 @@ import {
   navigateSpatial,
   pickerInput,
   serviceError,
+  useOnline,
 } from "./services";
 
 const PAGES = ["home", "library", "store"] as const;
@@ -160,6 +162,7 @@ export default function App() {
   );
   const library = useLibrary(notify);
   const updates = useUpdates(notify);
+  const online = useOnline();
   // Expected download of an owned Steam game, from its store requirements.
   const sizeEstimate = useQuery({
     ...commandQuery<number | null>("game_size_estimate", {
@@ -633,6 +636,12 @@ export default function App() {
           aria-label={t("searchGames")}
         />
         <div className="system-bar">
+          {!online && (
+            <span className="offline-pill" role="status">
+              <WifiSlashIcon weight="bold" />
+              {t("offline")}
+            </span>
+          )}
           <TopBatteries t={t} data={power.data} onOpen={openHud} />
           <button
             onClick={() => setPowerMenu(true)}

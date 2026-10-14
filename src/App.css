@@ -248,6 +248,21 @@ main::before {
   padding: 4px 5px 4px 20px;
   border-radius: 30px;
 }
+.offline-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgb(237 22 76 / 0.22);
+  color: #ffd3dd;
+  font-size: 12px;
+  font-weight: 650;
+}
+.offline-pill svg {
+  width: 16px;
+  height: 16px;
+}
 .header-search {
   flex: 0 1 300px;
   min-width: 150px;

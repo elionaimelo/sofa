@@ -136,6 +136,7 @@ const en = {
   wishlistPriceNote: "Open a game to fetch current prices.",
   desktopRequired: "Open the desktop app to use this feature.",
   network: "Could not connect. Check your connection and try again.",
+  offline: "No connection",
   rateLimit: "Too many requests. Try again in a few minutes.",
   authFailed: "The API key was not accepted.",
   serviceUnavailable: "The service is unavailable. Try again later.",
@@ -482,6 +483,7 @@ const dicts = {
     demoPrices: "Preços de exemplo para a prévia",
     wishlistPriceNote: "Abra um jogo para consultar os preços atuais.",
     desktopRequired: "Abra o app desktop para usar este recurso.",
+    offline: "Sem conexão",
     network:
       "Não foi possível conectar. Verifique sua conexão e tente novamente.",
     rateLimit: "Muitas consultas. Tente novamente em alguns minutos.",
@@ -831,6 +833,7 @@ const dicts = {
     demoPrices: "Precios de ejemplo para la vista previa",
     wishlistPriceNote: "Abre un juego para consultar los precios actuales.",
     desktopRequired: "Abre la app de escritorio para usar esta función.",
+    offline: "Sin conexión",
     network: "No se pudo conectar. Comprueba tu conexión e inténtalo de nuevo.",
     rateLimit: "Demasiadas consultas. Reintenta en unos minutos.",
     authFailed: "La clave de API no fue aceptada.",

@@ -1,7 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { MutableRefObject } from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { Translate } from "./i18n";
 import type { Action } from "./useInput";
 export type MessageKey = Parameters<Translate>[0];
@@ -15,6 +15,20 @@ export const demo =
   !isTauri() &&
   new URLSearchParams(location.search).has("demo");
 export type InputRef = MutableRefObject<((a: Action) => void) | null>;
+/** Whether the device has a network right now; follows the browser's online/offline events. */
+export function useOnline() {
+  const [online, setOnline] = useState(() => navigator.onLine);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+  return online;
+}
 /** Set while a Picker list is open; the main window routes every action to it first. */
 export const pickerInput: InputRef = { current: null };
 export function useFeatureInput(ref: InputRef, handler: (a: Action) => void) {
