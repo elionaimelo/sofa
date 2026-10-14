@@ -236,7 +236,14 @@ const en = {
   hudGameSettingsSaved:
     "Saved: Sofa applies these settings when this game starts.",
   hudSession: "Session {session} · total {total}",
-  hudNoGame: "No Steam game running. Launch one from Sofa to see it here.",
+  hudNoGame: "No game running. Launch one from Sofa to see it here.",
+  closeGame: "Close game",
+  forceClose: "Force close",
+  forceCloseWarning: "Force close {title}? Unsaved progress will be lost.",
+  gameClosing: "Close requested. If the game stays open, use Force close.",
+  gameForceClosed: "Game closed.",
+  noGameRunning: "No game is running.",
+  closeGameFailed: "Couldn’t close the game. Try Force close.",
   settingUnavailable: "This setting is not available on this device.",
   allyUnavailable:
     "Power profiles need an ASUS handheld with the ASUS system driver (Armoury Crate) installed.",
@@ -599,7 +606,16 @@ const dicts = {
     hudGameSettingsSaved:
       "Salvo: o Sofa aplica estes ajustes quando este jogo abrir.",
     hudSession: "Sessão {session} · total {total}",
-    hudNoGame: "Nenhum jogo Steam aberto. Abra um pelo Sofa para vê-lo aqui.",
+    hudNoGame: "Nenhum jogo aberto. Abra um pelo Sofa para vê-lo aqui.",
+    closeGame: "Fechar jogo",
+    forceClose: "Forçar fechamento",
+    forceCloseWarning:
+      "Forçar o fechamento de {title}? O progresso não salvo será perdido.",
+    gameClosing:
+      "Fechamento solicitado. Se o jogo continuar aberto, use Forçar fechamento.",
+    gameForceClosed: "Jogo fechado.",
+    noGameRunning: "Nenhum jogo em execução.",
+    closeGameFailed: "Não foi possível fechar o jogo. Tente Forçar fechamento.",
     settingUnavailable: "Este ajuste não está disponível neste dispositivo.",
     allyUnavailable:
       "Os perfis de potência precisam de um portátil ASUS com o driver de sistema da ASUS (Armoury Crate) instalado.",
@@ -960,8 +976,16 @@ const dicts = {
     hudGameSettingsSaved:
       "Guardado: Sofa aplica estos ajustes al abrir este juego.",
     hudSession: "Sesión {session} · total {total}",
-    hudNoGame:
-      "Ningún juego de Steam abierto. Abre uno desde Sofa para verlo aquí.",
+    hudNoGame: "Ningún juego abierto. Abre uno desde Sofa para verlo aquí.",
+    closeGame: "Cerrar juego",
+    forceClose: "Forzar cierre",
+    forceCloseWarning:
+      "¿Forzar el cierre de {title}? Se perderá el progreso no guardado.",
+    gameClosing:
+      "Cierre solicitado. Si el juego sigue abierto, usa Forzar cierre.",
+    gameForceClosed: "Juego cerrado.",
+    noGameRunning: "No hay ningún juego en ejecución.",
+    closeGameFailed: "No se pudo cerrar el juego. Prueba Forzar cierre.",
     settingUnavailable: "Este ajuste no está disponible en este dispositivo.",
     allyUnavailable:
       "Los perfiles de potencia necesitan un portátil ASUS con el controlador de sistema de ASUS (Armoury Crate) instalado.",

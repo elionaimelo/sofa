@@ -1807,6 +1807,32 @@ select:focus-visible,
   gap: 2px;
   min-width: 0;
 }
+/* Close and force close sit under the running game, as on a console's quick menu. */
+.hud-quit {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.hud-quit button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.hud-quit-confirm {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #b95871;
+  border-radius: 14px;
+}
+.hud-quit-confirm p {
+  grid-column: 1 / -1;
+  margin: 0;
+  line-height: 1.4;
+}
 .hud-now small {
   color: var(--muted);
   font-variant-numeric: tabular-nums;

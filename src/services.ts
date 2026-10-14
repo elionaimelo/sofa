@@ -190,6 +190,8 @@ const serviceErrors: MessageKey[] = [
   "settingUnavailable",
   "bluetoothPairFailed",
   "restartRequired",
+  "noGameRunning",
+  "closeGameFailed",
 ];
 /** Message key for a backend error; anything else (URLs, OS text) becomes serviceUnavailable. */
 export const serviceError = (

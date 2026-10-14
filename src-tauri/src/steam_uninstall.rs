@@ -14,7 +14,7 @@ use std::{
 #[derive(Debug, PartialEq)]
 pub(crate) struct Removal {
     /// `steamapps/common/<installdir>`; absent when the folder is already gone.
-    folder: Option<PathBuf>,
+    pub(crate) folder: Option<PathBuf>,
     manifest: PathBuf,
 }
 

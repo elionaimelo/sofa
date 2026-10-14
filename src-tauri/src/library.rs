@@ -253,6 +253,14 @@ pub(crate) fn epic_manifests_dir() -> Option<PathBuf> {
     Some(dir)
 }
 
+/// Install folder an Epic manifest records for one app.
+pub(crate) fn epic_install_location(app: &str) -> Option<PathBuf> {
+    read_files(&epic_manifests_dir()?, "item")
+        .filter_map(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+        .find(|item| item["AppName"] == app)
+        .and_then(|item| item["InstallLocation"].as_str().map(PathBuf::from))
+}
+
 fn epic() -> Vec<Game> {
     let Some(dir) = epic_manifests_dir() else { return vec![] };
     read_files(&dir, "item").filter_map(|t| parse_epic_item(&t)).collect()

@@ -1,6 +1,7 @@
 import {
   ArrowsClockwiseIcon,
   ArrowsOutIcon,
+  ArrowUUpLeftIcon,
   CaretDownIcon,
   CursorIcon,
   FanIcon,
@@ -10,10 +11,12 @@ import {
   LightbulbIcon,
   LightningIcon,
   MoonIcon,
+  ProhibitIcon,
   ScalesIcon,
   SparkleIcon,
   SpeakerHighIcon,
   SunIcon,
+  XCircleIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -212,7 +215,33 @@ export function HudPanel({
     refetchInterval: 5000,
   }).data;
   const game = session?.game;
+  // What "Close game" acts on: Steam's running title, or the game Sofa launched last.
+  const running = useQuery({
+    ...commandQuery<{ id: string; title: string } | null>("running_game"),
+    refetchInterval: 5000,
+  }).data;
+  const [confirmForce, setConfirmForce] = useState(false);
+  const forceButton = useRef<HTMLButtonElement>(null);
+  const cancelForce = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (confirmForce) cancelForce.current?.focus();
+  }, [confirmForce]);
+  const leaveConfirm = () => {
+    setConfirmForce(false);
+    forceButton.current?.focus();
+  };
   const queryClient = useQueryClient();
+  const quit = useMutation({
+    mutationFn: (force: boolean) => desktop("close_game", { force }),
+    onMutate: () => setMessage(""),
+    onSuccess: (_, force) => {
+      setMessage(t(force ? "gameForceClosed" : "gameClosing"));
+      void queryClient.invalidateQueries({ queryKey: ["running_game"] });
+      void queryClient.invalidateQueries({ queryKey: ["current_session"] });
+    },
+    onError: (error) => setMessage(t(serviceError(error))),
+    onSettled: leaveConfirm,
+  });
   // Last profile picked in this HUD; what "save for this game" stores.
   const [profile, setProfile] = useState<AllyProfile | null>(null);
   const ally = useQuery({
@@ -308,7 +337,8 @@ export function HudPanel({
   const close = onClose;
   useFeatureInput(inputRef, (a) => {
     if (a === "b") {
-      if (open) {
+      if (confirmForce) leaveConfirm();
+      else if (open) {
         root.current
           ?.querySelector<HTMLElement>(".hud-tile[aria-expanded='true']")
           ?.focus();
@@ -434,6 +464,14 @@ export function HudPanel({
               )}
             </div>
           </>
+        ) : running ? (
+          <>
+            <GameControllerIcon size={28} aria-hidden />
+            <div>
+              <small>{t("hudNowPlaying")}</small>
+              <strong>{running.title}</strong>
+            </div>
+          </>
         ) : (
           <>
             <GameControllerIcon size={28} aria-hidden />
@@ -441,6 +479,43 @@ export function HudPanel({
           </>
         )}
       </section>
+      {running && (
+        <section className="hud-quit" aria-label={t("closeGame")}>
+          <button
+            aria-busy={quit.isPending}
+            onClick={() => !quit.isPending && quit.mutate(false)}
+          >
+            <XCircleIcon />
+            {t("closeGame")}
+          </button>
+          <button
+            ref={forceButton}
+            className="danger-action"
+            aria-expanded={confirmForce}
+            onClick={() => setConfirmForce(true)}
+          >
+            <ProhibitIcon />
+            {t("forceClose")}
+          </button>
+          {confirmForce && (
+            <div className="hud-quit-confirm">
+              <p>{t("forceCloseWarning", { title: running.title })}</p>
+              <button ref={cancelForce} onClick={leaveConfirm}>
+                <ArrowUUpLeftIcon />
+                {t("cancel")}
+              </button>
+              <button
+                className="danger-action"
+                aria-busy={quit.isPending}
+                onClick={() => !quit.isPending && quit.mutate(true)}
+              >
+                <ProhibitIcon />
+                {t("forceClose")}
+              </button>
+            </div>
+          )}
+        </section>
+      )}
       <AllyProfiles t={t} onMessage={setMessage} onApplied={setProfile} />
       <div className="hud-tiles">
         <Tile
