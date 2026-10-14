@@ -268,7 +268,7 @@ main::before {
   border-radius: 999px;
   background: rgb(237 22 76 / 0.22);
   color: #ffd3dd;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 650;
 }
 .offline-pill svg {
@@ -427,6 +427,7 @@ button:active:not([aria-disabled="true"]) {
 }
 .downloads {
   margin: 0 0 18px;
+  padding-inline: 5%;
 }
 .downloads h2 {
   display: flex;
@@ -886,13 +887,30 @@ dialog::backdrop {
   background: rgb(0 0 0 / 0.6);
   backdrop-filter: blur(10px);
 }
+/* Every dialog's last line: the status and the button hints the covered footer would show. */
+.dialog-footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 52px;
+  padding: 8px 20px;
+  border-top: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(11 13 18 / 0.55);
+  font-size: 15px;
+  color: #d9dde5;
+}
+.dialog-footer [role="status"] {
+  overflow-wrap: anywhere;
+  max-width: 55%;
+}
 /* Game details: fixed height, the game's art blurred behind, its cover crisp on the left. */
 .detail-layout {
   position: relative;
   isolation: isolate;
   display: grid;
   grid-template-columns: minmax(180px, 28%) minmax(0, 1fr);
-  height: min(92dvh, 680px);
+  /* Room below for the dialog's status and hints. */
+  height: min(calc(92dvh - 52px), 680px);
   overflow: hidden;
   background: #171c25;
 }
@@ -922,7 +940,7 @@ dialog::backdrop {
 .detail-meta {
   margin: 0;
   color: #d9b2c0;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 650;
   letter-spacing: 2px;
 }
@@ -1241,11 +1259,6 @@ dialog::backdrop {
   border: 1px solid rgb(255 255 255 / 0.12);
   border-radius: 12px;
 }
-.settings-status {
-  color: var(--muted);
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
 .density-compact .grid {
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 18px;
@@ -1506,7 +1519,29 @@ select:focus-visible,
 .game-row .tile {
   border-radius: 14px;
 }
+.browse-tile {
+  flex: 0 0 clamp(130px, 12.8vw, 230px);
+  height: min(32vh, 345px);
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  border-radius: 14px;
+  font-size: 16px;
+  text-align: center;
+}
+.browse-tile svg {
+  width: 36px;
+  height: 36px;
+}
+/* Selected reads white; the pink ring belongs to real focus only, so two never look focused. */
 .tile[aria-current="true"] {
+  box-shadow:
+    0 0 0 3px rgb(255 255 255 / 0.55),
+    0 12px 28px rgb(8 10 15 / 0.5);
+}
+.tile[aria-current="true"]:focus-visible,
+.gamepad-input .tile[aria-current="true"]:focus {
   box-shadow:
     0 0 0 3px var(--focus),
     0 12px 28px rgb(8 10 15 / 0.5);
@@ -1651,7 +1686,7 @@ select:focus-visible,
   background: #1e222b;
 }
 .deal-card[aria-current="true"] {
-  border-color: var(--focus);
+  border-color: rgb(255 255 255 / 0.4);
   box-shadow: 0 0 0 2px rgb(242 141 166 / 0.15);
   background: #1d2129;
 }
@@ -2192,7 +2227,7 @@ select:focus-visible,
   .library-toolbar > :not(.source-tabs):not(.tools) {
     grid-column: 1 / -1;
   }
-  .library-toolbar .tools input {
+  .library-toolbar .tools .search-field {
     display: none;
   }
   .library-toolbar .tools button,
@@ -2462,7 +2497,7 @@ select:focus-visible,
   .library-toolbar > :not(.source-tabs):not(.tools) {
     grid-column: 1 / -1;
   }
-  .library-toolbar .tools input {
+  .library-toolbar .tools .search-field {
     display: none;
   }
 }
@@ -2579,17 +2614,16 @@ select:focus-visible,
   min-width: 0;
   font-size: 14px;
 }
-.library-filters .filter-checkbox {
-  flex-direction: row;
+/* "Favorites only" as a full-size toggle the focus ring can frame, not an 18px checkbox. */
+.filter-switch {
+  display: flex;
   align-items: center;
   gap: 10px;
   min-height: 44px;
 }
-.filter-checkbox input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
-  cursor: pointer;
+.filter-switch[aria-pressed="true"] {
+  background: rgb(204 48 89 / 0.35);
+  border-color: transparent;
 }
 .filter-actions {
   display: flex;
@@ -2718,9 +2752,9 @@ dialog::backdrop {
 }
 .category-options button[aria-pressed="true"],
 .active-categories button {
-  background: rgb(204 48 89 / 0.16);
-  border-color: var(--focus);
-  color: #ffc1d0;
+  background: rgb(204 48 89 / 0.35);
+  border-color: transparent;
+  color: #fff;
 }
 .category-options small {
   font-variant-numeric: tabular-nums;
@@ -3011,8 +3045,7 @@ main:not(.floating-hud) :is(button, input, select):not(.tile, .deal-card) {
 .feature-description,
 .inline-note,
 .feature-status,
-.muted,
-.settings-status {
+.muted {
   font-size: 17px;
   line-height: 1.5;
 }
@@ -3067,7 +3100,7 @@ main:not(.floating-hud) :is(button, input, select):not(.tile, .deal-card) {
   border-radius: 6px;
   background: rgb(13 17 24 / 0.86);
   color: #f5d6df;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 1.15;
   text-align: right;
@@ -3214,7 +3247,7 @@ footer kbd {
   color: #f4b8c7;
 }
 .uninstall-note {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--muted);
   margin-top: 14px;
   line-height: 1.5;

@@ -5,6 +5,8 @@ import { AnimatePresence } from "motion/react";
 import {
   type CSSProperties,
   Fragment,
+  memo,
+  type ReactNode,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -13,14 +15,20 @@ import {
   useState,
 } from "react";
 import { Cover } from "./components/Cover";
-import { Dialog } from "./components/Dialog";
+import { Dialog, DialogFooter } from "./components/Dialog";
 import { LaunchScreen } from "./components/LaunchScreen";
 import { Loading } from "./components/Loading";
 import { Picker } from "./components/Picker";
 import { Scene } from "./components/Scene";
 import { SearchField } from "./components/SearchField";
 import { SofaIcon } from "./components/SofaIcon";
-import { initialLang, type Lang, saveLang, translator } from "./i18n";
+import {
+  initialLang,
+  type Lang,
+  saveLang,
+  type Translate,
+  translator,
+} from "./i18n";
 import {
   activeFilters,
   categoryOptions,
@@ -41,10 +49,11 @@ import "./App.css";
 import "@fontsource-variable/outfit";
 import {
   AppWindowIcon,
+  ArrowClockwiseIcon,
+  ArrowCounterClockwiseIcon,
   ArrowRightIcon,
   ArrowSquareOutIcon,
   BluetoothIcon,
-  DownloadSimpleIcon,
   GaugeIcon,
   GearSixIcon,
   HardDrivesIcon,
@@ -113,6 +122,94 @@ function Clock({ lang }: { lang: Lang }) {
     </time>
   );
 }
+/** One library tile. Memoized: moving focus re-renders two tiles, not the whole grid. */
+const Tile = memo(function Tile({
+  game: g,
+  index: i,
+  current,
+  percent,
+  favorite,
+  t,
+  onFocus,
+  onHover,
+  onOpen,
+}: {
+  game: Game;
+  index: number;
+  current: boolean;
+  percent: number | undefined;
+  favorite: boolean;
+  t: Translate;
+  onFocus: (index: number) => void;
+  onHover: (index: number) => void;
+  onOpen: (game: Game, index: number) => void;
+}) {
+  return (
+    <button
+      className="tile"
+      style={
+        {
+          "--i": i % 18,
+          "--p": percent != null ? percent / 100 : undefined,
+        } as CSSProperties
+      }
+      data-installed={g.installed}
+      data-downloading={percent != null || undefined}
+      aria-current={current}
+      aria-label={`${g.title} · ${g.source} · ${t(g.installed ? "installed" : "availableToInstall")}`}
+      onFocus={() => onFocus(i)}
+      onMouseEnter={() => onHover(i)}
+      onClick={() => onOpen(g, i)}
+    >
+      <Cover game={g} />
+      {!g.installed &&
+        (percent != null ? (
+          <>
+            <span className="install-mark installing">
+              {t("installing", { percent: String(percent) })}
+            </span>
+            <span
+              className="install-progress"
+              style={{ width: `${percent}%` }}
+            />
+          </>
+        ) : (
+          <span className="install-mark">{t("installGame")}</span>
+        ))}
+      {favorite && (
+        <span className="favorite-mark" role="img" aria-label={t("favorite")}>
+          <HeartIcon weight="fill" />
+        </span>
+      )}
+    </button>
+  );
+});
+/** Status text and button hints; the app footer and every open dialog draw it. */
+function HintBar({
+  status,
+  hints,
+  children,
+}: {
+  status: string;
+  hints: [string, string][];
+  children?: ReactNode;
+}) {
+  return (
+    <>
+      <span role="status">{status}</span>
+      {children}
+      <span className="hints">
+        {hints.map(([button, label]) => (
+          <span key={button}>
+            <kbd>{button}</kbd> {label}
+          </span>
+        ))}
+      </span>
+    </>
+  );
+}
+/** Home shows the latest games; the rest of the library is a press away. */
+const homeTiles = 12;
 export default function App() {
   const [page, setPage] = useState<(typeof PAGES)[number] | "settings">("home");
   const [tabChoice, setTab] = useState<(typeof TABS)[number]>("all");
@@ -139,6 +236,8 @@ export default function App() {
   const [settings, setSettings] = useState<SettingsPanel | null>(null);
   const [powerMenu, setPowerMenu] = useState(false);
   const [hudOpen, setHudOpen] = useState(false);
+  // The store's comparison dialog, for the hints only.
+  const [storeModal, setStoreModal] = useState(false);
   // The Ally's Command Center button brings Sofa forward with the power panel open.
   useEffect(() => {
     if (!isTauri()) return;
@@ -168,7 +267,8 @@ export default function App() {
   const tRef = useRef(t);
   tRef.current = t;
   const grid = useRef<HTMLDivElement>(null);
-  const sortSelect = useRef<HTMLButtonElement>(null);
+  // Hovering a tile focuses it; only controller and keyboard moves scroll it into view.
+  const hovered = useRef(false);
   const featureInput: InputRef = useRef(null);
   const launchBusy = useRef(false);
   const notify = useCallback<Notify>(
@@ -329,7 +429,15 @@ export default function App() {
     if (current && current.installed !== details.installed) setDetails(current);
   }, [games, details]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new tab, search, page or filter starts at the first tile.
-  useEffect(() => setFocus(0), [tab, query, page, prefs.filters, prefs.sort]);
+  useEffect(() => {
+    setFocus(0);
+    // The controller follows: focus on a tile (or lost with the old tiles) moves to the first.
+    const active = document.activeElement;
+    if (active === document.body || active?.classList.contains("tile"))
+      requestAnimationFrame(() => tileAt(0)?.focus());
+  }, [tab, query, page, prefs.filters, prefs.sort]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: leaving the library closes its filters.
+  useEffect(() => setFiltersOpen(false), [page]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new tab shows new controls; focus the first one.
   useEffect(() => {
     if (filtersOpen)
@@ -350,12 +458,31 @@ export default function App() {
   );
   // Hiding or uninstalling the focused game removes its tile (and the dialog's return
   // target); put controller focus back on the grid instead of losing it to <body>.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: closing a dialog is a moment focus can drop.
   useEffect(() => {
     if (document.activeElement !== document.body) return;
     const tile = tileAt(Math.min(focus, visible.length - 1));
     tile?.focus();
-  }, [visible.length, focus, tileAt]);
+  }, [visible.length, focus, tileAt, details, settings]);
+  const focusTile = useCallback((i: number) => setFocus(i), []);
+  const hoverTile = useCallback(
+    (i: number) =>
+      setFocus((f) => {
+        // Only a real change of tile skips the scroll; hovering the same one changes nothing.
+        if (f !== i) hovered.current = true;
+        return i;
+      }),
+    [],
+  );
+  const openTile = useCallback((g: Game, i: number) => {
+    setFocus(i);
+    setDetails(g);
+  }, []);
   useEffect(() => {
+    if (hovered.current) {
+      hovered.current = false;
+      return;
+    }
     tileAt(focus)?.scrollIntoView({
       block: "nearest",
       inline: "nearest",
@@ -372,13 +499,16 @@ export default function App() {
         : [...p.favorites, g.id],
     }));
   const toggleHidden = (g: Game) => {
+    const hiding = !prefs.hidden.includes(g.id);
     setPrefs((p) => ({
       ...p,
-      hidden: p.hidden.includes(g.id)
-        ? p.hidden.filter((id) => id !== g.id)
-        : [...p.hidden, g.id],
+      hidden: hiding
+        ? [...p.hidden, g.id]
+        : p.hidden.filter((id) => id !== g.id),
     }));
     setDetails(null);
+    // The tile disappears; say where it went.
+    setStatus(t(hiding ? "gameHidden" : "gameRestored", { title: g.title }));
   };
   const closeDetails = () => {
     if (!document.querySelector("[data-uninstall-busy]")) setDetails(null);
@@ -397,11 +527,12 @@ export default function App() {
     }
     launchBusy.current = true;
     setLaunching(true);
+    // The launch screen can't show over a dialog, and a failure goes to the footer.
+    setDetails(null);
     setLaunchScreen(g);
     try {
       await invoke("launch", { id: g.id });
       setPrefs((p) => ({ ...p, recent: { ...p.recent, [g.id]: Date.now() } }));
-      setDetails(null);
       setStatus("");
     } catch (e) {
       setLaunchScreen(null);
@@ -440,6 +571,12 @@ export default function App() {
       setStatus(t(serviceError(error)));
     }
   };
+  const closeFilters = () => {
+    setFiltersOpen(false);
+    requestAnimationFrame(() =>
+      document.querySelector<HTMLElement>(".filter-toggle")?.focus(),
+    );
+  };
   useInput((a) => {
     if (pickerInput.current) {
       pickerInput.current(a);
@@ -473,13 +610,14 @@ export default function App() {
       powerInput.current?.(a);
       return;
     }
-    const uninstallConfirm = document.querySelector("[data-uninstall-confirm]");
-    if (uninstallConfirm) {
+    // A confirmation (uninstall, sign out) takes the controller: B cancels it, one level.
+    const confirm = document.querySelector("[data-confirm]");
+    if (confirm) {
       if (a === "b")
-        uninstallConfirm
-          .querySelector<HTMLButtonElement>("[data-uninstall-cancel]")
+        confirm
+          .querySelector<HTMLButtonElement>("[data-confirm-cancel]")
           ?.click();
-      else navigateControls(a, uninstallConfirm);
+      else navigateControls(a, confirm);
       return;
     }
     if (a === "power") {
@@ -504,7 +642,7 @@ export default function App() {
       !details &&
       !["settings", "home"].includes(a)
     ) {
-      if (a === "b") setFiltersOpen(false);
+      if (a === "b") closeFilters();
       else if (a === "y") setPrefs((p) => ({ ...p, filters: defaultFilters }));
       else if (a === "lb" || a === "rb")
         setFilterTab((tab) =>
@@ -521,26 +659,6 @@ export default function App() {
       return;
     }
     if (details || settings) {
-      const actions = document.querySelector("dialog[open] .detail-actions");
-      const buttons = [
-        ...(actions?.querySelectorAll<HTMLButtonElement>(
-          "button:not(:disabled)",
-        ) ?? []),
-      ];
-      const position = buttons.indexOf(
-        document.activeElement as HTMLButtonElement,
-      );
-      if (
-        details &&
-        position >= 0 &&
-        ["up", "down", "left", "right"].includes(a)
-      ) {
-        const next = position + (["up", "left"].includes(a) ? -1 : 1);
-        if (buttons[next]) {
-          buttons[next].focus();
-          return;
-        }
-      }
       navigateSpatial(a, document.querySelector("dialog[open]"));
       if (a === "x" && details) toggleFavorite(details);
       if (a === "y" && details) toggleHidden(details);
@@ -565,8 +683,10 @@ export default function App() {
     }
     if (a === "lb" || a === "rb") {
       if (navigateSpatial(a, document.querySelector("main"))) return;
-      if (page === "home" || page === "library") {
+      if (page === "home") {
         setPage("library");
+        setTab("all");
+      } else if (page === "library") {
         setTab(
           (s) =>
             availableTabs[
@@ -586,15 +706,6 @@ export default function App() {
           : document.querySelector("#content button")
       ) as HTMLElement | null;
       if (navigateSpatial(a, document.querySelector("main"), initial)) return;
-      // Up from the library goes to the sort select if nothing above.
-      if (
-        a === "up" &&
-        (page === "home" || page === "library") &&
-        sortSelect.current
-      ) {
-        sortSelect.current.focus();
-        return;
-      }
     }
     if (page !== "home" && page !== "library" && !settings && !details) {
       featureInput.current?.(a);
@@ -622,9 +733,12 @@ export default function App() {
             ],
             ["B", t("close")],
           ]
-        : settings || powerMenu
+        : settings || powerMenu || storeModal
           ? [
               ["A", t("selectAction")],
+              ...(storeModal
+                ? ([["X", t("wishlist")]] as [string, string][])
+                : []),
               ["B", t("close")],
             ]
           : filtersOpen && page === "library"
@@ -653,626 +767,639 @@ export default function App() {
                   : ([["B", t("home")]] as [string, string][])),
               ];
   return (
-    <main className={`page-${page} density-${prefs.density}`}>
-      <a className="skip-link" href="#content">
-        {t("skipContent")}
-      </a>
-      {selected && (page === "home" || page === "library") && (
-        <div
-          key={selected.id}
-          className="backdrop"
-          style={{ backgroundImage: `url("${hero(selected)}")` }}
-        />
-      )}
-      <header className="app-header">
-        <button
-          className="brand"
-          onClick={() => setPage("home")}
-          aria-label={`Sofa · ${t("home")}`}
-        >
-          <SofaIcon />
-          <span className="brand-name">sofa</span>
-        </button>
-        <nav className="primary-nav" aria-label="Sofa">
-          {PAGES.map((p) => {
-            const Icon = pageIcons[p];
-            return (
-              <button
-                key={p}
-                className={
-                  p === "store" && wishlist.unseen ? "has-update" : undefined
-                }
-                title={t(p)}
-                aria-label={
-                  p === "store" && wishlist.unseen
-                    ? `${t(p)} · ${t("storeNews")}`
-                    : t(p)
-                }
-                aria-current={page === p ? "page" : undefined}
-                onClick={() => setPage(p)}
-              >
-                <Icon weight={page === p ? "fill" : "regular"} />
-                <span>{t(p)}</span>
-              </button>
-            );
-          })}
-        </nav>
-        <SearchField
-          className="header-search"
-          value={query}
-          name="search"
-          enterKeyHint="search"
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setPage("library");
-            setTab("all");
-          }}
-          onClear={() => setQuery("")}
-          clearLabel={t("clearSearch")}
-          placeholder={t("searchGames")}
-          aria-label={t("searchGames")}
-        />
-        <div className="system-bar">
-          {!online && (
-            <span className="offline-pill" role="status">
-              <WifiSlashIcon weight="bold" />
-              {t("offline")}
-            </span>
-          )}
-          <TopBatteries t={t} data={power.data} onOpen={openHud} />
-          <button
-            onClick={() => setPowerMenu(true)}
-            aria-label={t("powerMenu")}
-            title={t("powerMenu")}
-          >
-            <PowerIcon />
-          </button>
-          <Clock lang={lang} />
-          <button
-            className={update ? "has-update" : undefined}
-            onClick={() => setPage("settings")}
-            aria-label={
-              update
-                ? `${t("settings")} · ${t("updateAvailable", { version: update.version })}`
-                : t("settings")
-            }
-            aria-current={page === "settings" ? "page" : undefined}
-            title={t("settings")}
-          >
-            <GearSixIcon />
-          </button>
+    <DialogFooter
+      value={
+        <div className="dialog-footer">
+          <HintBar status={status} hints={hints} />
         </div>
-      </header>
-      <AnimatePresence mode="wait" initial={false}>
-        <Scene key={page}>
-          {page === "library" && (
-            <section className="library-toolbar">
-              {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>). */}
-              <div
-                className="source-tabs"
-                role="group"
-                aria-label={t("sources")}
-              >
-                <kbd aria-hidden>LB</kbd>
-                {availableTabs.map((s) => (
-                  <button
-                    key={s}
-                    aria-pressed={s === tab}
-                    onClick={() => setTab(s)}
-                  >
-                    {s === "all"
-                      ? t("allGames")
-                      : s === "favorites"
-                        ? t(s)
-                        : s === "gog"
-                          ? "GOG"
-                          : s === "steam"
-                            ? "Steam"
-                            : "Epic"}
-                  </button>
-                ))}
-                <kbd aria-hidden>RB</kbd>
-              </div>
-              <div className="tools">
-                <SearchField
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onClear={() => setQuery("")}
-                  clearLabel={t("clearSearch")}
-                  placeholder={t("searchHint")}
-                  aria-label={t("searchGames")}
-                />
+      }
+    >
+      <main className={`page-${page} density-${prefs.density}`}>
+        <a className="skip-link" href="#content">
+          {t("skipContent")}
+        </a>
+        {selected && (page === "home" || page === "library") && (
+          <div
+            key={selected.id}
+            className="backdrop"
+            style={{ backgroundImage: `url("${hero(selected)}")` }}
+          />
+        )}
+        <header className="app-header">
+          <button
+            className="brand"
+            onClick={() => setPage("home")}
+            aria-label={`Sofa · ${t("home")}`}
+          >
+            <SofaIcon />
+            <span className="brand-name">sofa</span>
+          </button>
+          <nav className="primary-nav" aria-label="Sofa">
+            {PAGES.map((p) => {
+              const Icon = pageIcons[p];
+              return (
                 <button
-                  className="filter-toggle"
-                  aria-expanded={filtersOpen}
-                  aria-controls="library-filters"
-                  onClick={() => setFiltersOpen((open) => !open)}
+                  key={p}
+                  className={
+                    p === "store" && wishlist.unseen ? "has-update" : undefined
+                  }
+                  title={t(p)}
+                  aria-label={
+                    p === "store" && wishlist.unseen
+                      ? `${t(p)} · ${t("storeNews")}`
+                      : t(p)
+                  }
+                  aria-current={page === p ? "page" : undefined}
+                  onClick={() => setPage(p)}
                 >
-                  <SlidersHorizontalIcon />
-                  {t("filters")}
-                  {activeFilters(prefs.filters) > 0 && (
-                    <span>{activeFilters(prefs.filters)}</span>
-                  )}
+                  <Icon weight={page === p ? "fill" : "regular"} />
+                  <span>{t(p)}</span>
                 </button>
-              </div>
-              {prefs.filters.categories.length > 0 && (
-                // biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>).
+              );
+            })}
+          </nav>
+          <SearchField
+            className="header-search"
+            value={query}
+            name="search"
+            enterKeyHint="search"
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage("library");
+              setTab("all");
+            }}
+            onClear={() => setQuery("")}
+            clearLabel={t("clearSearch")}
+            placeholder={t("searchGames")}
+            aria-label={t("searchGames")}
+          />
+          <div className="system-bar">
+            {!online && (
+              <span className="offline-pill" role="status">
+                <WifiSlashIcon weight="bold" />
+                {t("offline")}
+              </span>
+            )}
+            <TopBatteries t={t} data={power.data} onOpen={openHud} />
+            <button
+              onClick={() => setPowerMenu(true)}
+              aria-label={t("powerMenu")}
+              title={t("powerMenu")}
+            >
+              <PowerIcon />
+            </button>
+            <Clock lang={lang} />
+            <button
+              className={update ? "has-update" : undefined}
+              onClick={() => setPage("settings")}
+              aria-label={
+                update
+                  ? `${t("settings")} · ${t("updateAvailable", { version: update.version })}`
+                  : t("settings")
+              }
+              aria-current={page === "settings" ? "page" : undefined}
+              title={t("settings")}
+            >
+              <GearSixIcon />
+            </button>
+          </div>
+        </header>
+        <AnimatePresence mode="wait" initial={false}>
+          <Scene key={page}>
+            {page === "library" && (
+              <section className="library-toolbar">
+                {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>). */}
                 <div
-                  className="active-categories"
+                  className="source-tabs"
                   role="group"
-                  aria-label={t("activeCategories")}
+                  aria-label={t("sources")}
                 >
-                  {categoryChoices
-                    .filter((c) => prefs.filters.categories.includes(c.key))
-                    .map((c) => (
-                      <button
-                        key={c.key}
-                        onClick={() => toggleCategory(c.key)}
-                        aria-label={t("removeCategory", {
-                          category: categoryLabel(c.label, lang),
-                        })}
-                      >
-                        {categoryLabel(c.label, lang)}
-                        <XIcon />
-                      </button>
-                    ))}
-                </div>
-              )}
-              {filtersOpen && (
-                <FiltersDrawer
-                  t={t}
-                  lang={lang}
-                  prefs={prefs}
-                  setPrefs={setPrefs}
-                  tab={filterTab}
-                  setTab={setFilterTab}
-                  choices={categoryChoices}
-                  categories={categories}
-                  onToggleCategory={toggleCategory}
-                  onClose={() => setFiltersOpen(false)}
-                />
-              )}
-            </section>
-          )}
-          {demo && <span className="preview-label">{t("preview")}</span>}
-          {(page === "home" || page === "library") &&
-            (loading ? (
-              page === "library" ? (
-                // The grid is already on screen: tiles take shape where they will land.
-                <div
-                  className="grid skeleton-grid"
-                  role="status"
-                  aria-label={t("scanning")}
-                >
-                  {Array.from({ length: 12 }, (_, i) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: fixed, identical loading placeholders.
-                    <div className="skeleton" key={i} />
+                  <kbd aria-hidden>LB</kbd>
+                  {availableTabs.map((s) => (
+                    <button
+                      key={s}
+                      aria-pressed={s === tab}
+                      onClick={() => setTab(s)}
+                    >
+                      {s === "all"
+                        ? t("allGames")
+                        : s === "favorites"
+                          ? t(s)
+                          : s === "gog"
+                            ? "GOG"
+                            : s === "steam"
+                              ? "Steam"
+                              : "Epic"}
+                    </button>
                   ))}
+                  <kbd aria-hidden>RB</kbd>
+                </div>
+                <div className="tools">
+                  <SearchField
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onClear={() => setQuery("")}
+                    clearLabel={t("clearSearch")}
+                    placeholder={t("searchHint")}
+                    aria-label={t("searchGames")}
+                  />
+                  <button
+                    className="filter-toggle"
+                    aria-expanded={filtersOpen}
+                    aria-controls="library-filters"
+                    onClick={() => setFiltersOpen((open) => !open)}
+                  >
+                    <SlidersHorizontalIcon />
+                    {t("filters")}
+                    {activeFilters(prefs.filters) > 0 && (
+                      <span>{activeFilters(prefs.filters)}</span>
+                    )}
+                  </button>
+                </div>
+                {prefs.filters.categories.length > 0 && (
+                  // biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>).
+                  <div
+                    className="active-categories"
+                    role="group"
+                    aria-label={t("activeCategories")}
+                  >
+                    {categoryChoices
+                      .filter((c) => prefs.filters.categories.includes(c.key))
+                      .map((c) => (
+                        <button
+                          key={c.key}
+                          onClick={() => {
+                            toggleCategory(c.key);
+                            requestAnimationFrame(() =>
+                              (
+                                document.querySelector<HTMLElement>(
+                                  ".active-categories button",
+                                ) ??
+                                document.querySelector<HTMLElement>(
+                                  ".filter-toggle",
+                                )
+                              )?.focus(),
+                            );
+                          }}
+                          aria-label={t("removeCategory", {
+                            category: categoryLabel(c.label, lang),
+                          })}
+                        >
+                          {categoryLabel(c.label, lang)}
+                          <XIcon />
+                        </button>
+                      ))}
+                  </div>
+                )}
+                {filtersOpen && (
+                  <FiltersDrawer
+                    t={t}
+                    lang={lang}
+                    prefs={prefs}
+                    setPrefs={setPrefs}
+                    tab={filterTab}
+                    setTab={setFilterTab}
+                    choices={categoryChoices}
+                    categories={categories}
+                    onToggleCategory={toggleCategory}
+                    onClose={closeFilters}
+                  />
+                )}
+              </section>
+            )}
+            {demo && <span className="preview-label">{t("preview")}</span>}
+            {(page === "home" || page === "library") &&
+              (loading ? (
+                page === "library" ? (
+                  // The grid is already on screen: tiles take shape where they will land.
+                  <div
+                    className="grid skeleton-grid"
+                    role="status"
+                    aria-label={t("scanning")}
+                  >
+                    {Array.from({ length: 12 }, (_, i) => (
+                      // biome-ignore lint/suspicious/noArrayIndexKey: fixed, identical loading placeholders.
+                      <div className="skeleton" key={i} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="empty">
+                    <Loading label={t("scanning")} />
+                  </div>
+                )
+              ) : scanError && games.length === 0 ? (
+                <div className="empty" role="alert">
+                  <p>{t("scanFailed", { error: t(scanError) })}</p>
+                  <button
+                    data-initial-focus
+                    onClick={() => void library.refresh()}
+                  >
+                    <ArrowClockwiseIcon />
+                    {t("retry")}
+                  </button>
+                </div>
+              ) : visible.length === 0 ? (
+                <div className="empty">
+                  <h1>
+                    {page === "home"
+                      ? t("library")
+                      : tab === "favorites"
+                        ? t(tab)
+                        : t("allGames")}
+                  </h1>
+                  <p>
+                    {query
+                      ? t("noMatches")
+                      : tab === "favorites" && page !== "home"
+                        ? t("emptyFavorites")
+                        : activeFilters(prefs.filters) > 0
+                          ? t("filterNoMatches")
+                          : page === "home" &&
+                              games.some((game) => !game.installed)
+                            ? t("homeNoInstalled")
+                            : t("noGames")}
+                  </p>
+                  {/* Every empty state offers the way out, so A has something to press. */}
+                  {query ? (
+                    <button data-initial-focus onClick={() => setQuery("")}>
+                      <XIcon />
+                      {t("clearSearch")}
+                    </button>
+                  ) : page === "library" && activeFilters(prefs.filters) > 0 ? (
+                    <button
+                      data-initial-focus
+                      onClick={() =>
+                        setPrefs((p) => ({ ...p, filters: defaultFilters }))
+                      }
+                    >
+                      <ArrowCounterClockwiseIcon />
+                      {t("clearFilters")}
+                    </button>
+                  ) : page === "home" &&
+                    games.some((game) => !game.installed) ? (
+                    <button
+                      data-initial-focus
+                      onClick={() => setPage("library")}
+                    >
+                      <SquaresFourIcon />
+                      {t("browseLibrary")}
+                    </button>
+                  ) : (
+                    !games.length && (
+                      <button
+                        data-initial-focus
+                        onClick={() => setSettings("library")}
+                      >
+                        <GearSixIcon />
+                        {t("librarySettings")}
+                      </button>
+                    )
+                  )}
                 </div>
               ) : (
-                <div className="empty">
-                  <Loading label={t("scanning")} />
-                </div>
-              )
-            ) : scanError && games.length === 0 ? (
-              <div className="empty" role="alert">
-                <p>{t("scanFailed", { error: t(scanError) })}</p>
-                <button onClick={() => void library.refresh()}>
-                  {t("retry")}
-                </button>
-              </div>
-            ) : visible.length === 0 ? (
-              <div className="empty">
-                <h1>
-                  {page === "home"
-                    ? t("library")
-                    : tab === "favorites"
-                      ? t(tab)
-                      : t("allGames")}
-                </h1>
-                <p>
-                  {query
-                    ? t("noMatches")
-                    : tab === "favorites" && page !== "home"
-                      ? t("emptyFavorites")
-                      : activeFilters(prefs.filters) > 0
-                        ? t("filterNoMatches")
-                        : page === "home" &&
-                            games.some((game) => !game.installed)
-                          ? t("homeNoInstalled")
-                          : t("noGames")}
-                </p>
-                {page === "library" && activeFilters(prefs.filters) > 0 && (
-                  <button
-                    onClick={() =>
-                      setPrefs((p) => ({ ...p, filters: defaultFilters }))
-                    }
-                  >
-                    {t("clearFilters")}
-                  </button>
-                )}
-              </div>
-            ) : (
-              <>
-                {page === "home" && selected && (
-                  <section className="hero-copy" key={selected.id}>
-                    <span className="game-meta">
-                      {selected.source.toUpperCase()} ·{" "}
-                      {t(
-                        selected.installed ? "installed" : "availableToInstall",
-                      )}
-                    </span>
-                    <h1>{selected.title}</h1>
-                    <p>
-                      {gameMeta(selected, t, lang, prefs.recent[selected.id])}
-                    </p>
-                    <div className="hero-actions">
-                      <button
-                        className="accent primary-action"
-                        aria-disabled={launching}
-                        aria-busy={launching}
-                        onClick={() =>
-                          void (selected.installed
-                            ? play(selected)
-                            : installGame(selected))
-                        }
-                      >
-                        {selected.installed ? (
+                <>
+                  {page === "home" && selected && (
+                    <section className="hero-copy" key={selected.id}>
+                      <span className="game-meta">
+                        {selected.source.toUpperCase()} · {t("installed")}
+                      </span>
+                      <h1>{selected.title}</h1>
+                      <p>
+                        {gameMeta(selected, t, lang, prefs.recent[selected.id])}
+                      </p>
+                      <div className="hero-actions">
+                        {/* Home lists installed games only. */}
+                        <button
+                          className="accent primary-action"
+                          aria-disabled={launching}
+                          aria-busy={launching}
+                          onClick={() => void play(selected)}
+                        >
                           <PlayIcon weight="fill" />
-                        ) : (
-                          <DownloadSimpleIcon weight="bold" />
-                        )}
-                        {t(selected.installed ? "play" : "installGame")}
-                      </button>
-                      <button onClick={() => setDetails(selected)}>
-                        <InfoIcon />
-                        {t("details")}
-                      </button>
-                      <button
-                        aria-pressed={prefs.favorites.includes(selected.id)}
-                        onClick={() => toggleFavorite(selected)}
-                      >
-                        <HeartIcon
-                          weight={
-                            prefs.favorites.includes(selected.id)
-                              ? "fill"
-                              : "regular"
-                          }
-                        />{" "}
-                        {t("favorites")}
-                      </button>
+                          {t("play")}
+                        </button>
+                        <button onClick={() => setDetails(selected)}>
+                          <InfoIcon />
+                          {t("details")}
+                        </button>
+                        <button
+                          aria-pressed={prefs.favorites.includes(selected.id)}
+                          onClick={() => toggleFavorite(selected)}
+                        >
+                          <HeartIcon
+                            weight={
+                              prefs.favorites.includes(selected.id)
+                                ? "fill"
+                                : "regular"
+                            }
+                          />{" "}
+                          {t("favorites")}
+                        </button>
+                      </div>
+                    </section>
+                  )}
+                  <Downloads t={t} downloads={library.downloads} />
+                  <section className="collection" id="content" tabIndex={-1}>
+                    <div className="collection-heading">
+                      <CollectionHeading>
+                        {page === "home"
+                          ? t(
+                              visible.some((g) => prefs.recent[g.id])
+                                ? "recentGames"
+                                : "library",
+                            )
+                          : t("filteredCount", {
+                              installed: String(
+                                visible.filter((game) => game.installed).length,
+                              ),
+                              total: String(visible.length),
+                            })}
+                      </CollectionHeading>
+                      {page === "library" && (
+                        <div className="collection-actions">
+                          {/* Sorting sits right above the list it orders; UP from the list brings focus here. */}
+                          <Picker
+                            label={t("sort")}
+                            value={prefs.sort}
+                            options={[
+                              { value: "recent", label: t("recent") },
+                              {
+                                value: "mostPlayed",
+                                label: t("sortMostPlayed"),
+                              },
+                              { value: "installed", label: t("sortInstalled") },
+                              { value: "title", label: t("titleAsc") },
+                              { value: "size", label: t("sortSize") },
+                            ]}
+                            onChange={(sort) =>
+                              setPrefs((p) => ({ ...p, sort }))
+                            }
+                          />
+                        </div>
+                      )}
+                      {page === "home" && (
+                        <button onClick={() => setPage("library")}>
+                          {t("browseLibrary")} <ArrowRightIcon />
+                        </button>
+                      )}
+                    </div>
+                    {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>). */}
+                    <div
+                      className={page === "home" ? "game-row" : "grid"}
+                      ref={grid}
+                      role="group"
+                      aria-label={t("library")}
+                    >
+                      {(page === "home"
+                        ? visible.slice(0, homeTiles)
+                        : visible
+                      ).map((g, i) => (
+                        <Fragment key={g.id}>
+                          {page === "library" &&
+                            prefs.sort === "title" &&
+                            (i === 0 ||
+                              titleGroup(visible[i - 1].title) !==
+                                titleGroup(g.title)) && (
+                              <h3 className="grid-letter">
+                                {titleGroup(g.title)}
+                              </h3>
+                            )}
+                          <Tile
+                            game={g}
+                            index={i}
+                            current={i === focus}
+                            percent={downloading[g.id]}
+                            favorite={prefs.favorites.includes(g.id)}
+                            t={t}
+                            onFocus={focusTile}
+                            onHover={hoverTile}
+                            onOpen={openTile}
+                          />
+                        </Fragment>
+                      ))}
+                      {page === "home" && visible.length > homeTiles && (
+                        <button
+                          className="browse-tile"
+                          onClick={() => setPage("library")}
+                        >
+                          <SquaresFourIcon aria-hidden />
+                          {t("browseLibrary")}
+                        </button>
+                      )}
                     </div>
                   </section>
-                )}
-                <Downloads t={t} downloads={library.downloads} />
-                <section className="collection" id="content" tabIndex={-1}>
-                  <div className="collection-heading">
-                    <CollectionHeading>
-                      {page === "home"
-                        ? t(
-                            visible.some((g) => prefs.recent[g.id])
-                              ? "recentGames"
-                              : "library",
-                          )
-                        : t("filteredCount", {
-                            installed: String(
-                              visible.filter((game) => game.installed).length,
-                            ),
-                            total: String(visible.length),
-                          })}
-                    </CollectionHeading>
-                    {page === "library" && (
-                      <div className="collection-actions">
-                        {/* Sorting sits right above the list it orders; UP from the list brings focus here. */}
-                        <Picker
-                          ref={sortSelect}
-                          label={t("sort")}
-                          value={prefs.sort}
-                          options={[
-                            { value: "recent", label: t("recent") },
-                            { value: "mostPlayed", label: t("sortMostPlayed") },
-                            { value: "installed", label: t("sortInstalled") },
-                            { value: "title", label: t("titleAsc") },
-                            { value: "size", label: t("sortSize") },
-                          ]}
-                          onChange={(sort) => setPrefs((p) => ({ ...p, sort }))}
-                        />
-                      </div>
-                    )}
-                    {page === "home" && (
-                      <button onClick={() => setPage("library")}>
-                        {t("browseLibrary")} <ArrowRightIcon />
-                      </button>
-                    )}
-                  </div>
-                  {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>). */}
-                  <div
-                    className={page === "home" ? "game-row" : "grid"}
-                    ref={grid}
-                    role="group"
-                    aria-label={t("library")}
+                </>
+              ))}
+            {page === "store" && (
+              <Store
+                t={t}
+                lang={lang}
+                region={region}
+                owned={ownedSteam}
+                taste={taste}
+                saved={wishlist}
+                steamConnected={library.accounts.steam.connected}
+                onModal={setStoreModal}
+                input={featureInput}
+                onBack={() => setPage("home")}
+              />
+            )}
+            {page === "settings" && (
+              <section className="settings-hub" id="content" tabIndex={-1}>
+                <div className="settings-hub-heading">
+                  <p className="eyebrow">
+                    <SofaIcon size={36} />
+                    {updates.version ? `Sofa ${updates.version}` : "Sofa"}
+                  </p>
+                  <h1>{t("settings")}</h1>
+                  <p>{t("settingsHubIntro")}</p>
+                </div>
+                <div className="settings-hub-grid">
+                  <button
+                    onClick={() => {
+                      setSettings("library");
+                    }}
                   >
-                    {visible.map((g, i) => (
-                      <Fragment key={g.id}>
-                        {page === "library" &&
-                          prefs.sort === "title" &&
-                          (i === 0 ||
-                            titleGroup(visible[i - 1].title) !==
-                              titleGroup(g.title)) && (
-                            <h3 className="grid-letter">
-                              {titleGroup(g.title)}
-                            </h3>
-                          )}
-                        <button
-                          className="tile"
-                          style={
-                            {
-                              "--i": i % 18,
-                              "--p":
-                                downloading[g.id] != null
-                                  ? (downloading[g.id] ?? 0) / 100
-                                  : undefined,
-                            } as CSSProperties
-                          }
-                          data-installed={g.installed}
-                          data-downloading={
-                            downloading[g.id] != null || undefined
-                          }
-                          aria-current={i === focus}
-                          aria-label={`${g.title} · ${g.source} · ${t(g.installed ? "installed" : "availableToInstall")}`}
-                          onFocus={() => setFocus(i)}
-                          onMouseEnter={() => setFocus(i)}
-                          onClick={() => {
-                            setFocus(i);
-                            setDetails(g);
-                          }}
-                        >
-                          <Cover game={g} />
-                          {!g.installed &&
-                            (downloading[g.id] != null ? (
-                              <>
-                                <span className="install-mark installing">
-                                  {t("installing", {
-                                    percent: String(downloading[g.id] ?? 0),
-                                  })}
-                                </span>
-                                <span
-                                  className="install-progress"
-                                  style={{
-                                    width: `${downloading[g.id] ?? 0}%`,
-                                  }}
-                                />
-                              </>
-                            ) : (
-                              <span className="install-mark">
-                                {t("installGame")}
-                              </span>
-                            ))}
-                          {prefs.favorites.includes(g.id) && (
-                            <span
-                              className="favorite-mark"
-                              role="img"
-                              aria-label={t("favorite")}
-                            >
-                              <HeartIcon weight="fill" />
-                            </span>
-                          )}
-                        </button>
-                      </Fragment>
-                    ))}
-                  </div>
-                </section>
-              </>
-            ))}
-          {page === "store" && (
-            <Store
-              t={t}
-              lang={lang}
-              region={region}
-              owned={ownedSteam}
-              taste={taste}
-              saved={wishlist}
-              steamConnected={library.accounts.steam.connected}
-              input={featureInput}
-              onBack={() => setPage("home")}
-            />
-          )}
-          {page === "settings" && (
-            <section className="settings-hub" id="content" tabIndex={-1}>
-              <div className="settings-hub-heading">
-                <p className="eyebrow">
-                  <SofaIcon size={36} />
-                  {updates.version ? `Sofa ${updates.version}` : "Sofa"}
-                </p>
-                <h1>{t("settings")}</h1>
-                <p>{t("settingsHubIntro")}</p>
-              </div>
-              <div className="settings-hub-grid">
-                <button
-                  onClick={() => {
-                    setSettings("library");
-                  }}
-                >
-                  <SquaresFourIcon aria-hidden />
-                  <strong>{t("librarySettings")}</strong>
-                  <span>{t("settingsLibraryDescription")}</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setSettings("apps");
-                  }}
-                >
-                  <AppWindowIcon aria-hidden />
-                  <strong>{t("apps")}</strong>
-                  <span>{t("settingsAppsDescription")}</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setSettings("appearance");
-                  }}
-                >
-                  <GearSixIcon aria-hidden />
-                  <strong>{t("appearance")}</strong>
-                  <span>{t("settingsAppearanceDescription")}</span>
-                </button>
-                <button onClick={openHud}>
-                  <GaugeIcon aria-hidden />
-                  <strong>{t("hud")}</strong>
-                  <span>{t("settingsPerformanceDescription")}</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setSettings("controllers");
-                  }}
-                >
-                  <BluetoothIcon aria-hidden />
-                  <strong>{t("controllers")}</strong>
-                  <span>{t("settingsControllersDescription")}</span>
-                </button>
-                <button
-                  onClick={() =>
-                    void desktop("open_storage_settings").catch((error) =>
-                      notify(serviceError(error)),
-                    )
-                  }
-                >
-                  <HardDrivesIcon aria-hidden />
-                  <ArrowSquareOutIcon className="external" aria-hidden />
-                  <strong>{t("storage")}</strong>
-                  <span>
-                    {storage.data?.length
-                      ? storage.data.map((disk) => (
-                          <Fragment key={disk.name}>
-                            {t("storageFree", {
-                              name: disk.name,
-                              free: gb(disk.available),
-                              total: gb(disk.total),
-                            })}
-                            <br />
-                          </Fragment>
-                        ))
-                      : t("settingsStorageDescription")}
-                  </span>
-                </button>
-                <button
-                  className={update ? "has-update" : undefined}
-                  onClick={() => {
-                    setSettings("updates");
-                  }}
-                >
-                  <ArrowRightIcon aria-hidden />
-                  <strong>{t("updates")}</strong>
-                  <span>
-                    {update
-                      ? t("updateAvailable", { version: update.version })
-                      : t("settingsUpdatesDescription")}
-                  </span>
-                </button>
-              </div>
-            </section>
-          )}
-        </Scene>
-      </AnimatePresence>
-      <footer>
-        <span role="status">
-          {status || (!isTauri() && !demo ? t("browserPreview") : "")}
-        </span>
-        {update && (
-          <button
-            className="update"
-            aria-disabled={updates.installing}
-            aria-busy={updates.installing}
-            onClick={install}
+                    <SquaresFourIcon aria-hidden />
+                    <strong>{t("librarySettings")}</strong>
+                    <span>{t("settingsLibraryDescription")}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSettings("apps");
+                    }}
+                  >
+                    <AppWindowIcon aria-hidden />
+                    <strong>{t("apps")}</strong>
+                    <span>{t("settingsAppsDescription")}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSettings("appearance");
+                    }}
+                  >
+                    <GearSixIcon aria-hidden />
+                    <strong>{t("appearance")}</strong>
+                    <span>{t("settingsAppearanceDescription")}</span>
+                  </button>
+                  <button onClick={openHud}>
+                    <GaugeIcon aria-hidden />
+                    <strong>{t("hud")}</strong>
+                    <span>{t("settingsPerformanceDescription")}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSettings("controllers");
+                    }}
+                  >
+                    <BluetoothIcon aria-hidden />
+                    <strong>{t("controllers")}</strong>
+                    <span>{t("settingsControllersDescription")}</span>
+                  </button>
+                  <button
+                    onClick={() =>
+                      void desktop("open_storage_settings").catch((error) =>
+                        notify(serviceError(error)),
+                      )
+                    }
+                  >
+                    <HardDrivesIcon aria-hidden />
+                    <ArrowSquareOutIcon className="external" aria-hidden />
+                    <strong>{t("storage")}</strong>
+                    <span>
+                      {storage.data?.length
+                        ? storage.data.map((disk) => (
+                            <Fragment key={disk.name}>
+                              {t("storageFree", {
+                                name: disk.name,
+                                free: gb(disk.available),
+                                total: gb(disk.total),
+                              })}
+                              <br />
+                            </Fragment>
+                          ))
+                        : t("settingsStorageDescription")}
+                    </span>
+                  </button>
+                  <button
+                    className={update ? "has-update" : undefined}
+                    onClick={() => {
+                      setSettings("updates");
+                    }}
+                  >
+                    <ArrowRightIcon aria-hidden />
+                    <strong>{t("updates")}</strong>
+                    <span>
+                      {update
+                        ? t("updateAvailable", { version: update.version })
+                        : t("settingsUpdatesDescription")}
+                    </span>
+                  </button>
+                </div>
+              </section>
+            )}
+          </Scene>
+        </AnimatePresence>
+        <footer>
+          <HintBar
+            status={status || (!isTauri() && !demo ? t("browserPreview") : "")}
+            hints={hints}
           >
-            <kbd>Y</kbd>
-            {t("updateAvailable", { version: update.version })}
-          </button>
+            {update && (
+              <button
+                className="update"
+                aria-disabled={updates.installing}
+                aria-busy={updates.installing}
+                onClick={install}
+              >
+                {/* Y installs it only where nothing else claims Y. */}
+                {(page === "home" || page === "library") &&
+                  !details &&
+                  !filtersOpen && <kbd>Y</kbd>}
+                {t("updateAvailable", { version: update.version })}
+              </button>
+            )}
+          </HintBar>
+        </footer>
+        {launchScreen && <LaunchScreen game={launchScreen} t={t} />}
+        {hudOpen && (
+          <Dialog label={t("energy")} onClose={() => setHudOpen(false)}>
+            <HudPanel
+              t={t}
+              inputRef={hudInput}
+              embedded
+              onClose={() => setHudOpen(false)}
+            />
+          </Dialog>
         )}
-        <span className="hints">
-          {hints.map(([button, label]) => (
-            <span key={button}>
-              <kbd>{button}</kbd> {label}
-            </span>
-          ))}
-        </span>
-      </footer>
-      {launchScreen && <LaunchScreen game={launchScreen} t={t} />}
-      {hudOpen && (
-        <Dialog label={t("energy")} onClose={() => setHudOpen(false)}>
-          <HudPanel
+        {powerMenu && (
+          <PowerMenu
             t={t}
-            inputRef={hudInput}
-            embedded
-            onClose={() => setHudOpen(false)}
+            data={power.data}
+            input={powerInput}
+            onClose={() => setPowerMenu(false)}
           />
-        </Dialog>
-      )}
-      {powerMenu && (
-        <PowerMenu
-          t={t}
-          data={power.data}
-          input={powerInput}
-          onClose={() => setPowerMenu(false)}
-        />
-      )}
-      {details && (
-        <GameDetails
-          game={details}
-          t={t}
-          lang={lang}
-          prefs={prefs}
-          setPrefs={setPrefs}
-          catalog={categories.catalog}
-          sizeEstimate={sizeEstimate.data}
-          launching={launching}
-          onPlay={(game) => void play(game)}
-          onInstall={(game) => void installGame(game)}
-          onToggleFavorite={toggleFavorite}
-          onToggleHidden={toggleHidden}
-          onUninstalled={() => {
-            void library.refresh();
-            setDetails(null);
-            setStatus(t("uninstallComplete"));
-          }}
-          onClose={closeDetails}
-        />
-      )}
-      {onboarding && (
-        <Onboarding t={t} library={library} onDone={finishOnboarding} />
-      )}
-      {settings && (
-        <SettingsDialog
-          panel={settings}
-          t={t}
-          status={status}
-          onClose={() => setSettings(null)}
-        >
-          {settings === "library" && (
-            <LibrarySettings
-              t={t}
-              library={library}
-              prefs={prefs}
-              onRestore={toggleHidden}
-            />
-          )}
-          {settings === "appearance" && (
-            <AppearanceSettings
-              t={t}
-              lang={lang}
-              setLang={setLang}
-              region={region}
-              prefs={prefs}
-              setPrefs={setPrefs}
-              notify={notify}
-            />
-          )}
-          {settings === "apps" && <AppsSettings t={t} notify={notify} />}
-          {settings === "controllers" && (
-            <ControllerSettings t={t} notify={notify} />
-          )}
-          {settings === "updates" && <UpdateSettings t={t} updates={updates} />}
-        </SettingsDialog>
-      )}
-    </main>
+        )}
+        {details && (
+          <GameDetails
+            game={details}
+            t={t}
+            lang={lang}
+            prefs={prefs}
+            setPrefs={setPrefs}
+            catalog={categories.catalog}
+            sizeEstimate={sizeEstimate.data}
+            launching={launching}
+            onPlay={(game) => void play(game)}
+            onInstall={(game) => void installGame(game)}
+            onToggleFavorite={toggleFavorite}
+            onToggleHidden={toggleHidden}
+            onUninstalled={() => {
+              void library.refresh();
+              setDetails(null);
+              setStatus(t("uninstallComplete"));
+            }}
+            onClose={closeDetails}
+          />
+        )}
+        {onboarding && (
+          <Onboarding t={t} library={library} onDone={finishOnboarding} />
+        )}
+        {settings && (
+          <SettingsDialog
+            panel={settings}
+            t={t}
+            onClose={() => setSettings(null)}
+          >
+            {settings === "library" && (
+              <LibrarySettings
+                t={t}
+                library={library}
+                prefs={prefs}
+                onRestore={toggleHidden}
+              />
+            )}
+            {settings === "appearance" && (
+              <AppearanceSettings
+                t={t}
+                lang={lang}
+                setLang={setLang}
+                region={region}
+                prefs={prefs}
+                setPrefs={setPrefs}
+                notify={notify}
+              />
+            )}
+            {settings === "apps" && <AppsSettings t={t} notify={notify} />}
+            {settings === "controllers" && (
+              <ControllerSettings t={t} notify={notify} />
+            )}
+            {settings === "updates" && (
+              <UpdateSettings t={t} updates={updates} />
+            )}
+          </SettingsDialog>
+        )}
+      </main>
+    </DialogFooter>
   );
 }

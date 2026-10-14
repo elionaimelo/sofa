@@ -1,4 +1,4 @@
-import { TrashIcon } from "@phosphor-icons/react";
+import { ArrowUUpLeftIcon, TrashIcon } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import type { Translate } from "../i18n";
 import type { Game } from "../library";
@@ -16,6 +16,7 @@ export function Uninstall({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<MessageKey | "">("");
   const cancel = useRef<HTMLButtonElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const request = useRef(false);
   useEffect(() => {
     if (confirm) cancel.current?.focus();
@@ -58,7 +59,7 @@ export function Uninstall({
         {t(game.source === "epic" ? "uninstallEpicNote" : "uninstallSteamNote")}
       </p>
       {confirm ? (
-        <div className="uninstall-confirm" data-uninstall-confirm>
+        <div className="uninstall-confirm" data-confirm>
           <h2>{t("uninstallTitle", { title: game.title })}</h2>
           <p>
             {t(
@@ -70,10 +71,16 @@ export function Uninstall({
           <div className="detail-actions">
             <button
               ref={cancel}
-              data-uninstall-cancel
+              data-confirm-cancel
               aria-disabled={busy}
-              onClick={() => !busy && setConfirm(false)}
+              onClick={() => {
+                if (busy) return;
+                setConfirm(false);
+                // Back to the button that asked, not the dialog's close X.
+                requestAnimationFrame(() => trigger.current?.focus());
+              }}
             >
+              <ArrowUUpLeftIcon />
               {t("cancel")}
             </button>
             <button
@@ -90,6 +97,7 @@ export function Uninstall({
         </div>
       ) : (
         <button
+          ref={trigger}
           className="uninstall-trigger"
           disabled={demo}
           onClick={() => setConfirm(true)}

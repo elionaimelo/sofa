@@ -100,8 +100,18 @@ export function useCategories(games: Game[], lang: Lang) {
           !cached[id]?.labels.length ||
           Date.now() / 1000 - cached[id].updated >= 30 * 86400,
       );
-      for (const id of pending) {
+      // Results land in batches: one catalog update per game would re-render the library
+      // every second for as long as the first fetch takes.
+      let batch: Record<string, string[]> = {};
+      const flush = () => {
+        const found = batch;
+        batch = {};
+        if (alive && Object.keys(found).length)
+          setCatalog((previous) => ({ ...previous, ...found }));
+      };
+      for (const [index, id] of pending.entries()) {
         if (!alive) break;
+        if (index % 10 === 0) flush();
         try {
           const result = cleanCategories(
             await invoke<string[]>("game_categories", {
@@ -110,7 +120,7 @@ export function useCategories(games: Game[], lang: Lang) {
               title: titles[id],
             }),
           );
-          if (alive) setCatalog((previous) => ({ ...previous, [id]: result }));
+          batch[id] = result;
         } catch (e) {
           if (alive) setUnavailable(true);
           // Stop requests when offline or throttled; cached labels and manual categories stay usable.
@@ -123,6 +133,7 @@ export function useCategories(games: Game[], lang: Lang) {
             timer = setTimeout(resolve, 1000);
           });
       }
+      flush();
       if (alive) {
         setLoading(false);
         setReady(true);

@@ -363,7 +363,9 @@ const en = {
     "No games found. Connect Steam in Settings or install a game from Steam, Epic or GOG.",
   homeNoInstalled:
     "No games installed yet. Browse your library to install one.",
-  launching: "Launching {title}…",
+  launchingGame: "Starting the game…",
+  gameHidden: "{title} hidden. Restore it in Settings → Library.",
+  gameRestored: "{title} is back in your library.",
   launchFailed: "Couldn’t launch {title}: {error}",
   play: "Play",
   source: "Source",
@@ -756,7 +758,9 @@ const dicts = {
       "Nenhum jogo encontrado. Conecte a Steam nas Configurações ou instale um jogo da Steam, Epic ou GOG.",
     homeNoInstalled:
       "Nenhum jogo instalado ainda. Abra a biblioteca para instalar um.",
-    launching: "Abrindo {title}…",
+    launchingGame: "Abrindo o jogo…",
+    gameHidden: "{title} foi ocultado. Restaure em Configurações → Biblioteca.",
+    gameRestored: "{title} voltou para a sua biblioteca.",
     launchFailed: "Não foi possível abrir {title}: {error}",
     play: "Jogar",
     source: "Origem",
@@ -1141,7 +1145,9 @@ const dicts = {
       "No se encontraron juegos. Conecta Steam en Configuración o instala un juego de Steam, Epic o GOG.",
     homeNoInstalled:
       "Aún no hay juegos instalados. Abre la biblioteca para instalar uno.",
-    launching: "Iniciando {title}…",
+    launchingGame: "Iniciando el juego…",
+    gameHidden: "{title} se ocultó. Restáuralo en Ajustes → Biblioteca.",
+    gameRestored: "{title} volvió a tu biblioteca.",
     launchFailed: "No se pudo iniciar {title}: {error}",
     play: "Jugar",
     source: "Origen",

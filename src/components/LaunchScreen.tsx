@@ -21,7 +21,7 @@ export function LaunchScreen({ game, t }: { game: Game; t: Translate }) {
           <SofaIcon size={96} />
         </span>
         <h2>{game.title}</h2>
-        <p>{t("launching", { title: game.title })}</p>
+        <p>{t("launchingGame")}</p>
       </div>
     </div>
   );

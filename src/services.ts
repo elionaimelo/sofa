@@ -70,17 +70,26 @@ export function navigateControls(a: Action, root: Element | null): boolean {
 const focusableSelector =
   'button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]:not(.skip-link), [tabindex="0"]';
 
-/** Nearest ancestor that scrolls vertically, or null when only the page would. */
-function scrollParent(element: Element): HTMLElement | null {
-  for (let p = element.parentElement; p; p = p.parentElement) {
-    const overflow = getComputedStyle(p).overflowY;
-    if (
-      (overflow === "auto" || overflow === "scroll") &&
-      p.scrollHeight > p.clientHeight
-    )
-      return p;
-  }
-  return null;
+/**
+ * Nearest ancestor that scrolls vertically, or null when only the page would. `seen` keeps
+ * the answer per ancestor for one navigation, so a big grid doesn't read every style again.
+ */
+function scrollParent(
+  element: Element,
+  seen: Map<Element, HTMLElement | null>,
+): HTMLElement | null {
+  const p = element.parentElement;
+  if (!p) return null;
+  const known = seen.get(p);
+  if (known !== undefined) return known;
+  const overflow = getComputedStyle(p).overflowY;
+  const found =
+    (overflow === "auto" || overflow === "scroll") &&
+    p.scrollHeight > p.clientHeight
+      ? p
+      : scrollParent(p, seen);
+  seen.set(p, found);
+  return found;
 }
 export function navigateSpatial(
   a: Action,
@@ -112,8 +121,14 @@ export function navigateSpatial(
   if (!["up", "down", "left", "right"].includes(a) || !controls.length)
     return false;
   if (!controls.includes(current)) {
+    // Focus was lost (a control unmounted): start from the screen's primary control.
+    const primary = root.querySelector<HTMLElement>("[data-initial-focus]");
     const target =
-      initial && controls.includes(initial) ? initial : controls[0];
+      initial && controls.includes(initial)
+        ? initial
+        : primary && controls.includes(primary)
+          ? primary
+          : controls[0];
     target.focus();
     target.scrollIntoView({ block: "nearest", inline: "nearest" });
     return true;
@@ -125,13 +140,14 @@ export function navigateSpatial(
   const direction = a === "up" || a === "left" ? -1 : 1;
   let best: HTMLElement | null = null;
   let bestScore = Infinity;
-  const scroller = scrollParent(current);
+  const seen = new Map<Element, HTMLElement | null>();
+  const scroller = scrollParent(current, seen);
   for (const candidate of controls) {
     if (candidate === current) continue;
     const rect = candidate.getBoundingClientRect();
     // Entering another scroll container: only what it currently shows counts. A tile that
     // scrolled out above the grid sits geometrically above the tabs, but isn't a neighbour.
-    const container = scrollParent(candidate);
+    const container = scrollParent(candidate, seen);
     if (container !== scroller && container) {
       const box = container.getBoundingClientRect();
       if (rect.bottom <= box.top || rect.top >= box.bottom) continue;

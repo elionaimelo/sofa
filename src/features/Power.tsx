@@ -1,5 +1,6 @@
 import {
   ArrowClockwiseIcon,
+  ArrowUUpLeftIcon,
   BatteryChargingIcon,
   BatteryEmptyIcon,
   BatteryFullIcon,
@@ -12,7 +13,7 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog } from "../components/Dialog";
 import type { Translate } from "../i18n";
 import {
@@ -113,11 +114,17 @@ export function PowerMenu({
   const [action, setAction] = useState<PowerAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<MessageKey | "">("");
+  // Focus follows the step: the safe choice when asking, the action again when cancelled.
+  const lastAction = useRef<PowerAction | null>(null);
   useEffect(() => {
-    if (action)
-      document
-        .querySelector<HTMLElement>("dialog[open] [data-initial-focus]")
-        ?.focus();
+    if (action) lastAction.current = action;
+    document
+      .querySelector<HTMLElement>(
+        action
+          ? "dialog[open] [data-initial-focus]"
+          : `dialog[open] [data-power="${lastAction.current}"]`,
+      )
+      ?.focus();
   }, [action]);
   const close = () => {
     if (!busy) {
@@ -165,6 +172,7 @@ export function PowerMenu({
                 onClick={() => !busy && setAction(null)}
                 aria-disabled={busy}
               >
+                <ArrowUUpLeftIcon />
                 {t("cancel")}
               </button>
               <button
@@ -185,6 +193,7 @@ export function PowerMenu({
                 return (
                   <button
                     key={a}
+                    data-power={a}
                     disabled={!data?.actions[a]}
                     onClick={() => {
                       setAction(a);

@@ -93,6 +93,7 @@ export function Store({
   taste,
   saved,
   steamConnected,
+  onModal,
   input,
   onBack,
 }: {
@@ -106,6 +107,8 @@ export function Store({
   /** The wishlist with today's prices and Epic's free games (`useWishlist`). */
   saved: Wishlist;
   steamConnected: boolean;
+  /** Tells App the comparison dialog is open, for the button hints. */
+  onModal: (open: boolean) => void;
   input: InputRef;
   onBack: () => void;
 }) {
@@ -116,6 +119,10 @@ export function Store({
   const [status, setStatus] = useState("");
   const { wishlist, setWishlist } = saved;
   const [selected, setSelected] = useState<Deal | null>(null);
+  useEffect(() => {
+    onModal(!!selected);
+    return () => onModal(false);
+  }, [selected, onModal]);
   // CheapShark pages of 48; a new search starts over.
   const [page, setPage] = useState(0);
   const [focus, setFocus] = useState(0);

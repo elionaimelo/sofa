@@ -4,6 +4,7 @@ import {
   ArrowLeftIcon,
   ArrowSquareOutIcon,
   ArrowsOutIcon,
+  ArrowUUpLeftIcon,
   BluetoothIcon,
   DownloadSimpleIcon,
   EyeIcon,
@@ -62,17 +63,15 @@ const titles: Record<SettingsPanel, MessageKey> = {
   updates: "updates",
 };
 
-/** Frame shared by every settings panel: title, close button and status line. */
+/** Frame shared by every settings panel: title and close button (Dialog adds the status). */
 export function SettingsDialog({
   panel,
   t,
-  status,
   onClose,
   children,
 }: {
   panel: SettingsPanel;
   t: Translate;
-  status: string;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -84,12 +83,7 @@ export function SettingsDialog({
           <XIcon />
         </button>
       </div>
-      <div className="settings-body">
-        {children}
-        <p className="settings-status" role="status">
-          {status}
-        </p>
-      </div>
+      <div className="settings-body">{children}</div>
     </Dialog>
   );
 }
@@ -106,6 +100,12 @@ export function AccountSection({
 }) {
   // Signing out deletes the saved session; ask once, like power actions do.
   const [confirming, setConfirming] = useState(false);
+  const disconnectButton = useRef<HTMLButtonElement>(null);
+  // Back to the button that asked, so the controller doesn't land on the close X.
+  const stopConfirming = () => {
+    setConfirming(false);
+    requestAnimationFrame(() => disconnectButton.current?.focus());
+  };
   return (
     <section className="library-account">
       <div>
@@ -122,9 +122,11 @@ export function AccountSection({
           <div className="detail-actions">
             {!demo && !confirming && (
               <button
+                ref={disconnectButton}
                 aria-disabled={account.busy}
                 onClick={() => !account.busy && setConfirming(true)}
               >
+                <SignOutIcon />
                 {t("disconnect")}
               </button>
             )}
@@ -149,20 +151,23 @@ export function AccountSection({
           className="detail-actions"
           role="group"
           aria-label={t("disconnect")}
+          data-confirm
         >
           <p>{t(`${provider}DisconnectConfirm`)}</p>
           <button
             data-initial-focus
+            data-confirm-cancel
             // biome-ignore lint/a11y/noAutofocus: the controller needs focus on the safe choice when the confirmation appears.
             autoFocus
-            onClick={() => setConfirming(false)}
+            onClick={stopConfirming}
           >
+            <ArrowUUpLeftIcon />
             {t("cancel")}
           </button>
           <button
             className="accent"
             onClick={() => {
-              setConfirming(false);
+              stopConfirming();
               account.disconnect();
             }}
           >

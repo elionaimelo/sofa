@@ -1,6 +1,7 @@
 import {
   ArrowCounterClockwiseIcon,
   CheckIcon,
+  HeartIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import { type Dispatch, type SetStateAction, useState } from "react";
@@ -114,6 +115,10 @@ export function FiltersDrawer({
                   aria-pressed={prefs.filters.categories.includes(c.key)}
                   onClick={() => onToggleCategory(c.key)}
                 >
+                  {/* Picked reads as a check, not as the pink focus ring. */}
+                  {prefs.filters.categories.includes(c.key) && (
+                    <CheckIcon weight="bold" aria-hidden />
+                  )}
                   <span>{categoryLabel(c.label, lang)}</span>
                   <small>{c.count}</small>
                 </button>
@@ -174,16 +179,18 @@ export function FiltersDrawer({
                 onChange={(artwork) => setFilters({ artwork })}
               />
             </div>
-            <label className="filter-checkbox">
-              <input
-                type="checkbox"
-                checked={prefs.filters.favoritesOnly}
-                onChange={(e) =>
-                  setFilters({ favoritesOnly: e.target.checked })
-                }
+            <button
+              className="filter-switch"
+              aria-pressed={prefs.filters.favoritesOnly}
+              onClick={() =>
+                setFilters({ favoritesOnly: !prefs.filters.favoritesOnly })
+              }
+            >
+              <HeartIcon
+                weight={prefs.filters.favoritesOnly ? "fill" : "regular"}
               />
               {t("favoritesOnly")}
-            </label>
+            </button>
           </div>
         )}
         <div className="filter-actions">

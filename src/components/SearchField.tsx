@@ -1,5 +1,5 @@
 import { XIcon } from "@phosphor-icons/react";
-import type { InputHTMLAttributes } from "react";
+import { type InputHTMLAttributes, useRef } from "react";
 import { keyboardOnActivate } from "../services";
 
 /** A search box with a clear button the controller can reach; the keyboard isn't needed. */
@@ -14,9 +14,11 @@ export function SearchField({
   onClear: () => void;
   clearLabel: string;
 }) {
+  const input = useRef<HTMLInputElement>(null);
   return (
     <span className={`search-field${className ? ` ${className}` : ""}`}>
       <input
+        ref={input}
         {...keyboardOnActivate}
         type="search"
         autoComplete="off"
@@ -28,7 +30,11 @@ export function SearchField({
           type="button"
           className="clear-field"
           aria-label={clearLabel}
-          onClick={onClear}
+          onClick={() => {
+            onClear();
+            // The clear button is about to vanish; stay in the field instead of losing focus.
+            input.current?.focus();
+          }}
         >
           <XIcon />
         </button>
