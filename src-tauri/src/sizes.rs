@@ -1,7 +1,7 @@
 //! Expected install size of an owned, uninstalled game: Steam publishes it in the page's
 //! system requirements. Epic and GOG titles use the Steam page of the same name, as the
 //! categories do.
-use crate::network;
+use crate::{network, store::StoreCache};
 
 fn storage_bytes(requirements: &str) -> Option<u64> {
     // "<strong>Storage:</strong> 50 GB available space"; the page is requested in English.
@@ -29,8 +29,33 @@ fn storage_bytes(requirements: &str) -> Option<u64> {
     None
 }
 
+/// Storage a Steam title asks for. `appdetails` has no `pc_requirements` filter (it answers
+/// with empty data); the requirements come with `basic`.
+async fn steam_size(app_id: &str) -> Result<Option<u64>, String> {
+    let details: serde_json::Value = network::json(
+        network::client()?
+            .get("https://store.steampowered.com/api/appdetails")
+            .query(&[("appids", app_id), ("filters", "basic"), ("l", "english")]),
+    )
+    .await?;
+    let requirements = &details[app_id]["data"]["pc_requirements"];
+    Ok(["minimum", "recommended"]
+        .iter()
+        .filter_map(|key| requirements[key].as_str())
+        .find_map(storage_bytes))
+}
+
+/// Cached for a day, unknown sizes too: requirements rarely change.
 #[tauri::command]
-pub async fn game_size_estimate(id: String, title: Option<String>) -> Result<Option<u64>, String> {
+pub async fn game_size_estimate(
+    id: String,
+    title: Option<String>,
+    cache: tauri::State<'_, StoreCache>,
+) -> Result<Option<u64>, String> {
+    let key = format!("size:{id}");
+    if let Some(size) = cache.fresh(&key, crate::store::DAY)? {
+        return Ok(size.as_u64());
+    }
     let app_id = match crate::library::steam_app_id(&id) {
         Some(app_id) => app_id.to_owned(),
         None => {
@@ -40,22 +65,16 @@ pub async fn game_size_estimate(id: String, title: Option<String>) -> Result<Opt
             let title = title.filter(|t| !t.trim().is_empty() && t.len() <= 200).ok_or("invalidGame")?;
             match crate::categories::steam_app_for_title(&title).await? {
                 Some(app_id) => app_id.to_string(),
-                None => return Ok(None),
+                None => {
+                    cache.keep(key, serde_json::Value::Null)?;
+                    return Ok(None);
+                }
             }
         }
     };
-    let app_id = app_id.as_str();
-    let details: serde_json::Value = network::json(
-        network::client()?
-            .get("https://store.steampowered.com/api/appdetails")
-            .query(&[("appids", app_id), ("filters", "pc_requirements"), ("l", "english")]),
-    )
-    .await?;
-    let requirements = &details[app_id]["data"]["pc_requirements"];
-    Ok(["minimum", "recommended"]
-        .iter()
-        .filter_map(|key| requirements[key].as_str())
-        .find_map(storage_bytes))
+    let size = steam_size(&app_id).await?;
+    cache.keep(key, size.into())?;
+    Ok(size)
 }
 
 #[cfg(test)]
@@ -70,5 +89,12 @@ mod tests {
         assert_eq!(storage_bytes("<strong>Storage:</strong> 700 MB available space"), Some(700 * 1024u64.pow(2)));
         assert_eq!(storage_bytes("<strong>Memory:</strong> 8 GB RAM"), None);
         assert_eq!(storage_bytes(""), None);
+    }
+
+    #[test]
+    #[ignore = "live provider integration"]
+    fn steam_answers_with_the_storage_requirement() {
+        let size = tauri::async_runtime::block_on(steam_size("1145360")).unwrap();
+        assert!(size.is_some_and(|bytes| bytes > 1024u64.pow(3)), "{size:?}");
     }
 }

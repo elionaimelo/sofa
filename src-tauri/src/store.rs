@@ -9,14 +9,14 @@ use std::{
 const BASE: &str = "https://www.cheapshark.com/api/1.0";
 #[derive(Default)]
 pub struct StoreCache(Mutex<HashMap<String, (Instant, Value)>>);
-const DAY: Duration = Duration::from_secs(24 * 3600);
+pub(crate) const DAY: Duration = Duration::from_secs(24 * 3600);
 impl StoreCache {
     /// The value kept under `key`, when it is younger than `ttl`.
-    fn fresh(&self, key: &str, ttl: Duration) -> Result<Option<Value>, String> {
+    pub(crate) fn fresh(&self, key: &str, ttl: Duration) -> Result<Option<Value>, String> {
         let entries = self.0.lock().map_err(|_| "serviceUnavailable")?;
         Ok(entries.get(key).filter(|(at, _)| at.elapsed() < ttl).map(|(_, v)| v.clone()))
     }
-    fn keep(&self, key: String, value: Value) -> Result<(), String> {
+    pub(crate) fn keep(&self, key: String, value: Value) -> Result<(), String> {
         self.0.lock().map_err(|_| "serviceUnavailable")?.insert(key, (Instant::now(), value));
         Ok(())
     }
