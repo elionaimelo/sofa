@@ -92,13 +92,17 @@ const formatSize = (bytes: number) =>
   bytes >= 1024 ** 3
     ? `${(bytes / 1024 ** 3).toFixed(1)} GB`
     : `${Math.round(bytes / 1024 ** 2)} MB`;
-/** Steam's portrait art is missing for some titles; its landscape header rarely is. */
+/**
+ * Steam's portrait art is missing for some titles and, for newer ones, so is the header on
+ * the legacy CDN (their assets moved to hashed paths); the hero banner is the last resort.
+ */
 function coverSources(game: Game): string[] {
   const sources = game.cover ? [game.cover] : [];
   const appId = game.id.startsWith("steam:") ? game.id.slice(6) : "";
   if (/^\d+$/.test(appId))
     sources.push(
       `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`,
+      `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_hero.jpg`,
     );
   return sources.filter((source, i) => sources.indexOf(source) === i);
 }
