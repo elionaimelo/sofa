@@ -48,6 +48,7 @@ import {
   HeartIcon,
   HouseIcon,
   InfoIcon,
+  LightningIcon,
   PlayIcon,
   PowerIcon,
   SlidersHorizontalIcon,
@@ -648,7 +649,11 @@ export default function App() {
               {t("offline")}
             </span>
           )}
-          <TopBatteries t={t} data={power.data} onOpen={openHud} />
+          <TopBatteries
+            t={t}
+            data={power.data}
+            onOpen={() => setHudOpen(true)}
+          />
           <button
             onClick={() => setPowerMenu(true)}
             aria-label={t("powerMenu")}
@@ -1040,6 +1045,15 @@ export default function App() {
                   <strong>{t("appearance")}</strong>
                   <span>{t("settingsAppearanceDescription")}</span>
                 </button>
+                <button
+                  onClick={() => {
+                    setHudOpen(true);
+                  }}
+                >
+                  <LightningIcon aria-hidden />
+                  <strong>{t("energy")}</strong>
+                  <span>{t("settingsEnergyDescription")}</span>
+                </button>
                 <button onClick={openHud}>
                   <GaugeIcon aria-hidden />
                   <strong>{t("hud")}</strong>
@@ -1123,7 +1137,7 @@ export default function App() {
       </footer>
       {launchScreen && <LaunchScreen game={launchScreen} t={t} />}
       {hudOpen && (
-        <Dialog label="HUD" onClose={() => setHudOpen(false)}>
+        <Dialog label={t("energy")} onClose={() => setHudOpen(false)}>
           <HudPanel
             t={t}
             inputRef={hudInput}
