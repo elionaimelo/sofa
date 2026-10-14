@@ -148,10 +148,9 @@ export function filterGames(
     .filter((g) => {
       if (home && !g.installed) return false;
       if (
-        (tab === "hidden" ? !hidden.has(g.id) : hidden.has(g.id)) ||
+        hidden.has(g.id) ||
         !(
           tab === "all" ||
-          tab === "hidden" ||
           (tab === "favorites" ? favorites.has(g.id) : g.source === tab)
         ) ||
         (q !== "" && !fold(g.title).includes(q))

@@ -11,7 +11,7 @@ import {
 import { Dialog } from "../components/Dialog";
 import { Picker } from "../components/Picker";
 import { LANGS, type Lang, type Translate } from "../i18n";
-import type { Preferences } from "../library";
+import type { Game, Preferences } from "../library";
 import {
   commandQuery,
   demo,
@@ -158,13 +158,14 @@ export function LibrarySettings({
   t,
   library,
   prefs,
-  onShowHidden,
+  onRestore,
 }: {
   t: Translate;
   library: ReturnType<typeof useLibrary>;
   prefs: Preferences;
-  onShowHidden: () => void;
+  onRestore: (game: Game) => void;
 }) {
+  const hidden = library.games.filter((game) => prefs.hidden.includes(game.id));
   return (
     <>
       <div className="library-accounts">
@@ -186,9 +187,26 @@ export function LibrarySettings({
       >
         {t("refresh")}
       </button>
-      <button onClick={onShowHidden}>
-        {t("hidden")} ({prefs.hidden.length})
-      </button>
+      {/* Hidden games live only here; restoring puts them back in the library. */}
+      <section aria-label={t("hidden")}>
+        <h2>
+          {t("hidden")} ({hidden.length})
+        </h2>
+        {hidden.length === 0 ? (
+          <p className="muted">{t("emptyHidden")}</p>
+        ) : (
+          <ul className="item-list">
+            {hidden.map((game) => (
+              <li key={game.id}>
+                <span>{game.title}</span>
+                <button onClick={() => onRestore(game)}>
+                  {t("restoreGame")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </>
   );
 }
@@ -357,7 +375,7 @@ export function ControllerSettings({
         </p>
       )}
       {scan.data && scan.data.length > 0 && (
-        <ul className="device-list">
+        <ul className="item-list">
           {scan.data.map((device) => (
             <li key={device.id}>
               <span>{device.name}</span>

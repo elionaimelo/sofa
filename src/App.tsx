@@ -81,7 +81,7 @@ const pageIcons = {
   library: SquaresFourIcon,
   store: StorefrontIcon,
 };
-const TABS = ["all", "favorites", "steam", "epic", "gog", "hidden"] as const;
+const TABS = ["all", "favorites", "steam", "epic", "gog"] as const;
 const preferencesKey = demo ? "sofa.demo.preferences" : "sofa.preferences";
 /** Whole gigabytes as Windows counts them (1024³), enough for a storage overview. */
 const gb = (bytes: number) => String(Math.round(bytes / 1024 ** 3));
@@ -206,7 +206,6 @@ export default function App() {
         (value) =>
           value === "all" ||
           value === "favorites" ||
-          value === "hidden" ||
           games.some((game) => game.source === value),
       ),
     [games],
@@ -231,11 +230,7 @@ export default function App() {
   const categoryChoices = useMemo(
     () =>
       categoryOptions(
-        games.filter((g) =>
-          tab === "hidden"
-            ? prefs.hidden.includes(g.id)
-            : !prefs.hidden.includes(g.id),
-        ),
+        games.filter((g) => !prefs.hidden.includes(g.id)),
         prefs,
         categories.catalog,
       ).sort((a, b) =>
@@ -243,7 +238,7 @@ export default function App() {
           categoryLabel(b.label, lang),
         ),
       ),
-    [games, prefs, categories.catalog, lang, tab],
+    [games, prefs, categories.catalog, lang],
   );
   useEffect(() => {
     if (!games.length || !categories.ready || categories.loading) return;
@@ -688,7 +683,7 @@ export default function App() {
                   >
                     {s === "all"
                       ? t("allGames")
-                      : s === "favorites" || s === "hidden"
+                      : s === "favorites"
                         ? t(s)
                         : s === "gog"
                           ? "GOG"
@@ -916,7 +911,7 @@ export default function App() {
                 <h1>
                   {page === "home"
                     ? t("library")
-                    : tab === "favorites" || tab === "hidden"
+                    : tab === "favorites"
                       ? t(tab)
                       : t("allGames")}
                 </h1>
@@ -925,14 +920,12 @@ export default function App() {
                     ? t("noMatches")
                     : tab === "favorites" && page !== "home"
                       ? t("emptyFavorites")
-                      : tab === "hidden" && page !== "home"
-                        ? t("emptyHidden")
-                        : activeFilters(prefs.filters) > 0
-                          ? t("filterNoMatches")
-                          : page === "home" &&
-                              games.some((game) => !game.installed)
-                            ? t("homeNoInstalled")
-                            : t("noGames")}
+                      : activeFilters(prefs.filters) > 0
+                        ? t("filterNoMatches")
+                        : page === "home" &&
+                            games.some((game) => !game.installed)
+                          ? t("homeNoInstalled")
+                          : t("noGames")}
                 </p>
                 {page === "library" && activeFilters(prefs.filters) > 0 && (
                   <button
@@ -1327,11 +1320,7 @@ export default function App() {
               t={t}
               library={library}
               prefs={prefs}
-              onShowHidden={() => {
-                setPage("library");
-                setTab("hidden");
-                setSettings(null);
-              }}
+              onRestore={toggleHidden}
             />
           )}
           {settings === "appearance" && (

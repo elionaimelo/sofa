@@ -73,7 +73,7 @@ test("invalid stored values do not leak into preferences", () => {
     { ...defaults, favorites: ["steam:1"], recent: { b: 44 } },
   );
 });
-test("hidden games stay out of home and favorites, and can be recovered in hidden tab", () => {
+test("hidden games stay out of every tab, home and favorites included", () => {
   const p = {
     ...defaults,
     hidden: ["steam:1"],
@@ -84,10 +84,7 @@ test("hidden games stay out of home and favorites, and can be recovered in hidde
     ["epic:2"],
   );
   assert.equal(filterGames(games, p, "all", "", true).length, 2);
-  assert.deepEqual(
-    filterGames(games, p, "hidden", "").map((g) => g.id),
-    ["steam:1"],
-  );
+  assert.ok(!filterGames(games, p, "all", "").some((g) => g.id === "steam:1"));
 });
 test("source and case insensitive search combine with alphabetical order", () => {
   assert.deepEqual(

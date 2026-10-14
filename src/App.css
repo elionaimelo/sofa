@@ -652,14 +652,14 @@ dialog::backdrop {
 .settings-body > button {
   align-self: flex-start;
 }
-.device-list {
+.item-list {
   display: grid;
   gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.device-list li {
+.item-list li {
   display: flex;
   align-items: center;
   justify-content: space-between;
