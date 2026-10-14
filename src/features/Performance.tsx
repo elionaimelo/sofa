@@ -323,9 +323,12 @@ export function HudPanel({
       command: string;
       args: Record<string, unknown>;
       refresh: string;
+      /** Local state that should follow the change once it took effect. */
+      done?: () => void;
     }) => desktop(command, args),
     onMutate: () => setMessage(""),
-    onSuccess: (_, { refresh }) => {
+    onSuccess: (_, { refresh, done }) => {
+      done?.();
       // The focused option is about to unmount; keep controller focus on its tile.
       document
         .querySelector<HTMLElement>(".hud-tile[aria-expanded='true']")
@@ -340,8 +343,9 @@ export function HudPanel({
     command: string,
     args: Record<string, unknown>,
     refresh = "display_status",
+    done?: () => void,
   ) => {
-    if (!busy) change.mutate({ command, args, refresh });
+    if (!busy) change.mutate({ command, args, refresh, done });
   };
   const close = onClose;
   useFeatureInput(inputRef, (a) => {
@@ -395,21 +399,23 @@ export function HudPanel({
         : open === "brightness"
           ? [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((percent) => ({
               label: `${percent}%`,
+              value: percent,
               selected: percent === display?.brightness,
               pick: () => run("set_brightness", { percent }),
             }))
           : open === "tdp"
             ? [5, 8, 10, 12, 15, 18, 20, 25, 30].map((watts) => ({
                 label: `${watts} W`,
+                value: watts,
                 selected: watts === currentTdp,
-                pick: () => {
-                  setTdp(watts);
-                  run("set_tdp", { watts });
-                },
+                // Remembered only once the firmware took it; ally_status re-reads the limit.
+                pick: () =>
+                  run("set_tdp", { watts }, "ally_status", () => setTdp(watts)),
               }))
             : open === "volume"
               ? [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((percent) => ({
                   label: percent ? `${percent}%` : t("hudMuted"),
+                  value: percent,
                   selected: volume?.muted
                     ? percent === 0
                     : percent === volume?.percent,
@@ -426,10 +432,10 @@ export function HudPanel({
                   ? fanPresets.map((preset) => ({
                       label: t(`fan_${preset}`),
                       selected: preset === fan,
-                      pick: () => {
-                        setFan(preset);
-                        run("set_fan_curve", { preset }, "ally_status");
-                      },
+                      pick: () =>
+                        run("set_fan_curve", { preset }, "ally_status", () =>
+                          setFan(preset),
+                        ),
                     }))
                   : [];
   const toggle = (name: NonNullable<typeof open>) =>
@@ -488,6 +494,10 @@ export function HudPanel({
           </>
         )}
       </section>
+      {/* Right under the game, where the eyes are; mounted so changes are announced. */}
+      <p className="hud-message" role="status">
+        {message}
+      </p>
       {stats && (stats.fps != null || stats.gpu != null) && (
         <section className="hud-stats" aria-label={t("hudStats")}>
           {stats.fps != null && (
@@ -550,7 +560,16 @@ export function HudPanel({
           )}
         </section>
       )}
-      <AllyProfiles t={t} onMessage={setMessage} onApplied={setProfile} />
+      <AllyProfiles
+        t={t}
+        onMessage={setMessage}
+        onApplied={(applied) => {
+          // The firmware's profile replaces a manual limit; read the new one back.
+          setProfile(applied);
+          setTdp(null);
+          void queryClient.invalidateQueries({ queryKey: ["ally_status"] });
+        }}
+      />
       <div className="hud-tiles">
         <Tile
           icon={ArrowsOutIcon}
@@ -590,7 +609,13 @@ export function HudPanel({
           disabled={busy || display?.cpu_boost == null}
           onClick={() => void run("set_cpu_boost", { on: !display?.cpu_boost })}
         />
-        {open === "brightness" && <Options options={options} disabled={busy} />}
+        {open === "brightness" && (
+          <Options
+            options={options}
+            current={display?.brightness}
+            disabled={busy}
+          />
+        )}
         {volume?.percent != null && (
           <Tile
             icon={SpeakerHighIcon}
@@ -602,7 +627,13 @@ export function HudPanel({
             onClick={() => toggle("volume")}
           />
         )}
-        {open === "volume" && <Options options={options} disabled={busy} />}
+        {open === "volume" && (
+          <Options
+            options={options}
+            current={volume?.muted ? 0 : volume?.percent}
+            disabled={busy}
+          />
+        )}
         {ally?.tdp_supported && (
           <Tile
             icon={LightningIcon}
@@ -614,7 +645,9 @@ export function HudPanel({
             onClick={() => toggle("tdp")}
           />
         )}
-        {open === "tdp" && <Options options={options} disabled={busy} />}
+        {open === "tdp" && (
+          <Options options={options} current={currentTdp} disabled={busy} />
+        )}
         {framerate?.installed && (
           <Tile
             icon={GaugeIcon}
@@ -737,25 +770,45 @@ export function HudPanel({
         )}
       </div>
       <ControllerBatteries t={t} data={power.data} />
-      {/* Live regions stay mounted so screen readers announce changes, not insertions. */}
-      <p role="status">{message}</p>
     </Root>
   );
 }
 function Options({
   options,
+  current,
   disabled,
 }: {
-  options: { label: string; selected: boolean; pick: () => void }[];
+  options: {
+    label: string;
+    selected: boolean;
+    pick: () => void;
+    value?: number;
+  }[];
+  /** The live value, for lists whose steps may not include it (37% brightness). */
+  current?: number | null;
   disabled: boolean;
 }) {
+  // The list opens on the current value, or on the step closest to it.
+  const nearest =
+    options.some((o) => o.selected) || current == null
+      ? -1
+      : options.reduce(
+          (best, o, i) =>
+            o.value != null &&
+            (best < 0 ||
+              Math.abs(o.value - current) <
+                Math.abs((options[best].value ?? 0) - current))
+              ? i
+              : best,
+          -1,
+        );
   return (
     <div className="hud-options" id="hud-options">
-      {options.map((o) => (
+      {options.map((o, i) => (
         <button
           key={o.label}
           // biome-ignore lint/a11y/noAutofocus: the controller needs focus on the current value when the list opens.
-          autoFocus={o.selected}
+          autoFocus={o.selected || i === nearest}
           aria-pressed={o.selected}
           aria-disabled={disabled}
           onClick={disabled ? undefined : o.pick}

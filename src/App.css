@@ -2112,7 +2112,7 @@ select:focus-visible,
 }
 .hud-tile small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 .hud-tile[aria-pressed="true"],
 .ally-profile-options button[aria-pressed="true"],
@@ -2133,11 +2133,15 @@ select:focus-visible,
   min-height: 44px;
   padding: 6px 12px;
   border-radius: 999px;
-  font-size: 13px;
+  font-size: 15px;
   font-variant-numeric: tabular-nums;
 }
 .floating-hud > p {
-  font-size: 12px;
+  font-size: 15px;
+}
+/* Empty until something happens; then right under the game, where the eyes are. */
+.hud-message:empty {
+  display: none;
 }
 .floating-hud .battery-section {
   margin-top: 0;
