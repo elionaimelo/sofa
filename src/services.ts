@@ -147,7 +147,11 @@ export function navigateSpatial(
     const overlap = vertical
       ? Math.min(from.right, rect.right) > Math.max(from.left, rect.left)
       : Math.min(from.bottom, rect.bottom) > Math.max(from.top, rect.top);
-    const score = primary + secondary * (overlap ? 0.35 : 2.5) + outside;
+    // Something in the same row (or column) always beats a closer one off it: wide controls
+    // like the HUD's profile pills otherwise lose to the tile diagonally below.
+    const aligned = overlap ? 0 : 1e5;
+    const score =
+      primary + secondary * (overlap ? 0.35 : 2.5) + aligned + outside;
     if (score < bestScore) {
       best = candidate;
       bestScore = score;

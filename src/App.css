@@ -53,8 +53,9 @@ button > svg:not(:only-child):last-child {
   --glass-border: rgb(255 255 255 / 0.14);
   --glass-blur: blur(26px) saturate(150%);
 }
-/* Blur only on small, static surfaces: on scrolling or animating containers (dialogs, the
-   drawer) WebView2 leaves ghost trails, so those get a near-opaque colour instead. */
+/* Glass look everywhere, real blur only on the header's system bar: inside anything that
+   scrolls or animates, WebView2 leaves stale copies of blurred surfaces (ghost text, focus
+   rings that seem not to move). */
 .picker-list,
 .settings-hub-grid button,
 .library-account,
@@ -63,9 +64,11 @@ button > svg:not(:only-child):last-child {
 .segmented,
 .hud-tile,
 .ally-profile-options button {
+  box-shadow: inset 0 1px rgb(255 255 255 / 0.1);
+}
+.system-bar {
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: inset 0 1px rgb(255 255 255 / 0.1);
 }
 dialog,
 .library-filters {
