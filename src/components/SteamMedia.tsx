@@ -119,6 +119,7 @@ function Gallery({ shots, t }: { shots: Shot[]; t: Translate }) {
   // The picked trailer's player is mounted only after A; moving on unmounts it.
   const [playing, setPlaying] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
+  const gallery = useRef<HTMLElement>(null);
   const shown = shots[picked] ?? shots[0];
   const label = (shot: Shot, i: number) =>
     t(shot.video ? "trailerN" : "screenshotN", {
@@ -147,7 +148,7 @@ function Gallery({ shots, t }: { shots: Shot[]; t: Translate }) {
     });
   }, [playing]);
   return (
-    <section className="gallery" aria-label={t("gallery")}>
+    <section className="gallery" aria-label={t("gallery")} ref={gallery}>
       <div className="gallery-stage">
         {shown.video && playing ? (
           // biome-ignore lint/a11y/useMediaCaption: Steam's trailers ship without caption files.
@@ -181,7 +182,11 @@ function Gallery({ shots, t }: { shots: Shot[]; t: Translate }) {
             key={shot.image}
             aria-label={label(shot, i)}
             aria-current={i === picked}
-            onFocus={() => pick(i)}
+            onFocus={() => {
+              pick(i);
+              // The strip alone would scroll into view with the big shot cut off above it.
+              gallery.current?.scrollIntoView({ block: "nearest" });
+            }}
             onClick={() => (shot.video ? togglePlay() : pick(i))}
           >
             <img
