@@ -54,18 +54,19 @@
     <Content Include="Properties\Default.rd.xml" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Same artwork as the identity package; linked so there is one copy in the repo. -->
+    <!-- Artwork shared with the identity package; linked so there is one copy in the repo. -->
     <Content Include="..\src-tauri\packaging\Assets\Square150x150Logo.png">
       <Link>Assets\Square150x150Logo.png</Link>
     </Content>
-    <Content Include="..\src-tauri\packaging\Assets\Square44x44Logo.png">
+    <!-- Game Bar shows the widget with this small logo: the sofa alone, no tile behind it. -->
+    <Content Include="..\src-tauri\packaging\Assets\GameBarIcon.png">
       <Link>Assets\Square44x44Logo.png</Link>
     </Content>
     <Content Include="..\src-tauri\packaging\Assets\StoreLogo.png">
       <Link>Assets\StoreLogo.png</Link>
     </Content>
     <!-- Folder Game Bar may read (widget icons). -->
-    <Content Include="..\src-tauri\packaging\Assets\Square44x44Logo.png">
+    <Content Include="..\src-tauri\packaging\Assets\GameBarIcon.png">
       <Link>GameBar\Icon.png</Link>
     </Content>
   </ItemGroup>

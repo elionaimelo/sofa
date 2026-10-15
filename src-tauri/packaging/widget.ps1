@@ -89,6 +89,13 @@ foreach ($attempt in 1, 2) {
     break
   } catch {
     Log "install attempt $attempt failed: $(FirstLine $_)"
+    # The same version with different contents (a rebuilt package) is blocked as already
+    # installed (0x80073CFB); removing the registered copy lets the next attempt install.
+    if ("$_" -match '0x80073CFB' -and $installed) {
+      Remove-AppxPackage -Package $installed.PackageFullName -ErrorAction SilentlyContinue
+      Log "removed $($installed.Version) blocking the reinstall"
+      $installed = $null
+    }
   }
 }
 if (-not $done) {
