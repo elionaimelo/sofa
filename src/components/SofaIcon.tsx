@@ -1,4 +1,5 @@
-import sofaIcon from "../../src-tauri/icons/128x128@2x.png";
+// The sofa alone, no tile behind it (the app icon keeps its tile for the OS).
+import sofaIcon from "../assets/sofa.svg";
 
 export function SofaIcon({
   size = 44,
