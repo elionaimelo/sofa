@@ -92,6 +92,7 @@ async fn steam_token(app: &tauri::AppHandle, visible: bool) -> Result<Option<Str
     let answer: Arc<Mutex<Option<String>>> = Arc::default();
     let sink = answer.clone();
     let mut builder = WebviewWindowBuilder::new(app, "steam-login", WebviewUrl::External(page.parse().unwrap()))
+        .additional_browser_args(crate::WEBVIEW_ARGS)
         .title("Steam")
         .inner_size(520.0, 760.0)
         .center()

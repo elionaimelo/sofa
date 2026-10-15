@@ -135,6 +135,7 @@ async fn auth_code(app: &tauri::AppHandle, visible: bool) -> Result<Option<Strin
     let answer: Arc<Mutex<Option<String>>> = Arc::default();
     let sink = answer.clone();
     let mut builder = WebviewWindowBuilder::new(app, "epic-login", WebviewUrl::External(page.parse().unwrap()))
+        .additional_browser_args(crate::WEBVIEW_ARGS)
         .title("Epic Games")
         .inner_size(520.0, 760.0)
         .center()

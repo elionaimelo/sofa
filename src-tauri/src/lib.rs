@@ -141,6 +141,13 @@ async fn install_progress(ids: Vec<String>) -> std::collections::HashMap<String,
     .unwrap_or_default()
 }
 
+/// WebView2 arguments for every window (they share one environment, which refuses windows
+/// created with different ones). Wry's defaults, plus sound without a click: a gamepad press
+/// isn't a user gesture, so interface sounds and trailers would stay silent otherwise. The main
+/// window gets the same string from tauri.conf.json; a test keeps the two equal.
+pub(crate) const WEBVIEW_ARGS: &str =
+    "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required";
+
 pub(crate) fn bring_to_front(app: &tauri::AppHandle) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or("serviceUnavailable")?;
     let _ = window.unminimize();
@@ -231,6 +238,12 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_window_gets_the_same_webview_arguments() {
+        let config: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        assert_eq!(config["app"]["windows"][0]["additionalBrowserArgs"], WEBVIEW_ARGS);
+    }
 
     #[test]
     fn launchers_are_recognised_by_file_name_only() {

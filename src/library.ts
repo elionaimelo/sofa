@@ -189,6 +189,8 @@ export type Preferences = {
   notInterested: string[];
   /** Names of those games, so Settings can list what was hidden. */
   opinionTitles: Record<string, string>;
+  /** Interface sounds (moving focus, A, B). */
+  sounds: boolean;
 };
 const sorts: Preferences["sort"][] = [
   "recent",
@@ -214,6 +216,7 @@ export const defaults: Preferences = {
   liked: [],
   notInterested: [],
   opinionTitles: {},
+  sounds: true,
 };
 const ids = (v: unknown): string[] =>
   Array.isArray(v)
@@ -253,6 +256,7 @@ export function parsePreferences(
     hidden: ids(p.hidden),
     liked,
     notInterested,
+    sounds: p.sounds !== false,
     opinionTitles: Object.fromEntries(
       Object.entries(
         p.opinionTitles && typeof p.opinionTitles === "object"

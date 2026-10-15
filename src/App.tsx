@@ -40,7 +40,8 @@ import {
   tasteWeights,
   titleGroup,
 } from "./library";
-import { useInput } from "./useInput";
+import { playSound, setSounds } from "./sounds";
+import { type Action, useInput } from "./useInput";
 import { useLibrary } from "./useLibrary";
 import { useUpdates } from "./useUpdates";
 import { useWishlist } from "./useWishlist";
@@ -601,7 +602,16 @@ export default function App() {
       document.querySelector<HTMLElement>(".filter-toggle")?.focus(),
     );
   };
+  // Interface sounds: a tick only when focus actually moved, a pair on A and on B.
+  useEffect(() => setSounds(prefs.sounds), [prefs.sounds]);
   useInput((a) => {
+    const before = document.activeElement;
+    onAction(a);
+    if (a === "a") playSound("select");
+    else if (a === "b") playSound("back");
+    else if (document.activeElement !== before) playSound("move");
+  });
+  const onAction = (a: Action) => {
     if (pickerInput.current) {
       pickerInput.current(a);
       return;
@@ -733,7 +743,7 @@ export default function App() {
     }
     if (a === "x" && selected) toggleFavorite(selected);
     if (a === "y") install();
-  });
+  };
   // The library's collection title is its page heading; on Home the hero title is.
   const CollectionHeading = page === "library" ? "h1" : "h2";
   const hints: [string, string][] = launchScreen

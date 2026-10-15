@@ -17,6 +17,8 @@ import {
   PowerIcon,
   SignInIcon,
   SignOutIcon,
+  SpeakerHighIcon,
+  SpeakerSlashIcon,
   TrashIcon,
   XIcon,
 } from "@phosphor-icons/react";
@@ -388,6 +390,13 @@ export function AppearanceSettings({
           onChange={(density) => setPrefs((p) => ({ ...p, density }))}
         />
       </div>
+      <button
+        aria-pressed={prefs.sounds}
+        onClick={() => setPrefs((p) => ({ ...p, sounds: !p.sounds }))}
+      >
+        {prefs.sounds ? <SpeakerHighIcon /> : <SpeakerSlashIcon />}
+        {t("interfaceSounds")}: {t(prefs.sounds ? "on" : "off")}
+      </button>
       {/* Xbox mode owns the window layout; the toggle only makes sense outside it. */}
       {xboxMode?.active !== true && (
         <button

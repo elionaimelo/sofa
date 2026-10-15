@@ -16,7 +16,8 @@
         "width": 1280,
         "height": 800,
         "minWidth": 800,
-        "minHeight": 500
+        "minHeight": 500,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required"
       }
     ],
     "security": {
