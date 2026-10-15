@@ -91,6 +91,27 @@ function scrollParent(
   seen.set(p, found);
   return found;
 }
+/**
+ * A carousel (Home's row) keeps the focused item first and glides to it, console style. Only
+ * the row scrolls: scrollIntoView would also shift every clipped ancestor, the page included.
+ * Returns false when the item isn't in a carousel.
+ */
+export function glideToStart(item: HTMLElement): boolean {
+  const row = item.closest<HTMLElement>("[data-carousel]");
+  if (!row) return false;
+  const padding =
+    Number.parseFloat(getComputedStyle(row).scrollPaddingLeft) || 0;
+  row.scrollBy({
+    left:
+      item.getBoundingClientRect().left -
+      row.getBoundingClientRect().left -
+      padding,
+    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "instant"
+      : "smooth",
+  });
+  return true;
+}
 export function navigateSpatial(
   a: Action,
   root: Element | null,
@@ -196,16 +217,8 @@ export function navigateSpatial(
       best =
         entered.querySelector<HTMLElement>('[aria-current="true"]') ?? best;
     best.focus();
-    // A carousel (Home's row) keeps the focused item first and glides, console style.
-    const carousel = !!best.closest("[data-carousel]");
-    best.scrollIntoView({
-      block: "nearest",
-      inline: carousel ? "start" : "nearest",
-      behavior:
-        carousel && !matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "smooth"
-          : "auto",
-    });
+    if (!glideToStart(best))
+      best.scrollIntoView({ block: "nearest", inline: "nearest" });
     // The first control of a scrolling panel brings back what sits above it (the title).
     const box = scrollParent(best, seen);
     if (box?.querySelector(focusableSelector) === best)

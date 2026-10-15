@@ -88,6 +88,7 @@ import {
   commandQuery,
   demo,
   desktop,
+  glideToStart,
   type InputRef,
   type Notify,
   navigateControls,
@@ -507,14 +508,16 @@ export default function App() {
       hovered.current = false;
       return;
     }
-    tileAt(focus)?.scrollIntoView({
-      block: "nearest",
-      // Home's row is a carousel: the focused game stays first while the row glides.
-      inline: grid.current?.hasAttribute("data-carousel") ? "start" : "nearest",
-      behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "instant"
-        : "smooth",
-    });
+    const tile = tileAt(focus);
+    // Home's row is a carousel: the focused game stays first while the row glides.
+    if (tile && !glideToStart(tile))
+      tile.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+        behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "instant"
+          : "smooth",
+      });
   }, [focus, tileAt]);
   const toggleFavorite = (g: Game) =>
     setPrefs((p) => ({
