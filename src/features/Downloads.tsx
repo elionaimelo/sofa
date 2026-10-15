@@ -3,7 +3,7 @@ import { CoverImage } from "../components/Cover";
 import type { Translate } from "../i18n";
 import { formatSize, type Game } from "../library";
 
-export type Download = {
+type Download = {
   game: Game;
   downloaded: number;
   total: number;
@@ -13,9 +13,11 @@ export type Download = {
 /** Steam-style downloads strip: every install Sofa requested, with its bar and bytes. */
 export function Downloads({
   t,
+  lang,
   downloads,
 }: {
   t: Translate;
+  lang: string;
   downloads: Download[];
 }) {
   if (!downloads.length) return null;
@@ -35,8 +37,8 @@ export function Downloads({
               <strong>{d.game.title}</strong>
               <small>
                 {t("downloadOf", {
-                  done: formatSize(d.downloaded),
-                  total: formatSize(d.total),
+                  done: formatSize(d.downloaded, lang),
+                  total: formatSize(d.total, lang),
                 })}{" "}
                 · {d.percent}%
               </small>

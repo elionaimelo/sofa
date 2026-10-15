@@ -297,11 +297,13 @@ test("price region is kept only when it is a known store region", () => {
 });
 
 test("sizes and hours read the way a console shows them", () => {
-  assert.equal(formatSize(1.5 * 1024 ** 3), "1.5 GB");
-  assert.equal(formatSize(700 * 1024 ** 2), "700 MB");
-  assert.equal(hoursPlayed(3), "");
-  assert.equal(hoursPlayed(90), "1.5 h");
-  assert.equal(hoursPlayed(1230), "21 h");
+  assert.equal(formatSize(1.5 * 1024 ** 3, "en"), "1.5 GB");
+  assert.equal(formatSize(1.5 * 1024 ** 3, "pt-BR"), "1,5 GB");
+  assert.equal(formatSize(700 * 1024 ** 2, "en"), "700 MB");
+  assert.equal(hoursPlayed(3, "en"), "");
+  assert.equal(hoursPlayed(90, "en"), "1.5 h");
+  assert.equal(hoursPlayed(588, "pt-BR"), "9,8 h");
+  assert.equal(hoursPlayed(1230, "es"), "21 h");
 });
 
 test("the store puts deals closest to the player's taste first, the rest keeps its order", () => {

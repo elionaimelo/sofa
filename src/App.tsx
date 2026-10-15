@@ -1114,7 +1114,7 @@ export default function App() {
                       </div>
                     </section>
                   )}
-                  <Downloads t={t} downloads={library.downloads} />
+                  <Downloads t={t} lang={lang} downloads={library.downloads} />
                   <section className="collection" id="content" tabIndex={-1}>
                     <div className="collection-heading">
                       <CollectionHeading>

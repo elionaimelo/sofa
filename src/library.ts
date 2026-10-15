@@ -27,13 +27,21 @@ export function mergeLibrary(installed: Game[], owned: Game[]): Game[] {
   return [...merged.values()].sort((a, b) => a.title.localeCompare(b.title));
 }
 /** Hours with one decimal from Steam's minutes; nothing under six minutes. */
-export const hoursPlayed = (minutes: number) =>
-  minutes >= 6 ? `${(minutes / 60).toFixed(minutes >= 600 ? 0 : 1)} h` : "";
+/** A number with exactly `digits` decimals, in the language's own way (1.5 / 1,5). */
+const decimals = (value: number, digits: number, lang: string) =>
+  new Intl.NumberFormat(lang, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value);
+export const hoursPlayed = (minutes: number, lang: string) =>
+  minutes >= 6
+    ? `${decimals(minutes / 60, minutes >= 600 ? 0 : 1, lang)} h`
+    : "";
 /** One decimal above a gigabyte, whole megabytes below. */
-export const formatSize = (bytes: number) =>
+export const formatSize = (bytes: number, lang: string) =>
   bytes >= 1024 ** 3
-    ? `${(bytes / 1024 ** 3).toFixed(1)} GB`
-    : `${Math.round(bytes / 1024 ** 2)} MB`;
+    ? `${decimals(bytes / 1024 ** 3, 1, lang)} GB`
+    : `${decimals(bytes / 1024 ** 2, 0, lang)} MB`;
 /** One line of facts under a title: last session, hours, size on disk or to download. */
 export function gameMeta(
   game: Game,
@@ -58,12 +66,12 @@ export function gameMeta(
         ? t("neverPlayed")
         : "",
     game.playtime
-      ? t("hoursPlayed", { hours: hoursPlayed(game.playtime) })
+      ? t("hoursPlayed", { hours: hoursPlayed(game.playtime, lang) })
       : "",
     game.installed && game.size != null
-      ? t("diskSpaceUsed", { size: formatSize(game.size) })
+      ? t("diskSpaceUsed", { size: formatSize(game.size, lang) })
       : estimate != null
-        ? t("downloadEstimate", { size: formatSize(estimate) })
+        ? t("downloadEstimate", { size: formatSize(estimate, lang) })
         : "",
   ]
     .filter(Boolean)
@@ -361,7 +369,7 @@ export function filterGames(
     });
 }
 /** Milliseconds of the latest session: a launch from Sofa or one the launcher recorded. */
-export const lastPlayed = (g: Game, p: Preferences) =>
+const lastPlayed = (g: Game, p: Preferences) =>
   Math.max(p.recent[g.id] ?? 0, (g.last_played ?? 0) * 1000);
 export function hero(g: Game | undefined): string | undefined {
   if (!g) return;
