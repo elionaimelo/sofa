@@ -189,18 +189,16 @@ export function Hud() {
 }
 
 /**
- * HUD content hosted by Game Bar on Windows, or `embedded` in the browser demo dialog.
+ * HUD content hosted by Game Bar on Windows (and its own window elsewhere).
  */
 export function HudPanel({
   t,
   inputRef,
   onClose,
-  embedded = false,
 }: {
   t: Translate;
   inputRef: InputRef;
   onClose: () => void;
-  embedded?: boolean;
 }) {
   const root = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -366,7 +364,6 @@ export function HudPanel({
         root.current?.scrollBy({ top: a === "down" ? 96 : -96 });
     }
   });
-  const Root = embedded ? "div" : "main";
   const current = display?.current;
   const same = (m: Mode, w: number, h: number) =>
     m.width === w && m.height === h;
@@ -442,7 +439,7 @@ export function HudPanel({
     setOpen(open === name ? null : name);
   const battery = power.data?.batteries[0]?.charge_percent;
   return (
-    <Root className="floating-hud" ref={root as never}>
+    <main className="floating-hud" ref={root}>
       {/* Inside the Game Bar widget the host draws the title bar and close button. */}
       {/* The Game Bar draws its own title bar; keep the page heading for screen readers. */}
       {inWidget && <h1 className="visually-hidden">Sofa HUD</h1>}
@@ -770,7 +767,7 @@ export function HudPanel({
         )}
       </div>
       <ControllerBatteries t={t} data={power.data} />
-    </Root>
+    </main>
   );
 }
 function Options({

@@ -157,14 +157,6 @@ async fn focus_main(app: tauri::AppHandle) -> Result<(), String> {
     bring_to_front(&app)
 }
 
-/// The Command Center button: Sofa in front with its power panel open.
-#[cfg_attr(not(windows), allow(dead_code))]
-pub(crate) fn show_quick_settings(app: &tauri::AppHandle) -> Result<(), String> {
-    use tauri::Emitter;
-    bring_to_front(app)?;
-    app.emit_to("main", "quick-settings", ()).map_err(|_| "serviceUnavailable".to_string())
-}
-
 /// Takes a game id, never a raw path: the webview can only start things the scan found.
 /// Steam on Windows uses its executable; other launchers use the OS opener.
 // ponytail: rescans per launch (ms on a normal library); cache in app state if it shows up.

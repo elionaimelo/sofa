@@ -1,6 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { AnimatePresence } from "motion/react";
 import {
   type CSSProperties,
@@ -15,7 +14,7 @@ import {
   useState,
 } from "react";
 import { Cover } from "./components/Cover";
-import { Dialog, DialogFooter } from "./components/Dialog";
+import { DialogFooter } from "./components/Dialog";
 import { LaunchScreen } from "./components/LaunchScreen";
 import { Loading } from "./components/Loading";
 import { Picker } from "./components/Picker";
@@ -73,7 +72,6 @@ import { Downloads } from "./features/Downloads";
 import { FiltersDrawer, type FilterTab } from "./features/FiltersDrawer";
 import { GameDetails } from "./features/GameDetails";
 import { Onboarding } from "./features/Onboarding";
-import { HudPanel } from "./features/Performance";
 import { PowerMenu, TopBatteries, usePower } from "./features/Power";
 import {
   AppearanceSettings,
@@ -235,19 +233,9 @@ export default function App() {
   const [details, setDetails] = useState<Game | null>(null);
   const [settings, setSettings] = useState<SettingsPanel | null>(null);
   const [powerMenu, setPowerMenu] = useState(false);
-  const [hudOpen, setHudOpen] = useState(false);
   // The store's comparison dialog, for the hints only.
   const [storeModal, setStoreModal] = useState(false);
-  // The Ally's Command Center button brings Sofa forward with the power panel open.
-  useEffect(() => {
-    if (!isTauri()) return;
-    const stop = listen("quick-settings", () => setHudOpen(true));
-    return () => {
-      void stop.then((unlisten) => unlisten());
-    };
-  }, []);
   const [launchScreen, setLaunchScreen] = useState<Game | null>(null);
-  const hudInput: InputRef = useRef(null);
   // The launch screen stays until the game takes focus; launchers can take a while.
   useEffect(() => {
     if (!launchScreen) return;
@@ -583,9 +571,9 @@ export default function App() {
     mutationFn: () => desktop("open_hud"),
     onError: (error) => notify(serviceError(error)),
   });
+  // The HUD is Sofa's Xbox Game Bar widget: it shows over games too.
   const openHud = () => {
-    if (demo) setHudOpen(true);
-    else if (!hudLaunch.isPending) hudLaunch.mutate();
+    if (!hudLaunch.isPending) hudLaunch.mutate();
   };
   const installGame = async (game: Game) => {
     if (game.installed) return;
@@ -624,10 +612,6 @@ export default function App() {
     if (onboarding) {
       if (a === "b") finishOnboarding();
       else navigateSpatial(a, document.querySelector("dialog[open]"));
-      return;
-    }
-    if (hudOpen) {
-      hudInput.current?.(a);
       return;
     }
     if (
@@ -753,55 +737,50 @@ export default function App() {
   const CollectionHeading = page === "library" ? "h1" : "h2";
   const hints: [string, string][] = launchScreen
     ? [["B", t("close")]]
-    : hudOpen
+    : details
       ? [
           ["A", t("selectAction")],
+          ["X", t("favorites")],
+          [
+            "Y",
+            t(prefs.hidden.includes(details.id) ? "restoreGame" : "hideGame"),
+          ],
           ["B", t("close")],
         ]
-      : details
+      : settings || powerMenu || storeModal
         ? [
             ["A", t("selectAction")],
-            ["X", t("favorites")],
-            [
-              "Y",
-              t(prefs.hidden.includes(details.id) ? "restoreGame" : "hideGame"),
-            ],
+            ...(storeModal
+              ? ([["X", t("wishlist")]] as [string, string][])
+              : []),
             ["B", t("close")],
           ]
-        : settings || powerMenu || storeModal
+        : filtersOpen && page === "library"
           ? [
               ["A", t("selectAction")],
-              ...(storeModal
-                ? ([["X", t("wishlist")]] as [string, string][])
-                : []),
+              ["LB/RB", t("filterTabs")],
+              ["Y", t("clearFilters")],
               ["B", t("close")],
             ]
-          : filtersOpen && page === "library"
-            ? [
-                ["A", t("selectAction")],
-                ["LB/RB", t("filterTabs")],
-                ["Y", t("clearFilters")],
-                ["B", t("close")],
-              ]
-            : [
-                ["View", t("menu")],
-                ["A", t("selectAction")],
-                ...(page === "home" || page === "library"
+          : [
+              ["View", t("menu")],
+              ["A", t("selectAction")],
+              ...(page === "home" || page === "library"
+                ? ([
+                    ["X", t("favorites")],
+                    ["LB/RB", t("sources")],
+                  ] as [string, string][])
+                : page === "store"
                   ? ([
-                      ["X", t("favorites")],
-                      ["LB/RB", t("sources")],
+                      ["X", t("wishlist")],
+                      ["LB/RB", t("filterTabs")],
+                      ["LT/RT", t("pages")],
                     ] as [string, string][])
-                  : page === "store"
-                    ? ([
-                        ["X", t("wishlist")],
-                        ["LB/RB", t("filterTabs")],
-                        ["LT/RT", t("pages")],
-                      ] as [string, string][])
-                    : []),
-                ...(page === "home"
-                  ? []
-                  : ([["B", t("home")]] as [string, string][])),
-              ];
+                  : []),
+              ...(page === "home"
+                ? []
+                : ([["B", t("home")]] as [string, string][])),
+            ];
   return (
     <DialogFooter
       value={
@@ -1363,16 +1342,6 @@ export default function App() {
           </HintBar>
         </footer>
         {launchScreen && <LaunchScreen game={launchScreen} t={t} />}
-        {hudOpen && (
-          <Dialog label={t("energy")} onClose={() => setHudOpen(false)}>
-            <HudPanel
-              t={t}
-              inputRef={hudInput}
-              embedded
-              onClose={() => setHudOpen(false)}
-            />
-          </Dialog>
-        )}
         {powerMenu && (
           <PowerMenu
             t={t}
