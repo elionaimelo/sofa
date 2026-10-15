@@ -259,6 +259,7 @@ export default function App() {
   const grid = useRef<HTMLDivElement>(null);
   // Hovering a tile focuses it; only controller and keyboard moves scroll it into view.
   const hovered = useRef(false);
+  const touchScrollStart = useRef<number | null>(null);
   const featureInput: InputRef = useRef(null);
   const launchBusy = useRef(false);
   const notify = useCallback<Notify>(
@@ -490,6 +491,24 @@ export default function App() {
     tile?.focus();
   }, [visible.length, focus, tileAt, details, settings]);
   const focusTile = useCallback((i: number) => setFocus(i), []);
+  const finishTouchScroll = useCallback((row: HTMLDivElement) => {
+    if (touchScrollStart.current === null) return;
+    touchScrollStart.current = null;
+    const padding =
+      Number.parseFloat(getComputedStyle(row).scrollPaddingLeft) || 0;
+    const left = row.getBoundingClientRect().left + padding;
+    const tiles = row.querySelectorAll<HTMLButtonElement>(".tile");
+    let nearest = 0;
+    let distance = Number.POSITIVE_INFINITY;
+    tiles.forEach((tile, i) => {
+      const next = Math.abs(tile.getBoundingClientRect().left - left);
+      if (next < distance) {
+        nearest = i;
+        distance = next;
+      }
+    });
+    tiles[nearest]?.focus({ preventScroll: true });
+  }, []);
   const hoverTile = useCallback(
     (i: number) =>
       setFocus((f) => {
@@ -1175,6 +1194,25 @@ export default function App() {
                       ref={grid}
                       role="group"
                       aria-label={t("library")}
+                      onTouchStart={(event) => {
+                        if (page === "home")
+                          touchScrollStart.current =
+                            event.currentTarget.scrollLeft;
+                      }}
+                      onTouchEnd={(event) => {
+                        if (
+                          touchScrollStart.current ===
+                          event.currentTarget.scrollLeft
+                        )
+                          touchScrollStart.current = null;
+                      }}
+                      onTouchCancel={() => {
+                        touchScrollStart.current = null;
+                      }}
+                      onScrollEnd={(event) => {
+                        if (page === "home")
+                          finishTouchScroll(event.currentTarget);
+                      }}
                     >
                       {(page === "home"
                         ? visible.slice(0, homeTiles)

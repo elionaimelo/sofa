@@ -616,6 +616,10 @@ button:active:not([aria-disabled="true"]) {
 .game-row .tile[aria-current="true"]::after {
   opacity: 0;
 }
+.game-row .install-mark.installing,
+.game-row .install-progress {
+  z-index: 1;
+}
 .game-row .tile {
   flex: 0 0 clamp(130px, 12.8vw, 230px);
   height: min(32vh, 345px);
