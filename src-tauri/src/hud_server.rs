@@ -40,6 +40,24 @@ fn json(status: u16, body: String) -> Response<std::io::Cursor<Vec<u8>>> {
         .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
 }
 
+/// The widget loads bundled assets and media, but never remote scripts.
+const HUD_CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; media-src 'self' https: blob:; connect-src 'self' https:";
+
+fn trusted_widget_headers(origin: Option<&str>, host: Option<&str>, content_type: Option<&str>) -> bool {
+    let expected_origin = format!("http://127.0.0.1:{PORT}");
+    let expected_host = format!("127.0.0.1:{PORT}");
+    origin == Some(expected_origin.as_str())
+        && host == Some(expected_host.as_str())
+        && content_type.is_some_and(|value| value.starts_with("application/json"))
+}
+
+fn trusted_widget_request(request: &Request) -> bool {
+    let origin = request.headers().iter().find(|h| h.field.equiv("Origin")).map(|h| h.value.as_str());
+    let host = request.headers().iter().find(|h| h.field.equiv("Host")).map(|h| h.value.as_str());
+    let content_type = request.headers().iter().find(|h| h.field.equiv("Content-Type")).map(|h| h.value.as_str());
+    trusted_widget_headers(origin, host, content_type)
+}
+
 /// Runs one HUD command. Same functions the Tauri commands use; only this allowlist is reachable.
 async fn dispatch(app: &tauri::AppHandle, command: &str, args: serde_json::Value) -> Result<serde_json::Value, String> {
     use crate::{ally, ally_pad, audio, display, game_settings, hud, power, quit, rtss, session, stats};
@@ -91,14 +109,10 @@ async fn dispatch(app: &tauri::AppHandle, command: &str, args: serde_json::Value
 }
 
 fn handle(app: &tauri::AppHandle, dist: Option<&PathBuf>, mut request: Request) {
-    // Browsers send Origin on cross-site requests; only the HUD page itself may call the API.
-    let foreign_origin = request.headers().iter().any(|h| {
-        h.field.equiv("Origin") && !h.value.as_str().starts_with(&format!("http://127.0.0.1:{PORT}"))
-    });
     let url = request.url().to_owned();
     let path = url.split('?').next().unwrap_or("/");
     let response = if let Some(command) = path.strip_prefix("/api/") {
-        if foreign_origin || *request.method() != Method::Post {
+        if !trusted_widget_request(&request) || *request.method() != Method::Post {
             json(403, r#"{"error":"accessDenied"}"#.into())
         } else {
             let mut body = String::new();
@@ -118,7 +132,8 @@ fn handle(app: &tauri::AppHandle, dist: Option<&PathBuf>, mut request: Request) 
         });
         match file.filter(|f| f.is_file()).and_then(|f| std::fs::read(&f).ok().map(|b| (f, b))) {
             Some((f, bytes)) => Response::from_data(bytes)
-                .with_header(Header::from_bytes("Content-Type", mime(&f)).unwrap()),
+                .with_header(Header::from_bytes("Content-Type", mime(&f)).unwrap())
+                .with_header(Header::from_bytes("Content-Security-Policy", HUD_CSP).unwrap()),
             None => Response::from_data(b"not found".to_vec()).with_status_code(404),
         }
     };
@@ -134,4 +149,20 @@ pub fn start(app: tauri::AppHandle) {
             handle(&app, dist.as_ref(), request);
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn widget_api_rejects_missing_or_lookalike_origins() {
+        let origin = format!("http://127.0.0.1:{PORT}");
+        let host = format!("127.0.0.1:{PORT}");
+        assert!(trusted_widget_headers(Some(&origin), Some(&host), Some("application/json")));
+        assert!(!trusted_widget_headers(None, Some(&host), Some("application/json")));
+        assert!(!trusted_widget_headers(Some(&format!("{origin}.evil.test")), Some(&host), Some("application/json")));
+        assert!(!trusted_widget_headers(Some(&origin), Some("localhost:47811"), Some("application/json")));
+        assert!(!trusted_widget_headers(Some(&origin), Some(&host), Some("text/plain")));
+    }
 }
