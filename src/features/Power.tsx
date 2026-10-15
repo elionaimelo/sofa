@@ -26,8 +26,9 @@ import {
   serviceError,
   useFeatureInput,
 } from "../services";
-export type PowerAction = "shutdown" | "restart" | "hibernate";
-export type DeviceBattery = {
+
+type PowerAction = "shutdown" | "restart" | "hibernate";
+type DeviceBattery = {
   index: number;
   model: string | null;
   charge_percent: number | null;
@@ -39,7 +40,7 @@ export type DeviceBattery = {
   remaining_seconds: number | null;
   charging_seconds: number | null;
 };
-export type PowerStatus = {
+type PowerStatus = {
   batteries: DeviceBattery[];
   ac_power: boolean | null;
   battery_error: boolean;

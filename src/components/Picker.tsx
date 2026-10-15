@@ -2,7 +2,7 @@ import { CaretDownIcon } from "@phosphor-icons/react";
 import { type Ref, useEffect, useRef, useState } from "react";
 import { navigateControls, pickerInput, useFeatureInput } from "../services";
 
-export type PickerOption<V extends string> = { value: V; label: string };
+type PickerOption<V extends string> = { value: V; label: string };
 
 /**
  * A choice the controller can make: A opens the list, up/down move, A picks, B closes.

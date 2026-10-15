@@ -5,14 +5,14 @@ import type { Region } from "./library";
 import { commandQuery, demo, parseWishlist } from "./services";
 
 /** A store's offer for a wishlist game today (CheapShark, US dollars). */
-export type Offer = {
+type Offer = {
   storeID: string;
   dealID: string;
   price: string;
   retailPrice: string;
   savings: string;
 };
-export type FreeGame = {
+type FreeGame = {
   id: string;
   title: string;
   image: string | null;

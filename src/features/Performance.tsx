@@ -191,7 +191,7 @@ export function Hud() {
 /**
  * HUD content hosted by Game Bar on Windows (and its own window elsewhere).
  */
-export function HudPanel({
+function HudPanel({
   t,
   inputRef,
   onClose,

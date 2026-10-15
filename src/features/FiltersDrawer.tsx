@@ -15,7 +15,7 @@ export type FilterTab = "categories" | "options";
 type Choice = { key: string; label: string; count: number };
 
 /** Active filters per drawer tab, shown on the tab itself. */
-export const filterCount = (filters: Preferences["filters"], tab: FilterTab) =>
+const filterCount = (filters: Preferences["filters"], tab: FilterTab) =>
   tab === "categories"
     ? filters.categories.length
     : Number(filters.played !== "any") +

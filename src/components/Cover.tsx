@@ -5,7 +5,7 @@ import type { Game } from "../library";
  * Steam's portrait art is missing for some titles and, for newer ones, so is the header on
  * the legacy CDN (their assets moved to hashed paths); the hero banner is the last resort.
  */
-export function coverSources(game: Game): string[] {
+function coverSources(game: Game): string[] {
   const sources = game.cover ? [game.cover] : [];
   const appId = game.id.startsWith("steam:") ? game.id.slice(6) : "";
   if (/^\d+$/.test(appId))
