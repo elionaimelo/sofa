@@ -31,6 +31,7 @@ Agent skills (TanStack Query, React composition, web interface guidelines, Rust 
 
 ## Ground rules
 
+- Be critical of UI: fewer, better-placed controls beat more, and every visual change is looked at on screen at the Ally's size before it ships (`src/AGENTS.md`, "Reviewing UI changes").
 - Smallest change that works. Reuse what exists (`services.ts`, `library.rs`, `network.rs`) before writing new helpers; no new dependency when an installed one or a few lines do the job.
 - Delete dead code, styles and strings in the same change that makes them dead.
 - Code, comments, commit messages and `AGENTS.md` files: English. Product docs in `docs/`: Português (Brasil). User-facing text: `src/i18n.ts` in English, Português (Brasil) and Español.

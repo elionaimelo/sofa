@@ -20,6 +20,13 @@
 - Set focus on purpose: `data-initial-focus` in dialogs, move focus to the trigger before unmounting a focused element.
 - View + Start is reserved for the native HUD toggle; `useInput` fires View/Start on release so the chord doesn't trigger them.
 
+## Reviewing UI changes
+
+Be critical: type checks and tests don't show layout.
+
+- Look at every screen a change touches at the Ally's size (1280×720 CSS px) with real data, and walk it with the D-pad: nothing cut off or under the close X, no text squeezed into a narrow column, buttons on one line, text the player reads scrolls fully into view.
+- One place for an action, on the thing that is open: no controls repeated on every list item, no text the screen doesn't need.
+
 ## Design language
 
 Decided with the product owner; keep every new screen inside it.
