@@ -603,6 +603,19 @@ button:active:not([aria-disabled="true"]) {
 .game-row > * {
   scroll-snap-align: start;
 }
+/* The carousel dims the games around the selected one a little: a dark veil that fades out on
+   the selected game. Opacity only, so the compositor animates it. */
+.game-row .tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(8 10 15 / 0.38);
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.game-row .tile[aria-current="true"]::after {
+  opacity: 0;
+}
 .game-row .tile {
   flex: 0 0 clamp(130px, 12.8vw, 230px);
   height: min(32vh, 345px);
