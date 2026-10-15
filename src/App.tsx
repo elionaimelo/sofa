@@ -83,7 +83,7 @@ import {
   type SettingsPanel,
   UpdateSettings,
 } from "./features/Settings";
-import { Store } from "./features/Store";
+import { Store, type StoreTab } from "./features/Store";
 import {
   commandQuery,
   demo,
@@ -104,7 +104,15 @@ const pageIcons = {
   library: SquaresFourIcon,
   store: StorefrontIcon,
 };
-const TABS = ["all", "favorites", "steam", "epic", "gog"] as const;
+const TABS = [
+  "all",
+  "favorites",
+  "steam",
+  "epic",
+  "gog",
+  "xbox",
+  "custom",
+] as const;
 const preferencesKey = demo ? "sofa.demo.preferences" : "sofa.preferences";
 const onboardingKey = "sofa.onboarding.done";
 /** Whole gigabytes as Windows counts them (1024³), enough for a storage overview. */
@@ -237,6 +245,7 @@ export default function App() {
   const [powerMenu, setPowerMenu] = useState(false);
   // The store's comparison dialog, for the hints only.
   const [storeModal, setStoreModal] = useState(false);
+  const [storeTab, setStoreTab] = useState<StoreTab>("discover");
   const [launchScreen, setLaunchScreen] = useState<Game | null>(null);
   // The launch screen stays until the game takes focus; launchers can take a while.
   useEffect(() => {
@@ -611,7 +620,12 @@ export default function App() {
       setStatus(
         t("installRequested", {
           title: game.title,
-          launcher: game.source === "epic" ? "Epic Games" : "Steam",
+          launcher:
+            game.source === "epic"
+              ? "Epic Games"
+              : game.source === "gog"
+                ? "GOG Galaxy"
+                : "Steam",
         }),
       );
     } catch (error) {
@@ -805,9 +819,13 @@ export default function App() {
                   ] as [string, string][])
                 : page === "store"
                   ? ([
-                      ["X", t("wishlist")],
-                      ["LB/RB", t("filterTabs")],
-                      ["LT/RT", t("pages")],
+                      ...(storeTab === "calendar"
+                        ? []
+                        : [["X", t("wishlist")]]),
+                      ["LB/RB", t("storeTabs")],
+                      ...(storeTab === "discover"
+                        ? [["LT/RT", t("pages")]]
+                        : []),
                     ] as [string, string][])
                   : []),
               ...(page === "home"
@@ -933,11 +951,15 @@ export default function App() {
                         ? t("allGames")
                         : s === "favorites"
                           ? t(s)
-                          : s === "gog"
-                            ? "GOG"
-                            : s === "steam"
-                              ? "Steam"
-                              : "Epic"}
+                          : s === "custom"
+                            ? t("customGames")
+                            : s === "xbox"
+                              ? "Xbox"
+                              : s === "gog"
+                                ? "GOG"
+                                : s === "steam"
+                                  ? "Steam"
+                                  : "Epic"}
                     </button>
                   ))}
                   <kbd aria-hidden>RB</kbd>
@@ -1109,7 +1131,12 @@ export default function App() {
                   {page === "home" && selected && (
                     <section className="hero-copy" key={selected.id}>
                       <span className="game-meta">
-                        {selected.source.toUpperCase()} · {t("installed")}
+                        {selected.source === "xbox"
+                          ? "Xbox"
+                          : selected.source === "custom"
+                            ? t("customGames")
+                            : selected.source.toUpperCase()}{" "}
+                        · {t("installed")}
                       </span>
                       <h1>{selected.title}</h1>
                       <p>
@@ -1146,7 +1173,12 @@ export default function App() {
                       </div>
                     </section>
                   )}
-                  <Downloads t={t} lang={lang} downloads={library.downloads} />
+                  <Downloads
+                    t={t}
+                    lang={lang}
+                    downloads={library.downloads}
+                    onStopTracking={library.stopWatchingInstall}
+                  />
                   <section className="collection" id="content" tabIndex={-1}>
                     <div className="collection-heading">
                       <CollectionHeading>
@@ -1257,6 +1289,7 @@ export default function App() {
                 onOpinion={setOpinion}
                 steamConnected={library.accounts.steam.connected}
                 onModal={setStoreModal}
+                onTab={setStoreTab}
                 notify={notify}
                 input={featureInput}
                 onBack={() => setPage("home")}

@@ -532,8 +532,10 @@ export function AppsSettings({ t, notify }: { t: Translate; notify: Notify }) {
     ...commandQuery<AppEntry[]>("apps_list"),
     enabled: isTauri(),
   });
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: ["apps_list"] });
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ["apps_list"] });
+    void queryClient.invalidateQueries({ queryKey: ["library", "installed"] });
+  };
   const launch = useMutation({
     mutationFn: (app: AppEntry) => invoke("launch_app", { id: app.id }),
     onSuccess: (_, app) => notify("appOpened", { name: app.name }),

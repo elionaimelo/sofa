@@ -337,12 +337,21 @@ pub async fn disconnect_steam_library(
 }
 
 #[tauri::command]
-pub fn install_owned_game(
+pub async fn install_owned_game(
     id: String,
     session: tauri::State<'_, SteamLibrarySession>,
     epic: tauri::State<'_, crate::epic::EpicLibrarySession>,
 ) -> Result<(), String> {
-    let uri = if id.starts_with("epic:") {
+    let uri = if let Some(gog_id) = id.strip_prefix("gog:") {
+        let owned_id = id.clone();
+        let owned = tauri::async_runtime::spawn_blocking(move || {
+            crate::library::gog_owned().iter().any(|game| game.id == owned_id)
+        }).await.map_err(|_| "serviceUnavailable")?;
+        if !owned {
+            return Err("installUnavailable".into());
+        }
+        format!("goggalaxy://openGameView/{gog_id}")
+    } else if id.starts_with("epic:") {
         crate::epic::install_uri(&epic, &id)?
     } else {
         let app_id = library::steam_app_id(&id).ok_or("installUnavailable")?;

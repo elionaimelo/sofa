@@ -77,8 +77,10 @@ export function GameDetails({
       onClose={onClose}
     >
       <p className="detail-meta">
-        {game.source.toUpperCase()} ·{" "}
-        {t(game.installed ? "installed" : "availableToInstall")}
+        {game.source === "custom"
+          ? t("customGames")
+          : game.source.toUpperCase()}{" "}
+        · {t(game.installed ? "installed" : "availableToInstall")}
       </p>
       <h1>{game.title}</h1>
       <p className="detail-meta-line">
@@ -105,7 +107,13 @@ export function GameDetails({
         }
       />
       <p className="muted">
-        {t(game.installed ? "launchHint" : "installHint")}
+        {t(
+          game.source === "custom"
+            ? "customLaunchHint"
+            : game.installed
+              ? "launchHint"
+              : "installHint",
+        )}
       </p>
       <div className="detail-actions">
         <button

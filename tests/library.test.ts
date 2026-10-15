@@ -10,6 +10,7 @@ import {
   type Game,
   hoursPlayed,
   mergeLibrary,
+  parsePendingInstalls,
   parsePreferences,
   tasteProfile,
   tasteWeights,
@@ -42,6 +43,21 @@ const games: Game[] = [
     installed: true,
   },
 ];
+test("pending downloads survive a restart but discard stale and malformed entries", () => {
+  const now = 1_800_000_000_000;
+  const saved = JSON.stringify([
+    { id: "steam:620", started: now - 1000 },
+    { id: "steam:620", started: now - 1000 },
+    { id: "epic:game-1", started: now - 8 * 24 * 60 * 60 * 1000 },
+    { id: "gog:1234", started: now + 1000 },
+    { id: "custom:1234", started: now - 1000 },
+    { id: "steam:../../bad", started: now - 1000 },
+  ]);
+  assert.deepEqual(parsePendingInstalls(saved, now), [
+    { id: "steam:620", started: now - 1000 },
+  ]);
+  assert.deepEqual(parsePendingInstalls("broken", now), []);
+});
 test("account games merge with local installations without duplicate cards", () => {
   const owned: Game[] = [
     { ...games[0], installed: false },

@@ -49,7 +49,12 @@ export function Uninstall({
       setBusy(false);
     }
   };
-  if (game.source === "gog") return null;
+  if (
+    game.source === "gog" ||
+    game.source === "xbox" ||
+    game.source === "custom"
+  )
+    return null;
   return (
     <section
       className="uninstall-section"

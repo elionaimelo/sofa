@@ -1,13 +1,13 @@
-import { DownloadSimpleIcon } from "@phosphor-icons/react";
+import { DownloadSimpleIcon, XIcon } from "@phosphor-icons/react";
 import { CoverImage } from "../components/Cover";
 import type { Translate } from "../i18n";
 import { formatSize, type Game } from "../library";
 
 type Download = {
   game: Game;
-  downloaded: number;
-  total: number;
-  percent: number;
+  downloaded?: number;
+  total?: number;
+  percent?: number;
 };
 
 /** Steam-style downloads strip: every install Sofa requested, with its bar and bytes. */
@@ -15,10 +15,12 @@ export function Downloads({
   t,
   lang,
   downloads,
+  onStopTracking,
 }: {
   t: Translate;
   lang: string;
   downloads: Download[];
+  onStopTracking: (id: string) => void;
 }) {
   if (!downloads.length) return null;
   return (
@@ -36,23 +38,35 @@ export function Downloads({
             <span className="download-copy">
               <strong>{d.game.title}</strong>
               <small>
-                {t("downloadOf", {
-                  done: formatSize(d.downloaded, lang),
-                  total: formatSize(d.total, lang),
-                })}{" "}
-                · {d.percent}%
+                {d.percent == null || d.downloaded == null || d.total == null
+                  ? t("waitingForLauncher")
+                  : `${t("downloadOf", {
+                      done: formatSize(d.downloaded, lang),
+                      total: formatSize(d.total, lang),
+                    })} · ${d.percent}%`}
               </small>
-              <span
-                className="download-bar"
-                role="progressbar"
-                aria-valuenow={d.percent}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={d.game.title}
-              >
-                <span style={{ width: `${d.percent}%` }} />
-              </span>
+              {d.percent != null && (
+                <span
+                  className="download-bar"
+                  role="progressbar"
+                  aria-valuenow={d.percent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={d.game.title}
+                >
+                  <span style={{ width: `${d.percent}%` }} />
+                </span>
+              )}
             </span>
+            <button
+              type="button"
+              aria-label={`${t("stopTrackingDownload")}: ${d.game.title}`}
+              title={t("stopTrackingDownload")}
+              onClick={() => onStopTracking(d.game.id)}
+            >
+              <XIcon />
+              {t("stopTrackingDownload")}
+            </button>
           </li>
         ))}
       </ul>

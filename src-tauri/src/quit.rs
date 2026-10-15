@@ -20,8 +20,8 @@ pub struct Running {
     title: String,
 }
 
-/// Install folder of an installed game, from its launcher's own records.
-fn install_folder(game: &Game) -> Option<PathBuf> {
+/// Install folder of a game, or the exact executable for a custom entry.
+fn install_folder(app: &tauri::AppHandle, game: &Game) -> Option<PathBuf> {
     let folder = if let Some(app_id) = library::steam_app_id(&game.id) {
         let manifest = format!("appmanifest_{app_id}.acf");
         let lib = library::steam_libraries()
@@ -30,6 +30,10 @@ fn install_folder(game: &Game) -> Option<PathBuf> {
         crate::steam_uninstall::removal(&lib, app_id).ok()?.folder?
     } else if let Some(app) = game.id.strip_prefix("epic:") {
         library::epic_install_location(app)?
+    } else if game.source == "xbox" {
+        crate::xbox_library::install_folder(&game.id)?
+    } else if game.source == "custom" {
+        crate::apps::custom_executable(app, &game.id)?
     } else {
         // GOG records the game's executable; its folder holds the install.
         Path::new(&game.launch).parent()?.to_path_buf()
@@ -37,6 +41,18 @@ fn install_folder(game: &Game) -> Option<PathBuf> {
     let folder = std::fs::canonicalize(folder).ok()?;
     // A drive root would match every program on it.
     (folder.components().count() >= 3).then_some(folder)
+}
+
+pub fn is_running_id(app: &tauri::AppHandle, id: &str) -> bool {
+    if let Some(steam_id) = library::steam_app_id(id)
+        && library::running_steam_app().is_some_and(|running| running.to_string() == steam_id) {
+            return true;
+        }
+    library::scan_with_custom(app)
+        .into_iter()
+        .find(|game| game.id == id)
+        .and_then(|game| install_folder(app, &game))
+        .is_some_and(|folder| !processes_in(&folder, id.starts_with("custom:")).is_empty())
 }
 
 #[cfg_attr(not(any(windows, test)), expect(dead_code, reason = "processes are only read on Windows"))]
@@ -51,6 +67,13 @@ fn inside(exe: &Path, folder: &Path) -> bool {
     !folder.is_empty() && exe.strip_prefix(&folder).is_some_and(|rest| rest.starts_with('\\'))
 }
 
+#[cfg_attr(not(any(windows, test)), expect(dead_code, reason = "processes are only read on Windows"))]
+fn same_executable(exe: &Path, expected: &Path) -> bool {
+    exe.to_string_lossy().trim_start_matches(r"\\?\").eq_ignore_ascii_case(
+        expected.to_string_lossy().trim_start_matches(r"\\?\")
+    )
+}
+
 /// The running game and its folder: Steam's running app first, then Sofa's last launch,
 /// whichever still has a process inside its install folder.
 fn target(app: &tauri::AppHandle) -> Option<(Game, PathBuf)> {
@@ -60,16 +83,16 @@ fn target(app: &tauri::AppHandle) -> Option<(Game, PathBuf)> {
     if ids.is_empty() {
         return None;
     }
-    let games = library::scan();
+    let games = library::scan_with_custom(app);
     ids.iter().find_map(|id| {
         let game = games.iter().find(|g| &g.id == id)?;
-        let folder = install_folder(game)?;
-        (!processes_in(&folder).is_empty()).then(|| (game.clone(), folder))
+        let folder = install_folder(app, game)?;
+        (!processes_in(&folder, game.source == "custom").is_empty()).then(|| (game.clone(), folder))
     })
 }
 
 #[cfg(windows)]
-fn processes_in(folder: &Path) -> Vec<u32> {
+fn processes_in(folder: &Path, exact: bool) -> Vec<u32> {
     use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
     let mut system = System::new();
     system.refresh_processes_specifics(
@@ -80,12 +103,12 @@ fn processes_in(folder: &Path) -> Vec<u32> {
     system
         .processes()
         .values()
-        .filter(|p| p.exe().is_some_and(|exe| inside(exe, folder)))
+        .filter(|p| p.exe().is_some_and(|exe| if exact { same_executable(exe, folder) } else { inside(exe, folder) }))
         .map(|p| p.pid().as_u32())
         .collect()
 }
 #[cfg(not(windows))]
-fn processes_in(_folder: &Path) -> Vec<u32> {
+fn processes_in(_folder: &Path, _exact: bool) -> Vec<u32> {
     Vec::new()
 }
 
@@ -124,9 +147,9 @@ fn post_close(pids: &[u32]) -> usize {
 }
 
 #[cfg(windows)]
-fn close(folder: &Path, force: bool) -> Result<(), String> {
+fn close(folder: &Path, exact: bool, force: bool) -> Result<(), String> {
     use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
-    let pids = processes_in(folder);
+    let pids = processes_in(folder, exact);
     if pids.is_empty() {
         return Err("noGameRunning".into());
     }
@@ -141,13 +164,13 @@ fn close(folder: &Path, force: bool) -> Result<(), String> {
     let killed = list
         .iter()
         .filter_map(|pid| system.process(*pid))
-        .filter(|p| p.exe().is_some_and(|exe| inside(exe, folder)))
+        .filter(|p| p.exe().is_some_and(|exe| if exact { same_executable(exe, folder) } else { inside(exe, folder) }))
         .filter(|p| p.kill())
         .count();
     if killed > 0 { Ok(()) } else { Err("closeGameFailed".into()) }
 }
 #[cfg(not(windows))]
-fn close(_folder: &Path, _force: bool) -> Result<(), String> {
+fn close(_folder: &Path, _exact: bool, _force: bool) -> Result<(), String> {
     Err("desktopRequired".into())
 }
 
@@ -167,7 +190,7 @@ pub async fn running_game(app: tauri::AppHandle) -> Result<Option<Running>, Stri
 pub async fn close_game(force: bool, app: tauri::AppHandle) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let (game, folder) = target(&app).ok_or("noGameRunning")?;
-        let result = close(&folder, force);
+        let result = close(&folder, game.source == "custom", force);
         crate::log::info(&app, format!("quit: {} force={force} ok={}", game.id, result.is_ok()));
         result
     })
@@ -188,5 +211,7 @@ mod tests {
         assert!(!inside(Path::new(r"C:\Program Files\Epic Games\Hades II\Hades2.exe"), folder));
         assert!(!inside(Path::new(r"C:\Program Files\Epic Games\Launcher.exe"), folder));
         assert!(!inside(Path::new(r"C:\Windows\explorer.exe"), Path::new("")));
+        assert!(same_executable(Path::new(r"C:\Games\Sofa\Game.exe"), Path::new(r"\\?\c:\games\sofa\GAME.exe")));
+        assert!(!same_executable(Path::new(r"C:\Games\Sofa\Launcher.exe"), Path::new(r"C:\Games\Sofa\Game.exe")));
     }
 }

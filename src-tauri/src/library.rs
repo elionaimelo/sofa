@@ -26,11 +26,19 @@ pub fn scan() -> Vec<Game> {
     let mut games = steam();
     games.extend(epic());
     games.extend(gog());
+    games.extend(crate::xbox_library::games());
     // The same Steam library can be listed twice with different spellings
     // (registry `c:/program files (x86)/steam` vs vdf `C:\Program Files (x86)\Steam`).
     games.sort_by(|a, b| a.id.cmp(&b.id));
     games.dedup_by(|a, b| a.id == b.id);
     games.sort_by_key(|g| g.title.to_lowercase());
+    games
+}
+
+pub fn scan_with_custom(app: &tauri::AppHandle) -> Vec<Game> {
+    let mut games = scan();
+    games.extend(crate::apps::custom_games(app));
+    games.sort_by_key(|game| game.title.to_lowercase());
     games
 }
 
@@ -142,6 +150,9 @@ pub fn steam_game(app_id: impl std::fmt::Display, title: String, installed: bool
 /// Use Steam's executable on Windows so launching does not depend on the URL association.
 /// The client handles both a cold start and forwarding to an already running instance.
 pub fn launch_game(game: &Game) -> Result<(), String> {
+    if game.source == "xbox" {
+        return crate::xbox_library::launch(&game.id);
+    }
     #[cfg(windows)]
     if game.source == "steam" {
         let root = steam_root().ok_or("Steam installation not found")?;
@@ -306,9 +317,68 @@ fn gog() -> Vec<Game> {
     vec![]
 }
 
+/// Galaxy's local library cache includes owned titles that are not installed. An absent or
+/// changed private schema leaves this source empty without affecting installed games.
+#[cfg(windows)]
+pub fn gog_owned() -> Vec<Game> {
+    use rusqlite::{Connection, OpenFlags};
+    let Some(program_data) = std::env::var_os("ProgramData") else { return vec![] };
+    let path = PathBuf::from(program_data).join(r"GOG.com\Galaxy\storage\galaxy-2.0.db");
+    let Ok(db) = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX) else {
+        return vec![];
+    };
+    let Ok(mut query) = db.prepare(
+        "SELECT lr.releaseKey, gp.value FROM LibraryReleases lr \
+         JOIN GamePieces gp ON gp.releaseKey = lr.releaseKey \
+         WHERE lr.releaseKey LIKE 'gog_%' AND gp.value IS NOT NULL",
+    ) else { return vec![] };
+    let Ok(rows) = query.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))) else {
+        return vec![];
+    };
+    let mut games: Vec<Game> = rows.flatten().filter_map(|(key, value)| gog_owned_piece(&key, &value)).collect();
+    games.sort_by(|a, b| a.id.cmp(&b.id));
+    games.dedup_by(|a, b| a.id == b.id);
+    games.sort_by_key(|game| game.title.to_lowercase());
+    games
+}
+
+#[cfg(not(windows))]
+pub fn gog_owned() -> Vec<Game> {
+    vec![]
+}
+
+#[cfg(any(windows, test))]
+fn gog_owned_piece(key: &str, value: &str) -> Option<Game> {
+    let id = key.strip_prefix("gog_")?;
+    if id.is_empty() || id.len() > 20 || !id.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let parsed: serde_json::Value = serde_json::from_str(value).ok()?;
+    let title = parsed.get("title")?.as_str()?.trim();
+    if title.is_empty() {
+        return None;
+    }
+    Some(Game {
+        id: format!("gog:{id}"),
+        title: title.to_owned(),
+        source: "gog",
+        installed: false,
+        ..Game::default()
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gog_library_piece_accepts_only_numeric_gog_games_with_titles() {
+        let game = gog_owned_piece("gog_123456", r#"{"title":"A Game"}"#).unwrap();
+        assert_eq!((game.id.as_str(), game.title.as_str(), game.installed), ("gog:123456", "A Game", false));
+        assert!(gog_owned_piece("epic_123456", r#"{"title":"A Game"}"#).is_none());
+        assert!(gog_owned_piece("gog_12/path", r#"{"title":"A Game"}"#).is_none());
+        assert!(gog_owned_piece("gog_123456", r#"{"title":"  "}"#).is_none());
+    }
 
     #[test]
     fn a_downloading_manifest_is_not_an_installed_game() {

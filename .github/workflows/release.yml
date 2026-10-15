@@ -30,7 +30,7 @@ jobs:
       # parse it with Windows PowerShell, the one the installer uses, so a syntax error never ships.
       - shell: powershell
         run: |
-          foreach ($script in 'src-tauri/packaging/widget.ps1', 'src-tauri/packaging/home-app.ps1') {
+          foreach ($script in 'src-tauri/packaging/widget.ps1', 'src-tauri/packaging/home-app.ps1', 'src-tauri/packaging/xbox-games.ps1') {
             $errors = $null
             [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $script).Path, [ref]$null, [ref]$errors)
             if ($errors) { $errors | Out-String | Write-Host; exit 1 }

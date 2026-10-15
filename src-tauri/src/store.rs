@@ -47,6 +47,62 @@ pub struct Shop {
     pub is_active: u8,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Upcoming {
+    id: String,
+    title: String,
+    release: String,
+    art: String,
+}
+
+fn parse_upcoming(html: &str) -> Vec<Upcoming> {
+    let document = scraper::Html::parse_document(html);
+    let row = scraper::Selector::parse("a.search_result_row[data-ds-appid]").unwrap();
+    let title = scraper::Selector::parse(".title").unwrap();
+    let release = scraper::Selector::parse(".search_released").unwrap();
+    let image = scraper::Selector::parse(".search_capsule img").unwrap();
+    let windows = scraper::Selector::parse(".platform_img.win").unwrap();
+    document.select(&row).filter_map(|item| {
+        item.select(&windows).next()?;
+        let id = item.value().attr("data-ds-appid")?;
+        if !valid_game_id(id) { return None; }
+        let title = item.select(&title).next()?.text().collect::<String>().trim().to_owned();
+        let release = item.select(&release).next()?.text().collect::<String>().trim().to_owned();
+        let art = item.select(&image).next()?.value().attr("src")?.to_owned();
+        if title.is_empty() || release.is_empty() || !art.starts_with("https://") { return None; }
+        Some(Upcoming { id: id.into(), title, release, art })
+    }).take(48).collect()
+}
+
+#[tauri::command]
+pub async fn store_upcoming(lang: String, cache: tauri::State<'_, StoreCache>) -> Result<Vec<Upcoming>, String> {
+    let locale = match lang.as_str() {
+        "pt-BR" => "brazilian",
+        "es" => "spanish",
+        "en" => "english",
+        _ => return Err("invalidInput".into()),
+    };
+    let key = format!("upcoming:{locale}");
+    if let Some(value) = cache.fresh(&key, Duration::from_secs(60 * 60))? {
+        return serde_json::from_value(value).map_err(|_| "invalidResponse".into());
+    }
+    let html = network::text(network::client()?.get("https://store.steampowered.com/search/")
+        .query(&[("filter", "comingsoon"), ("os", "win"), ("sort_by", "Released_ASC"), ("l", locale)])).await?;
+    let games = parse_upcoming(&html);
+    if games.is_empty() {
+        return Err("invalidResponse".into());
+    }
+    cache.keep(key, serde_json::to_value(&games).map_err(|_| "invalidResponse")?)?;
+    Ok(games)
+}
+
+#[tauri::command]
+pub fn open_upcoming(id: String) -> Result<(), String> {
+    if !valid_game_id(&id) { return Err("invalidInput".into()); }
+    tauri_plugin_opener::open_url(format!("https://store.steampowered.com/app/{id}/"), None::<&str>)
+        .map_err(|_| "openFailed".into())
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct GameInfo {
     pub title: String,
@@ -844,6 +900,12 @@ pub async fn usd_rate(region: String, cache: tauri::State<'_, StoreCache>) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn upcoming_uses_windows_app_rows_only() {
+        let html = r#"<a class="search_result_row" data-ds-appid="123"><div class="search_capsule"><img src="https://cdn.example/game.jpg"></div><span class="platform_img win"></span><span class="title">New Game</span><div class="search_released">15 Oct, 2026</div></a><a class="search_result_row" data-ds-appid="oops"><span class="platform_img win"></span></a>"#;
+        assert_eq!(parse_upcoming(html), vec![Upcoming { id: "123".into(), title: "New Game".into(), release: "15 Oct, 2026".into(), art: "https://cdn.example/game.jpg".into() }]);
+    }
 
     #[test]
     fn similar_games_come_from_the_capsule_links_without_the_game_itself() {

@@ -30,6 +30,7 @@ mod game_settings;
 mod quit;
 mod stats;
 mod widget;
+mod xbox_library;
 
 use tauri::Manager;
 
@@ -124,8 +125,15 @@ pub(crate) fn system_exe(name: &str) -> Option<std::path::PathBuf> {
 }
 
 #[tauri::command]
-async fn scan_library() -> Vec<library::Game> {
-    library::scan()
+async fn scan_library(app: tauri::AppHandle) -> Vec<library::Game> {
+    tauri::async_runtime::spawn_blocking(move || library::scan_with_custom(&app))
+        .await
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+async fn gog_owned_library() -> Vec<library::Game> {
+    tauri::async_runtime::spawn_blocking(library::gog_owned).await.unwrap_or_default()
 }
 
 /// Steam download state of the installs Sofa requested; other stores report nothing.
@@ -169,22 +177,36 @@ async fn focus_main(app: tauri::AppHandle) -> Result<(), String> {
 // ponytail: rescans per launch (ms on a normal library); cache in app state if it shows up.
 #[tauri::command]
 async fn launch(id: String, app: tauri::AppHandle) -> Result<(), String> {
+    static LAUNCH_LOCK: std::sync::OnceLock<tokio::sync::Mutex<()>> = std::sync::OnceLock::new();
+    let _guard = LAUNCH_LOCK.get_or_init(|| tokio::sync::Mutex::new(())).lock().await;
     let game_id = id.clone();
+    let scan_app = app.clone();
     let game = tauri::async_runtime::spawn_blocking(move || {
-        library::scan().into_iter().find(|g| g.id == game_id)
+        library::scan_with_custom(&scan_app).into_iter().find(|g| g.id == game_id)
     }).await.map_err(|_| "openFailed")?.ok_or("openFailed")?;
-    game_settings::apply(&app, &id).await;
+    let applied = if game.source != "custom" { game_settings::apply(&app, &id).await } else { false };
     log::info(&app, format!("launch: requesting {id}"));
-    let r = tauri::async_runtime::spawn_blocking(move || library::launch_game(&game))
-        .await.map_err(|_| "openFailed")?;
+    let launch_app = app.clone();
+    let r = tauri::async_runtime::spawn_blocking(move || {
+        if game.source == "custom" {
+            apps::launch_app(game.id, launch_app)
+        } else {
+            library::launch_game(&game)
+        }
+    }).await.unwrap_or_else(|_| Err("openFailed".into()));
     if let Err(error) = r {
         log::info(&app, format!("launch: {id} failed: {error}"));
+        if applied {
+            game_settings::restore(&app).await;
+            game_settings::watch(app.clone());
+        }
         return Err("openFailed".into());
     }
     log::info(&app, format!("launch: request dispatched for {id}"));
     if let Ok(mut last) = app.state::<quit::LastLaunch>().0.lock() {
         *last = Some(id);
     }
+    if applied { game_settings::watch(app.clone()); }
     keep_sofa_in_front(app);
     Ok(())
 }
@@ -211,6 +233,7 @@ pub fn run() {
             }
             hud_server::start(app.handle().clone());
             session::watch(app.handle().clone());
+            game_settings::watch(app.handle().clone());
             // Launched by the Xbox full screen experience (`--fse`, see packaging/AppxManifest.xml)
             // or opened while Xbox mode is on: Sofa is the console UI, so no window chrome.
             // Xbox mode re-lays out the window after activation; apply again once it settles.
@@ -230,7 +253,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![scan_library, install_progress, focus_main, launch, uninstall::uninstall_game, categories::cached_categories, categories::game_categories, store::store_deals, store::store_shops, store::store_game, store::open_deal, store::steam_prices, store::usd_rate, store::store_similar, store::store_media, store::game_media, store::store_lookup, store::import_steam_wishlist, store::wishlist_prices, store::epic_free_games, store::open_epic_free, store::steam_tags, hud::open_hud, hud::language, hud::set_language, session::current_session, quit::running_game, quit::close_game, stats::game_stats, session::playtimes, log::open_log, storage::storage_status, storage::open_storage_settings, apps::apps_list, apps::browse, apps::browse_up, apps::add_app, apps::remove_app, apps::launch_app, sizes::game_size_estimate, game_settings::game_settings, game_settings::set_game_settings, power::power_status, power::perform_power, ally::ally_status, ally::set_ally_profile, ally::set_tdp, ally::set_fan_curve, ally_pad::set_controller_lighting, ally_pad::set_controller_mode, ally_pad::builtin_controller, ally_pad::set_builtin_controller, rtss::framerate_status, rtss::set_framerate_limit, display::set_auto_hdr, audio::volume_status, audio::set_volume, bluetooth::bluetooth_scan, bluetooth::bluetooth_pair, bluetooth::open_bluetooth_settings, publisher::publisher_status, publisher::partner_offers, publisher::open_partner_offer, accounts::connect_steam_library, accounts::disconnect_steam_library, accounts::install_owned_game, epic::connect_epic_library, epic::disconnect_epic_library, display::display_status, display::set_display_mode, display::set_brightness, display::set_cpu_boost, xbox_mode::xbox_mode_status, xbox_mode::set_xbox_mode_startup, xbox_mode::enter_xbox_mode])
+        .invoke_handler(tauri::generate_handler![scan_library, gog_owned_library, install_progress, focus_main, launch, uninstall::uninstall_game, categories::cached_categories, categories::game_categories, store::store_deals, store::store_upcoming, store::open_upcoming, store::store_shops, store::store_game, store::open_deal, store::steam_prices, store::usd_rate, store::store_similar, store::store_media, store::game_media, store::store_lookup, store::import_steam_wishlist, store::wishlist_prices, store::epic_free_games, store::open_epic_free, store::steam_tags, hud::open_hud, hud::language, hud::set_language, session::current_session, quit::running_game, quit::close_game, stats::game_stats, session::playtimes, log::open_log, storage::storage_status, storage::open_storage_settings, apps::apps_list, apps::browse, apps::browse_up, apps::add_app, apps::remove_app, apps::launch_app, sizes::game_size_estimate, game_settings::game_settings, game_settings::set_game_settings, power::power_status, power::perform_power, ally::ally_status, ally::set_ally_profile, ally::set_tdp, ally::set_fan_curve, ally_pad::set_controller_lighting, ally_pad::set_controller_mode, ally_pad::builtin_controller, ally_pad::set_builtin_controller, rtss::framerate_status, rtss::set_framerate_limit, display::set_auto_hdr, audio::volume_status, audio::set_volume, bluetooth::bluetooth_scan, bluetooth::bluetooth_pair, bluetooth::open_bluetooth_settings, publisher::publisher_status, publisher::partner_offers, publisher::open_partner_offer, accounts::connect_steam_library, accounts::disconnect_steam_library, accounts::install_owned_game, epic::connect_epic_library, epic::disconnect_epic_library, display::display_status, display::set_display_mode, display::set_brightness, display::set_cpu_boost, xbox_mode::xbox_mode_status, xbox_mode::set_xbox_mode_startup, xbox_mode::enter_xbox_mode])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -208,6 +208,7 @@ pub(crate) fn powershell(script: &str) -> Result<String, String> {
 
 #[cfg(windows)]
 pub(crate) fn powershell_with_timeout(script: &str, timeout: std::time::Duration) -> Result<String, String> {
+    use std::io::Read;
     use std::os::windows::process::CommandExt;
     use std::process::Stdio;
     use std::time::{Duration, Instant};
@@ -221,14 +222,20 @@ pub(crate) fn powershell_with_timeout(script: &str, timeout: std::time::Duration
         .stderr(Stdio::null())
         .spawn()
         .map_err(|_| "powerControlUnavailable".to_string())?;
+    let mut stdout = child.stdout.take().ok_or("powerControlUnavailable")?;
+    // Drain while PowerShell is running: a large package list otherwise fills the pipe and
+    // prevents the child from exiting before the timeout.
+    let output = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        stdout.read_to_end(&mut bytes).map(|_| bytes)
+    });
     let started = Instant::now();
-    loop {
-        if child
+    let status = loop {
+        if let Some(status) = child
             .try_wait()
             .map_err(|_| "powerControlUnavailable")?
-            .is_some()
         {
-            break;
+            break status;
         }
         if started.elapsed() >= timeout {
             let _ = child.kill();
@@ -236,14 +243,13 @@ pub(crate) fn powershell_with_timeout(script: &str, timeout: std::time::Duration
             return Err("powerControlUnavailable".into());
         }
         std::thread::sleep(Duration::from_millis(50));
-    }
-    let output = child
-        .wait_with_output()
-        .map_err(|_| "powerControlUnavailable".to_string())?;
-    if !output.status.success() {
+    };
+    let bytes = output.join().map_err(|_| "powerControlUnavailable")?
+        .map_err(|_| "powerControlUnavailable")?;
+    if !status.success() {
         return Err("powerControlUnavailable".into());
     }
-    String::from_utf8(output.stdout).map_err(|_| "powerControlUnavailable".into())
+    String::from_utf8(bytes).map_err(|_| "powerControlUnavailable".into())
 }
 
 #[cfg(windows)]
@@ -332,6 +338,27 @@ fn read_tdp() -> Option<u8> {
     .ok()?;
     let raw: u32 = out.trim().parse().ok()?;
     (raw & 0x10000 != 0).then_some((raw & 0xFF) as u8).filter(|w| TDP_RANGE.contains(w))
+}
+
+#[cfg(windows)]
+fn read_profile() -> Option<AllyProfile> {
+    let out = powershell(&format!(
+        "$ErrorActionPreference='Stop'; $device=Get-CimInstance -Namespace root/wmi -ClassName AsusAtkWmi_WMNB | Select-Object -First 1; (Invoke-CimMethod -InputObject $device -MethodName DSTS -Arguments @{{Device_ID=[uint32]{THERMAL_POLICY}}}).device_status"
+    )).ok()?;
+    let raw: u32 = out.trim().parse().ok()?;
+    if raw & 0x10000 == 0 { return None }
+    Some(match raw & 0xff { 1 => AllyProfile::Turbo, 2 => AllyProfile::Silent, _ => AllyProfile::Balanced })
+}
+
+pub async fn current_profile() -> Option<AllyProfile> {
+    #[cfg(windows)]
+    { tauri::async_runtime::spawn_blocking(read_profile).await.ok().flatten() }
+    #[cfg(not(windows))]
+    { None }
+}
+
+pub async fn current_tdp() -> Option<u8> {
+    tauri::async_runtime::spawn_blocking(read_tdp).await.ok().flatten()
 }
 
 #[cfg(windows)]

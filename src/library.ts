@@ -1,7 +1,7 @@
 export type Game = {
   id: string;
   title: string;
-  source: "steam" | "epic" | "gog";
+  source: "steam" | "epic" | "gog" | "xbox" | "custom";
   launch: string;
   cover: string | null;
   installed: boolean;
@@ -12,6 +12,37 @@ export type Game = {
   /** Bytes on disk, when the launcher's manifest records it. */
   size?: number;
 };
+export type PendingInstall = { id: string; started: number };
+export const pendingLifetime = 7 * 24 * 60 * 60 * 1000;
+export function parsePendingInstalls(
+  raw: string | null,
+  now = Date.now(),
+): PendingInstall[] {
+  try {
+    const entries: unknown = JSON.parse(raw ?? "[]");
+    if (!Array.isArray(entries)) return [];
+    const seen = new Set<string>();
+    return entries.filter((entry): entry is PendingInstall => {
+      if (
+        entry == null ||
+        typeof entry !== "object" ||
+        typeof entry.id !== "string" ||
+        entry.id.length > 128 ||
+        !/^(steam|gog):\d+$|^epic:[A-Za-z0-9._-]+$/.test(entry.id) ||
+        typeof entry.started !== "number" ||
+        !Number.isFinite(entry.started) ||
+        entry.started > now ||
+        now - entry.started >= pendingLifetime ||
+        seen.has(entry.id)
+      )
+        return false;
+      seen.add(entry.id);
+      return true;
+    });
+  } catch {
+    return [];
+  }
+}
 export function mergeLibrary(installed: Game[], owned: Game[]): Game[] {
   const merged = new Map<string, Game>();
   for (const game of owned) merged.set(game.id, { ...game, installed: false });

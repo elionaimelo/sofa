@@ -476,6 +476,18 @@ button:active:not([aria-disabled="true"]) {
 .download-copy small {
   color: var(--muted);
 }
+.downloads li > button {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  background: var(--glass);
+  color: var(--muted);
+}
+.downloads li > button:focus-visible {
+  color: var(--accent);
+}
 .download-bar {
   display: block;
   height: 6px;

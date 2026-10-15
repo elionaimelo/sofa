@@ -31,6 +31,30 @@ fn load(app: &tauri::AppHandle) -> Vec<Custom> {
         .unwrap_or_default()
 }
 
+/// Custom programs join the library without exposing their executable paths to the webview.
+pub(crate) fn custom_games(app: &tauri::AppHandle) -> Vec<crate::library::Game> {
+    load(app)
+        .into_iter()
+        .filter(|entry| entry.path.is_file())
+        .map(|entry| crate::library::Game {
+            id: entry.id,
+            title: entry.name,
+            source: "custom",
+            installed: true,
+            ..crate::library::Game::default()
+        })
+        .collect()
+}
+
+/// Only a directly selected executable has a reliable process location. Shortcuts and
+/// scripts may start a process elsewhere, so they cannot be used for game-exit detection.
+pub(crate) fn custom_executable(app: &tauri::AppHandle, id: &str) -> Option<PathBuf> {
+    load(app).into_iter().find(|entry| entry.id == id)
+        .map(|entry| entry.path)
+        .filter(|path| path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("exe")))
+        .filter(|path| path.is_file())
+}
+
 fn save(app: &tauri::AppHandle, custom: &[Custom]) -> Result<(), String> {
     let path = file(app).ok_or("serviceUnavailable")?;
     if let Some(dir) = path.parent() {

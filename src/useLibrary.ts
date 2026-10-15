@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type Game, mergeLibrary } from "./library";
+import {
+  type Game,
+  mergeLibrary,
+  parsePendingInstalls,
+  pendingLifetime,
+} from "./library";
 import { demo, httpStatus, type Notify, serviceError } from "./services";
 
 const demoGames: Game[] = [
@@ -34,10 +39,12 @@ demoGames.push({
 export type Provider = "steam" | "epic";
 export const providers: Provider[] = ["steam", "epic"];
 type Progress = { downloaded: number; total: number; installed: boolean };
+const pendingInstallsKey = "pending-installs";
 /** Everything under "library" is refreshed together. */
 const keys = {
   all: ["library"] as const,
   installed: ["library", "installed"] as const,
+  gog: ["library", "gog"] as const,
   owned: (provider: Provider) => ["library", provider] as const,
 };
 
@@ -111,7 +118,12 @@ function useAccount(provider: Provider, onStatus: Notify) {
  */
 export function useLibrary(onStatus: Notify) {
   const queryClient = useQueryClient();
-  const [pendingInstalls, setPendingInstalls] = useState<string[]>([]);
+  const [pendingInstalls, setPendingInstalls] = useState(() =>
+    parsePendingInstalls(localStorage.getItem(pendingInstallsKey)),
+  );
+  useEffect(() => {
+    localStorage.setItem(pendingInstallsKey, JSON.stringify(pendingInstalls));
+  }, [pendingInstalls]);
   const pending = pendingInstalls.length > 0;
   const installed = useQuery({
     queryKey: keys.installed,
@@ -128,8 +140,14 @@ export function useLibrary(onStatus: Notify) {
   });
   const steam = useAccount("steam", onStatus);
   const epic = useAccount("epic", onStatus);
+  const gog = useQuery({
+    queryKey: keys.gog,
+    queryFn: () => invoke<Game[]>("gog_owned_library"),
+    enabled: isTauri() && !demo,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
   // Steam's manifest reports each download; Sofa comes back in front once one has started.
-  const pendingKey = pendingInstalls.join(",");
+  const pendingKey = pendingInstalls.map((entry) => entry.id).join(",");
   const progress = useQuery({
     queryKey: ["install_progress", pendingKey],
     queryFn: () =>
@@ -140,6 +158,12 @@ export function useLibrary(onStatus: Notify) {
     refetchInterval: 2000,
   });
   const focused = useRef(new Set<string>());
+  useEffect(() => {
+    for (const id of focused.current) {
+      if (!pendingInstalls.some((entry) => entry.id === id))
+        focused.current.delete(id);
+    }
+  }, [pendingInstalls]);
   useEffect(() => {
     const started = Object.keys(progress.data ?? {}).filter(
       (id) => !focused.current.has(id),
@@ -158,12 +182,22 @@ export function useLibrary(onStatus: Notify) {
   const scanned = installed.data;
   useEffect(() => {
     if (!scanned) return;
-    const done = pendingInstalls.filter((id) =>
-      scanned.some((g) => g.id === id),
+    const now = Date.now();
+    const done = pendingInstalls.filter((entry) =>
+      scanned.some((g) => g.id === entry.id),
     );
-    if (done.length) {
-      setPendingInstalls((ids) => ids.filter((id) => !done.includes(id)));
-      onStatus("installComplete");
+    if (
+      done.length ||
+      pendingInstalls.some((entry) => now - entry.started >= pendingLifetime)
+    ) {
+      setPendingInstalls((entries) =>
+        entries.filter(
+          (entry) =>
+            now - entry.started < pendingLifetime &&
+            !done.some((item) => item.id === entry.id),
+        ),
+      );
+      if (done.length) onStatus("installComplete");
     }
   }, [scanned, pendingInstalls, onStatus]);
 
@@ -172,8 +206,9 @@ export function useLibrary(onStatus: Notify) {
       mergeLibrary(installed.data ?? [], [
         ...(steam.owned ?? []),
         ...(epic.owned ?? []),
+        ...(gog.data ?? []),
       ]),
-    [installed.data, steam.owned, epic.owned],
+    [installed.data, steam.owned, epic.owned, gog.data],
   );
   return {
     games,
@@ -186,24 +221,31 @@ export function useLibrary(onStatus: Notify) {
     scanned: installed.isSuccess,
     scanError: installed.error ? serviceError(installed.error) : ("" as const),
     refresh: () => queryClient.invalidateQueries({ queryKey: keys.all }),
-    downloads: pendingInstalls.flatMap((id) => {
+    downloads: pendingInstalls.flatMap(({ id }) => {
       const p = progress.data?.[id];
       const game = games.find((g) => g.id === id);
-      return p && game && p.total > 0 && !p.installed
+      return game
         ? [
             {
               game,
-              downloaded: p.downloaded,
-              total: p.total,
-              percent: Math.min(
-                100,
-                Math.round((p.downloaded / p.total) * 100),
-              ),
+              downloaded: p?.total ? p.downloaded : undefined,
+              total: p?.total || undefined,
+              percent: p?.total
+                ? Math.min(100, Math.round((p.downloaded / p.total) * 100))
+                : undefined,
             },
           ]
         : [];
     }),
     watchInstall: (id: string) =>
-      setPendingInstalls((ids) => (ids.includes(id) ? ids : [...ids, id])),
+      setPendingInstalls((entries) =>
+        entries.some((entry) => entry.id === id)
+          ? entries
+          : [...entries, { id, started: Date.now() }],
+      ),
+    stopWatchingInstall: (id: string) =>
+      setPendingInstalls((entries) =>
+        entries.filter((entry) => entry.id !== id),
+      ),
   };
 }

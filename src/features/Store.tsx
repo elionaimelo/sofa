@@ -1,6 +1,7 @@
 import {
   ArrowClockwiseIcon,
   ArrowUpRightIcon,
+  CalendarBlankIcon,
   CaretLeftIcon,
   CaretRightIcon,
   CompassIcon,
@@ -77,7 +78,9 @@ const fromSimilar = (s: Similar): Deal => ({
   thumb: "",
   steamAppID: s.appId,
 });
-const tabs = ["discover", "wishlist"] as const;
+const tabs = ["discover", "wishlist", "calendar"] as const;
+export type StoreTab = (typeof tabs)[number];
+type Upcoming = { id: string; title: string; release: string; art: string };
 /** A store item as a library game, so its art gets the same fallbacks as library covers. */
 const asGame = (d: Pick<Deal, "steamAppID" | "thumb" | "title">): Game => ({
   id: d.steamAppID ? `steam:${d.steamAppID}` : `deal:${d.title}`,
@@ -98,6 +101,7 @@ export function Store({
   onOpinion,
   steamConnected,
   onModal,
+  onTab,
   notify,
   input,
   onBack,
@@ -117,12 +121,14 @@ export function Store({
   steamConnected: boolean;
   /** Tells App the comparison dialog is open, for the button hints. */
   onModal: (open: boolean) => void;
+  onTab: (tab: StoreTab) => void;
   /** App's status line, shown in the footer and inside the comparison dialog. */
   notify: Notify;
   input: InputRef;
   onBack: () => void;
 }) {
-  const [tab, setTab] = useState<(typeof tabs)[number]>("discover");
+  const [tab, setTab] = useState<StoreTab>("discover");
+  useEffect(() => onTab(tab), [tab, onTab]);
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
@@ -153,6 +159,13 @@ export function Store({
   const shopsQuery = useQuery({
     queryKey: ["store_shops"],
     queryFn: () => (demo ? demoShops : desktop<Shop[]>("store_shops")),
+    staleTime: 60 * 60_000,
+  });
+  const upcoming = useQuery({
+    ...commandQuery<Upcoming[]>("store_upcoming", { lang }),
+    queryFn: () =>
+      demo ? [] : desktop<Upcoming[]>("store_upcoming", { lang }),
+    enabled: tab === "calendar",
     staleTime: 60 * 60_000,
   });
   const pageDeals = dealsQuery.data?.deals ?? [];
@@ -280,22 +293,26 @@ export function Store({
     () =>
       tab === "discover"
         ? deals
-        : wishlist
-            .filter((d) => d.title.toLowerCase().includes(query.toLowerCase()))
-            // Saved games show today's cheapest offer, not the one from when they were saved.
-            .map((d) => {
-              const today = saved.prices[d.gameID];
-              return today
-                ? {
-                    ...d,
-                    storeID: today.storeID,
-                    dealID: today.dealID,
-                    salePrice: today.price,
-                    normalPrice: today.retailPrice,
-                    savings: today.savings,
-                  }
-                : d;
-            }),
+        : tab === "calendar"
+          ? []
+          : wishlist
+              .filter((d) =>
+                d.title.toLowerCase().includes(query.toLowerCase()),
+              )
+              // Saved games show today's cheapest offer, not the one from when they were saved.
+              .map((d) => {
+                const today = saved.prices[d.gameID];
+                return today
+                  ? {
+                      ...d,
+                      storeID: today.storeID,
+                      dealID: today.dealID,
+                      salePrice: today.price,
+                      normalPrice: today.retailPrice,
+                      savings: today.savings,
+                    }
+                  : d;
+              }),
     [deals, wishlist, tab, query, saved.prices],
   );
   // The connected Steam account's wishlist, added to Sofa's; Rust paces the lookups.
@@ -481,7 +498,10 @@ export function Store({
       visible[focus]
     )
       toggle(visible[focus]);
-    if (a === "y") refresh();
+    if (a === "y") {
+      if (tab === "calendar") void upcoming.refetch();
+      else refresh();
+    }
   });
   // After paging, the controller lands on the first deal of the new page.
   const landOnFirst = useRef(false);
@@ -537,38 +557,47 @@ export function Store({
             {t("wishlist")}
             <span>{wishlist.length}</span>
           </button>
+          <button
+            aria-pressed={tab === "calendar"}
+            onClick={() => setTab("calendar")}
+          >
+            <CalendarBlankIcon />
+            {t("releaseCalendar")}
+          </button>
         </div>
       </div>
-      <form
-        className="feature-search"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setSearch(query.trim());
-          setPage(0);
-        }}
-      >
-        <SearchField
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onClear={clearSearch}
-          clearLabel={t("clearSearch")}
-          placeholder={t("searchGames")}
-          aria-label={t("searchGames")}
-        />
-        <button type="submit" aria-label={t("search")} title={t("search")}>
-          <MagnifyingGlassIcon />
-        </button>
-        <button
-          type="button"
-          onClick={() => !loading && refresh()}
-          aria-disabled={loading}
-          aria-busy={loading}
-          aria-label={t("refreshDeals")}
-          title={t("refreshDeals")}
+      {tab !== "calendar" && (
+        <form
+          className="feature-search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setSearch(query.trim());
+            setPage(0);
+          }}
         >
-          <ArrowClockwiseIcon />
-        </button>
-      </form>
+          <SearchField
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onClear={clearSearch}
+            clearLabel={t("clearSearch")}
+            placeholder={t("searchGames")}
+            aria-label={t("searchGames")}
+          />
+          <button type="submit" aria-label={t("search")} title={t("search")}>
+            <MagnifyingGlassIcon />
+          </button>
+          <button
+            type="button"
+            onClick={() => !loading && refresh()}
+            aria-disabled={loading}
+            aria-busy={loading}
+            aria-label={t("refreshDeals")}
+            title={t("refreshDeals")}
+          >
+            <ArrowClockwiseIcon />
+          </button>
+        </form>
+      )}
       {tab === "wishlist" && (
         <div className="wishlist-bar">
           <p className="inline-note">{t("wishlistPriceNote")}</p>
@@ -627,7 +656,51 @@ export function Store({
           </div>
         </section>
       )}
-      {loading && tab === "discover" ? (
+      {tab === "calendar" ? (
+        upcoming.isPending ? (
+          <div className="feature-empty" role="status">
+            {t("loadingReleases")}
+          </div>
+        ) : upcoming.error ? (
+          <div className="feature-empty" role="alert">
+            <h2>{t(queryError(upcoming.error) as MessageKey)}</h2>
+            <button onClick={() => void upcoming.refetch()}>
+              <ArrowClockwiseIcon />
+              {t("retry")}
+            </button>
+          </div>
+        ) : upcoming.data?.length ? (
+          <div className="store-grid">
+            {upcoming.data.map((game) => (
+              <button
+                className="deal-card"
+                key={game.id}
+                onClick={() =>
+                  void desktop("open_upcoming", { id: game.id }).catch((e) =>
+                    notify(serviceError(e)),
+                  )
+                }
+              >
+                <div className="deal-art">
+                  <img src={game.art} alt="" loading="lazy" />
+                </div>
+                <div className="deal-copy">
+                  <span className="deal-shop">Steam</span>
+                  <h2>{game.title}</h2>
+                  <div className="price">
+                    <strong>{game.release}</strong>
+                    <ArrowUpRightIcon />
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="feature-empty">
+            <h2>{t("noUpcomingGames")}</h2>
+          </div>
+        )
+      ) : loading && tab === "discover" ? (
         <div
           className="store-grid skeleton-grid"
           aria-label={t("loadingOffers")}
@@ -675,7 +748,7 @@ export function Store({
           {visible.map((d, i) => (
             <button
               className="deal-card"
-              key={d.dealID || d.gameID || `steam:${d.steamAppID}`}
+              key={d.gameID || d.dealID || `steam:${d.steamAppID}`}
               aria-current={i === focus}
               onFocus={() => setFocus(i)}
               onMouseEnter={() => setFocus(i)}

@@ -9,9 +9,9 @@ pub struct Mode {
 
 #[derive(Serialize, Default)]
 pub struct DisplayStatus {
-    current: Option<Mode>,
+    pub(crate) current: Option<Mode>,
     modes: Vec<Mode>,
-    brightness: Option<u8>,
+    pub(crate) brightness: Option<u8>,
     cpu_boost: Option<bool>,
     /// Windows' global Auto HDR switch; the panel still has to support HDR for it to matter.
     auto_hdr: Option<bool>,
