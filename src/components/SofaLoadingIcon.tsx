@@ -8,32 +8,12 @@ export function SofaLoadingIcon({ size = 72 }: { size?: number }) {
       className="sofa-loading-icon"
       width={size}
       height={size}
-      viewBox="0 0 256 256"
+      viewBox="22 22 212 212"
       fill="none"
       aria-hidden="true"
       focusable="false"
     >
       <defs>
-        <linearGradient
-          id={`${id}-background`}
-          x2="256"
-          y2="256"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor="#151b24" />
-          <stop offset="1" stopColor="#090c12" />
-        </linearGradient>
-        <linearGradient
-          id={`${id}-card`}
-          x1="128"
-          y1="18"
-          x2="128"
-          y2="238"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor="#1e242e" />
-          <stop offset="1" stopColor="#12171f" />
-        </linearGradient>
         <linearGradient
           id={`${id}-fabric`}
           x1="128"
@@ -57,15 +37,6 @@ export function SofaLoadingIcon({ size = 72 }: { size?: number }) {
           <stop offset="1" stopColor="#f3335c" />
         </linearGradient>
       </defs>
-      <rect width="256" height="256" rx="52" fill={`url(#${id}-background)`} />
-      <rect
-        x="18"
-        y="18"
-        width="220"
-        height="220"
-        rx="58"
-        fill={`url(#${id}-card)`}
-      />
 
       <g className="sofa-loading-fill">
         <path
