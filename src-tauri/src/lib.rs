@@ -141,7 +141,7 @@ async fn install_progress(ids: Vec<String>) -> std::collections::HashMap<String,
     .unwrap_or_default()
 }
 
-fn bring_to_front(app: &tauri::AppHandle) -> Result<(), String> {
+pub(crate) fn bring_to_front(app: &tauri::AppHandle) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or("serviceUnavailable")?;
     let _ = window.unminimize();
     // Windows only hands the foreground to a topmost window reliably; drop it right after.
