@@ -1894,6 +1894,16 @@ select:focus-visible,
   font-variant-numeric: tabular-nums;
   font-size: 20px;
 }
+/* The price sits next to the button; only the store name takes the free space. */
+.offer-row > .offer-price {
+  margin-right: 0;
+  justify-content: flex-end;
+}
+/* "Ver oferta" stays on one line: the button never shrinks, the price wraps instead. */
+.offer-row button {
+  flex: none;
+  white-space: nowrap;
+}
 .best-offer {
   background: #3a242f;
 }
