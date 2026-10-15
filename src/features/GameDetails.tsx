@@ -10,7 +10,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import type { Dispatch, SetStateAction } from "react";
 import { CoverImage } from "../components/Cover";
 import { DetailFrame } from "../components/DetailFrame";
-import { type Media, SteamMedia } from "../components/SteamMedia";
+import { GameBadges, type Media, SteamMedia } from "../components/SteamMedia";
 import type { Lang, Translate } from "../i18n";
 import {
   type CategoryMap,
@@ -132,13 +132,16 @@ export function GameDetails({
         </button>
       </div>
       {!game.installed && (
-        <SteamMedia
-          key={game.id}
-          media={media.data}
-          loading={media.isLoading}
-          t={t}
-          lang={lang}
-        />
+        <>
+          <GameBadges media={media.data} t={t} lang={lang} />
+          <SteamMedia
+            key={game.id}
+            media={media.data}
+            loading={media.isLoading}
+            t={t}
+            lang={lang}
+          />
+        </>
       )}
       {game.installed && (
         <Uninstall

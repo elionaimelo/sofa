@@ -17,7 +17,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Cover, CoverImage } from "../components/Cover";
 import { DetailFrame } from "../components/DetailFrame";
 import { SearchField } from "../components/SearchField";
-import { type Media, SteamMedia } from "../components/SteamMedia";
+import { GameBadges, type Media, SteamMedia } from "../components/SteamMedia";
 import type { Lang, Translate } from "../i18n";
 import {
   byTaste,
@@ -834,6 +834,7 @@ export function Store({
               )}
             </div>
           </div>
+          <GameBadges media={media.data} t={t} lang={lang} />
           {compareError ? (
             <div className="inline-error" role="alert">
               {t(compareError as MessageKey)}

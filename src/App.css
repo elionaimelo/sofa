@@ -1055,7 +1055,7 @@ dialog::backdrop {
 .game-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1064,16 +1064,17 @@ dialog::backdrop {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
+  padding: 4px 10px;
   border: 1px solid var(--glass-border);
   border-radius: 999px;
   background: var(--glass);
-  font-size: 15px;
+  font-size: 14px;
+  white-space: nowrap;
 }
 .game-badges svg {
   flex: none;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 .game-badges li[data-good] {
   border-color: rgb(110 220 160 / 0.55);

@@ -31,8 +31,64 @@ const playsHls =
     .canPlayType("application/vnd.apple.mpegurl") !== "";
 
 /**
- * What a game is, before buying or installing it: what a controller player checks first
- * (controller support, Steam Deck, reviews), then Steam's short description and gallery.
+ * What a controller player checks first: controller support, Steam Deck and reviews. It sits
+ * right under the open game's actions; nothing shows while the media loads.
+ */
+export function GameBadges({
+  media,
+  t,
+  lang,
+}: {
+  media: Media | undefined;
+  t: Translate;
+  lang: string;
+}) {
+  const deck =
+    media?.deck != null
+      ? deckLabels[media.deck as keyof typeof deckLabels]
+      : undefined;
+  const reviews = media?.reviews;
+  if (!media?.controller && !deck && !reviews) return null;
+  return (
+    <ul className="game-badges" aria-label={t("gameFacts")}>
+      {media?.controller && (
+        <li data-good={media.controller === "full" || undefined}>
+          <GameControllerIcon aria-hidden />
+          {t(
+            media.controller === "full"
+              ? "controllerFull"
+              : "controllerPartial",
+          )}
+        </li>
+      )}
+      {deck && (
+        <li
+          data-good={deck === "deckVerified" || undefined}
+          data-bad={deck === "deckUnsupported" || undefined}
+        >
+          <SteamLogoIcon aria-hidden />
+          {t(deck)}
+        </li>
+      )}
+      {reviews && (
+        <li>
+          <ThumbsUpIcon aria-hidden />
+          {t("reviewsPositive", {
+            percent: new Intl.NumberFormat(lang, {
+              style: "percent",
+            }).format(reviews.positive / reviews.total),
+            count: new Intl.NumberFormat(lang, {
+              notation: "compact",
+            }).format(reviews.total),
+          })}
+        </li>
+      )}
+    </ul>
+  );
+}
+
+/**
+ * What a game is, before buying or installing it: Steam's short description and gallery.
  * Give it a `key` per game so the gallery starts over on the first shot.
  */
 export function SteamMedia({
@@ -48,49 +104,8 @@ export function SteamMedia({
 }) {
   if (loading) return <div className="skeleton gallery-skeleton" aria-hidden />;
   const shots = (media?.gallery ?? []).filter((s) => playsHls || !s.video);
-  const deck =
-    media?.deck != null
-      ? deckLabels[media.deck as keyof typeof deckLabels]
-      : undefined;
-  const reviews = media?.reviews;
   return (
     <>
-      {(media?.controller || deck || reviews) && (
-        <ul className="game-badges" aria-label={t("gameFacts")}>
-          {media?.controller && (
-            <li data-good={media.controller === "full" || undefined}>
-              <GameControllerIcon aria-hidden />
-              {t(
-                media.controller === "full"
-                  ? "controllerFull"
-                  : "controllerPartial",
-              )}
-            </li>
-          )}
-          {deck && (
-            <li
-              data-good={deck === "deckVerified" || undefined}
-              data-bad={deck === "deckUnsupported" || undefined}
-            >
-              <SteamLogoIcon aria-hidden />
-              {t(deck)}
-            </li>
-          )}
-          {reviews && (
-            <li>
-              <ThumbsUpIcon aria-hidden />
-              {t("reviewsPositive", {
-                percent: new Intl.NumberFormat(lang, {
-                  style: "percent",
-                }).format(reviews.positive / reviews.total),
-                count: new Intl.NumberFormat(lang, {
-                  notation: "compact",
-                }).format(reviews.total),
-              })}
-            </li>
-          )}
-        </ul>
-      )}
       {media?.description && (
         <>
           {media.english_only && !lang.startsWith("en") && (
