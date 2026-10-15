@@ -1,12 +1,15 @@
 import {
   ArrowClockwiseIcon,
   ArrowUpRightIcon,
+  ArrowUUpLeftIcon,
   CaretLeftIcon,
   CaretRightIcon,
   CompassIcon,
+  EyeSlashIcon,
   HeartIcon,
   MagnifyingGlassIcon,
   SteamLogoIcon,
+  ThumbsUpIcon,
   TrendDownIcon,
   XIcon,
 } from "@phosphor-icons/react";
@@ -20,6 +23,7 @@ import type { Lang, Translate } from "../i18n";
 import {
   byTaste,
   type Game,
+  type Preferences,
   type Region,
   type Similar,
   type TagWeights,
@@ -60,6 +64,8 @@ type RegionalPrice = {
   final: number;
   discount: number;
 };
+/** What a "like" or "not interested" in the store says about a Steam title. */
+type Opinion = "liked" | "notInterested";
 /** A Steam title the store only knows by id: the comparison resolves it on open. */
 const fromSimilar = (s: Similar): Deal => ({
   gameID: "",
@@ -89,6 +95,8 @@ export function Store({
   owned,
   taste,
   saved,
+  opinions,
+  onOpinion,
   steamConnected,
   onModal,
   notify,
@@ -104,6 +112,9 @@ export function Store({
   taste: { appId: string; weight: number }[];
   /** The wishlist with today's prices and Epic's free games (`useWishlist`). */
   saved: Wishlist;
+  /** What the player liked or isn't interested in; it steers taste and hides games. */
+  opinions: Pick<Preferences, "liked" | "notInterested">;
+  onOpinion: (appId: string, opinion: Opinion | null, title?: string) => void;
   steamConnected: boolean;
   /** Tells App the comparison dialog is open, for the button hints. */
   onModal: (open: boolean) => void;
@@ -118,6 +129,10 @@ export function Store({
   const [search, setSearch] = useState("");
   const { wishlist, setWishlist } = saved;
   const [selected, setSelected] = useState<Deal | null>(null);
+  // The recommendation just hidden in this dialog, for its Undo button.
+  const [lastHidden, setLastHidden] = useState<Similar | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: another game's dialog starts without an undo.
+  useEffect(() => setLastHidden(null), [selected?.gameID]);
   useEffect(() => {
     onModal(!!selected);
     return () => onModal(false);
@@ -172,10 +187,39 @@ export function Store({
     enabled: !demo && profile.size > 0 && dealIds.length > 0,
     staleTime: 60 * 60_000,
   });
-  const deals = useMemo(
-    () => byTaste(pageDeals, profile, dealTagsQuery.data ?? {}),
-    [pageDeals, profile, dealTagsQuery.data],
+  const notInterested = useMemo(
+    () => new Set(opinions.notInterested),
+    [opinions.notInterested],
   );
+  const deals = useMemo(
+    () =>
+      byTaste(
+        pageDeals.filter(
+          (d) => !d.steamAppID || !notInterested.has(d.steamAppID),
+        ),
+        profile,
+        dealTagsQuery.data ?? {},
+      ),
+    [pageDeals, profile, dealTagsQuery.data, notInterested],
+  );
+  const opinionOf = (appId: string): Opinion | null =>
+    opinions.liked.includes(appId)
+      ? "liked"
+      : notInterested.has(appId)
+        ? "notInterested"
+        : null;
+  /** Toggles an opinion and says what it does to the recommendations. */
+  const judge = (appId: string, opinion: Opinion, title: string) => {
+    const next = opinionOf(appId) === opinion ? null : opinion;
+    onOpinion(appId, next, title);
+    notify(
+      next === "liked"
+        ? "likedNote"
+        : next === "notInterested"
+          ? "notInterestedNote"
+          : "opinionCleared",
+    );
+  };
   // Wait for the tags before showing a page, so the grid doesn't reorder under the cursor.
   const loading =
     dealsQuery.isFetching ||
@@ -345,7 +389,7 @@ export function Store({
       staleTime: 60 * 60_000,
     }).data ?? []
   )
-    .filter((s) => !owned.has(s.appId))
+    .filter((s) => !owned.has(s.appId) && !notInterested.has(s.appId))
     .slice(0, 6);
   // Steam's description and gallery, to show what the game is before the prices.
   const media = useQuery({
@@ -758,6 +802,38 @@ export function Store({
                   : "addWishlist",
               )}
             </button>
+            {selected.steamAppID && (
+              <>
+                <button
+                  aria-pressed={opinionOf(selected.steamAppID) === "liked"}
+                  onClick={() =>
+                    selected.steamAppID &&
+                    judge(selected.steamAppID, "liked", selected.title)
+                  }
+                >
+                  <ThumbsUpIcon
+                    weight={
+                      opinionOf(selected.steamAppID) === "liked"
+                        ? "fill"
+                        : "regular"
+                    }
+                  />
+                  {t("like")}
+                </button>
+                <button
+                  aria-pressed={
+                    opinionOf(selected.steamAppID) === "notInterested"
+                  }
+                  onClick={() =>
+                    selected.steamAppID &&
+                    judge(selected.steamAppID, "notInterested", selected.title)
+                  }
+                >
+                  <EyeSlashIcon />
+                  {t("notInterested")}
+                </button>
+              </>
+            )}
           </div>
           {compareError ? (
             <div className="inline-error" role="alert">
@@ -880,26 +956,80 @@ export function Store({
               ))}
             </section>
           )}
-          {alsoLike.length > 0 && (
+          {(alsoLike.length > 0 || lastHidden) && (
             <section className="also-like" aria-label={t("alsoLike")}>
-              <h2>{t("alsoLike")}</h2>
-              <div className="also-like-row">
-                {alsoLike.map((s) => (
+              <div className="also-like-head">
+                <h2>{t("alsoLike")}</h2>
+                {/* A hide by mistake comes back right here, without a trip to Settings. */}
+                {lastHidden && notInterested.has(lastHidden.appId) && (
                   <button
-                    key={s.appId}
-                    className="tile"
-                    aria-label={s.name}
-                    title={s.name}
-                    onClick={() => open(fromSimilar(s))}
+                    onClick={() => {
+                      judge(lastHidden.appId, "notInterested", lastHidden.name);
+                      setLastHidden(null);
+                      requestAnimationFrame(() =>
+                        document
+                          .querySelector<HTMLElement>(
+                            `dialog[open] .also-like-item .tile[aria-label="${CSS.escape(lastHidden.name)}"]`,
+                          )
+                          ?.focus(),
+                      );
+                    }}
                   >
-                    <Cover
-                      game={asGame({
-                        steamAppID: s.appId,
-                        thumb: "",
-                        title: s.name,
-                      })}
-                    />
+                    <ArrowUUpLeftIcon />
+                    {t("undoHide", { title: lastHidden.name })}
                   </button>
+                )}
+              </div>
+              <div className="also-like-row">
+                {alsoLike.map((s, i) => (
+                  <div className="also-like-item" key={s.appId}>
+                    <button
+                      className="tile"
+                      aria-label={s.name}
+                      title={s.name}
+                      onClick={() => open(fromSimilar(s))}
+                    >
+                      <Cover
+                        game={asGame({
+                          steamAppID: s.appId,
+                          thumb: "",
+                          title: s.name,
+                        })}
+                      />
+                    </button>
+                    <div className="also-like-actions">
+                      <button
+                        aria-label={t("likeGame", { title: s.name })}
+                        title={t("like")}
+                        aria-pressed={opinionOf(s.appId) === "liked"}
+                        onClick={() => judge(s.appId, "liked", s.name)}
+                      >
+                        <ThumbsUpIcon
+                          weight={
+                            opinionOf(s.appId) === "liked" ? "fill" : "regular"
+                          }
+                        />
+                      </button>
+                      <button
+                        aria-label={t("notInterestedGame", { title: s.name })}
+                        title={t("notInterested")}
+                        onClick={() => {
+                          judge(s.appId, "notInterested", s.name);
+                          setLastHidden(s);
+                          // The next recommendation takes its place; so does the focus.
+                          requestAnimationFrame(() => {
+                            const tiles =
+                              document.querySelectorAll<HTMLElement>(
+                                "dialog[open] .also-like-item .tile",
+                              );
+                            (tiles[i] ?? tiles[tiles.length - 1])?.focus();
+                          });
+                        }}
+                      >
+                        <EyeSlashIcon />
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </section>

@@ -73,9 +73,15 @@ test("corrupt settings recover and migrate valid legacy history", () => {
 test("invalid stored values do not leak into preferences", () => {
   assert.deepEqual(
     parsePreferences(
-      '{"favorites":["steam:1",4,"steam:1"],"hidden":"x","recent":{"a":-1,"b":44},"sort":"invalid","density":"invalid"}',
+      '{"favorites":["steam:1",4,"steam:1"],"hidden":"x","recent":{"a":-1,"b":44},"sort":"invalid","density":"invalid","liked":["620","steam:1",5,"620"],"notInterested":"y","opinionTitles":{"620":"Portal 2","999":"Not judged","620x":5}}',
     ),
-    { ...defaults, favorites: ["steam:1"], recent: { b: 44 } },
+    {
+      ...defaults,
+      favorites: ["steam:1"],
+      recent: { b: 44 },
+      liked: ["620"],
+      opinionTitles: { "620": "Portal 2" },
+    },
   );
 });
 test("hidden games stay out of every tab, home and favorites included", () => {
@@ -339,4 +345,19 @@ test("the store puts deals closest to the player's taste first, the rest keeps i
     ["20", "30", "10", null],
   );
   assert.equal(byTaste(deals, new Map(), tags), deals);
+  // A liked game counts like a favorite; one the player isn't interested in pushes its kind back.
+  const opinions = tasteWeights([], {
+    favorites: [],
+    recent: {},
+    liked: ["20"],
+    notInterested: ["30"],
+  });
+  assert.deepEqual(opinions, [
+    { appId: "20", weight: 4 },
+    { appId: "30", weight: -4 },
+  ]);
+  assert.deepEqual(
+    byTaste(deals, tasteProfile(opinions, tags), tags).map((d) => d.steamAppID),
+    ["20", "10", null, "30"],
+  );
 });

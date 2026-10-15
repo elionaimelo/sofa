@@ -1165,6 +1165,40 @@ dialog::backdrop {
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
 }
+.also-like-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.also-like-head button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+/* A recommendation and its two opinions underneath, reachable with Down. */
+.also-like-item {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.also-like-actions {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+.also-like-actions button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+.also-like-actions button[aria-pressed="true"] {
+  background: rgb(204 48 89 / 0.35);
+  border-color: transparent;
+}
 .also-like-row .tile .title {
   padding: 24px 8px 8px;
   font-size: 12px;

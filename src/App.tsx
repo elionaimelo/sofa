@@ -341,6 +341,41 @@ export default function App() {
       ),
     [library.games],
   );
+  // A store opinion replaces any earlier one for the same game.
+  const setOpinion = useCallback(
+    (
+      appId: string,
+      opinion: "liked" | "notInterested" | null,
+      title?: string,
+    ) =>
+      setPrefs((p) => ({
+        ...p,
+        liked: [
+          ...p.liked.filter((id) => id !== appId),
+          ...(opinion === "liked" ? [appId] : []),
+        ],
+        notInterested: [
+          ...p.notInterested.filter((id) => id !== appId),
+          ...(opinion === "notInterested" ? [appId] : []),
+        ],
+        opinionTitles: {
+          ...Object.fromEntries(
+            Object.entries(p.opinionTitles).filter(([id]) => id !== appId),
+          ),
+          ...(opinion && title ? { [appId]: title } : {}),
+        },
+      })),
+    [],
+  );
+  // Settings brings hidden recommendations back one by one, or all at once.
+  const showRecommendations = (appIds: string[]) =>
+    setPrefs((p) => ({
+      ...p,
+      notInterested: p.notInterested.filter((id) => !appIds.includes(id)),
+      opinionTitles: Object.fromEntries(
+        Object.entries(p.opinionTitles).filter(([id]) => !appIds.includes(id)),
+      ),
+    }));
   // The store orders deals by these: the player's Steam titles weighted by play.
   const taste = useMemo(
     () => tasteWeights(library.games, prefs),
@@ -1199,6 +1234,8 @@ export default function App() {
                 owned={ownedSteam}
                 taste={taste}
                 saved={wishlist}
+                opinions={prefs}
+                onOpinion={setOpinion}
                 steamConnected={library.accounts.steam.connected}
                 onModal={setStoreModal}
                 notify={notify}
@@ -1381,6 +1418,7 @@ export default function App() {
                 library={library}
                 prefs={prefs}
                 onRestore={toggleHidden}
+                onShowRecommendations={showRecommendations}
               />
             )}
             {settings === "appearance" && (

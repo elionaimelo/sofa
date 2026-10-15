@@ -78,12 +78,13 @@ export type TagWeights = Record<string, { tagid: number; weight: number }[]>;
  */
 export function tasteWeights(
   games: Game[],
-  p: Pick<Preferences, "favorites" | "recent">,
+  p: Pick<Preferences, "favorites" | "recent"> &
+    Partial<Pick<Preferences, "liked" | "notInterested">>,
   now = Date.now(),
   limit = 40,
 ): { appId: string; weight: number }[] {
   const favorites = new Set(p.favorites);
-  return games
+  const owned = games
     .filter((g) => /^steam:\d+$/.test(g.id))
     .map((g) => {
       const last = Math.max(p.recent[g.id] ?? 0, (g.last_played ?? 0) * 1000);
@@ -99,6 +100,19 @@ export function tasteWeights(
     .filter((g) => g.weight > 0)
     .sort((a, b) => b.weight - a.weight)
     .slice(0, limit);
+  const counted = new Set(owned.map((g) => g.appId));
+  // The store's thumbs: a liked game counts like a favorite, one the player isn't interested
+  // in pulls its kind of game back. The latest 30 of each (Steam's tag lookup takes 100 ids).
+  return [
+    ...owned,
+    ...(p.liked ?? [])
+      .slice(-30)
+      .filter((id) => !counted.has(id))
+      .map((appId) => ({ appId, weight: 4 })),
+    ...(p.notInterested ?? [])
+      .slice(-30)
+      .map((appId) => ({ appId, weight: -4 })),
+  ];
 }
 /** A title's tags as shares of its own total weight, so long tag lists don't count double. */
 function shares(tags: TagWeights[string] | undefined) {
@@ -162,6 +176,11 @@ export type Preferences = {
   region?: Region;
   filters: LibraryFilters;
   categories: Record<string, string[]>;
+  /** Steam app ids liked in the store, and ones the player isn't interested in (never shown). */
+  liked: string[];
+  notInterested: string[];
+  /** Names of those games, so Settings can list what was hidden. */
+  opinionTitles: Record<string, string>;
 };
 const sorts: Preferences["sort"][] = [
   "recent",
@@ -184,11 +203,19 @@ export const defaults: Preferences = {
   density: "comfortable",
   filters: defaultFilters,
   categories: {},
+  liked: [],
+  notInterested: [],
+  opinionTitles: {},
 };
 const ids = (v: unknown): string[] =>
   Array.isArray(v)
     ? [...new Set(v.filter((x): x is string => typeof x === "string"))]
     : [];
+/** Steam app ids only, oldest first, the latest 500 kept. */
+const steamIds = (v: unknown): string[] =>
+  ids(v)
+    .filter((id) => /^\d{1,10}$/.test(id))
+    .slice(-500);
 export function parsePreferences(
   raw: string | null,
   legacyRecent: string | null = null,
@@ -210,9 +237,27 @@ export function parsePreferences(
   }
   const f =
     p.filters && typeof p.filters === "object" ? p.filters : defaultFilters;
+  const liked = steamIds(p.liked);
+  const notInterested = steamIds(p.notInterested);
+  const judged = new Set([...liked, ...notInterested]);
   return {
     favorites: ids(p.favorites),
     hidden: ids(p.hidden),
+    liked,
+    notInterested,
+    opinionTitles: Object.fromEntries(
+      Object.entries(
+        p.opinionTitles && typeof p.opinionTitles === "object"
+          ? p.opinionTitles
+          : {},
+      ).filter(
+        ([id, title]) =>
+          judged.has(id) &&
+          typeof title === "string" &&
+          title.trim() !== "" &&
+          title.length <= 200,
+      ),
+    ),
     recent: Object.fromEntries(
       Object.entries(recent && typeof recent === "object" ? recent : {}).filter(
         ([, v]) => typeof v === "number" && Number.isFinite(v) && v > 0,

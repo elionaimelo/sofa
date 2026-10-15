@@ -194,11 +194,14 @@ export function LibrarySettings({
   library,
   prefs,
   onRestore,
+  onShowRecommendations,
 }: {
   t: Translate;
   library: ReturnType<typeof useLibrary>;
   prefs: Preferences;
   onRestore: (game: Game) => void;
+  /** Brings back store recommendations marked "not interested". */
+  onShowRecommendations: (appIds: string[]) => void;
 }) {
   const hidden = library.games.filter((game) => prefs.hidden.includes(game.id));
   return (
@@ -241,6 +244,56 @@ export function LibrarySettings({
               </ItemRow>
             ))}
           </ul>
+        )}
+      </section>
+      {/* Store recommendations the player isn't interested in, newest first; any can come back. */}
+      <section
+        aria-label={t("hiddenRecommendations", { count: "" })}
+        data-hidden-recommendations
+      >
+        <h2>
+          {t("hiddenRecommendations", {
+            count: String(prefs.notInterested.length),
+          })}
+        </h2>
+        {prefs.notInterested.length === 0 ? (
+          <p className="muted">{t("noHiddenRecommendations")}</p>
+        ) : (
+          <>
+            <ul className="item-list">
+              {[...prefs.notInterested].reverse().map((appId) => (
+                <ItemRow
+                  key={appId}
+                  name={prefs.opinionTitles[appId] ?? `Steam ${appId}`}
+                >
+                  <button
+                    onClick={() => {
+                      onShowRecommendations([appId]);
+                      // The row goes away; stay in the list instead of losing focus.
+                      requestAnimationFrame(() =>
+                        document
+                          .querySelector<HTMLElement>(
+                            "[data-hidden-recommendations] button",
+                          )
+                          ?.focus(),
+                      );
+                    }}
+                  >
+                    <EyeIcon />
+                    {t("showRecommendations")}
+                  </button>
+                </ItemRow>
+              ))}
+            </ul>
+            {prefs.notInterested.length > 1 && (
+              <button
+                onClick={() => onShowRecommendations(prefs.notInterested)}
+              >
+                <EyeIcon />
+                {t("showAllRecommendations")}
+              </button>
+            )}
+          </>
         )}
       </section>
     </>
