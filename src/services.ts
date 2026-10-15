@@ -137,12 +137,28 @@ export function navigateSpatial(
   const cx = from.left + from.width / 2;
   const cy = from.top + from.height / 2;
   const vertical = a === "up" || a === "down";
+  // Left/right in a carousel stay in it: at either end focus stays put, as on a console. Up
+  // goes where the carousel says (`data-up`), whichever game is focused.
+  const carousel = current.closest<HTMLElement>("[data-carousel]");
+  const up =
+    a === "up" && carousel?.dataset.up
+      ? root.querySelector<HTMLElement>(carousel.dataset.up)
+      : null;
+  if (up && controls.includes(up)) {
+    up.focus();
+    up.scrollIntoView({ block: "nearest", inline: "nearest" });
+    return true;
+  }
+  const pool =
+    carousel && !vertical
+      ? controls.filter((c) => carousel.contains(c))
+      : controls;
   const direction = a === "up" || a === "left" ? -1 : 1;
   let best: HTMLElement | null = null;
   let bestScore = Infinity;
   const seen = new Map<Element, HTMLElement | null>();
   const scroller = scrollParent(current, seen);
-  for (const candidate of controls) {
+  for (const candidate of pool) {
     if (candidate === current) continue;
     const rect = candidate.getBoundingClientRect();
     // Entering another scroll container: only what it currently shows counts. A tile that
@@ -174,8 +190,22 @@ export function navigateSpatial(
     }
   }
   if (best) {
+    // Coming into a carousel from outside lands on its selected item, where the player left.
+    const entered = best.closest("[data-carousel]");
+    if (entered && !entered.contains(current))
+      best =
+        entered.querySelector<HTMLElement>('[aria-current="true"]') ?? best;
     best.focus();
-    best.scrollIntoView({ block: "nearest", inline: "nearest" });
+    // A carousel (Home's row) keeps the focused item first and glides, console style.
+    const carousel = !!best.closest("[data-carousel]");
+    best.scrollIntoView({
+      block: "nearest",
+      inline: carousel ? "start" : "nearest",
+      behavior:
+        carousel && !matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "smooth"
+          : "auto",
+    });
     // The first control of a scrolling panel brings back what sits above it (the title).
     const box = scrollParent(best, seen);
     if (box?.querySelector(focusableSelector) === best)

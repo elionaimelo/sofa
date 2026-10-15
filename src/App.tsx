@@ -206,8 +206,8 @@ function HintBar({
     </>
   );
 }
-/** Home shows the latest games; the rest of the library is a press away. */
-const homeTiles = 12;
+/** Home shows the latest games in a carousel; the Library tab has the rest. */
+const homeTiles = 15;
 export default function App() {
   const [page, setPage] = useState<(typeof PAGES)[number] | "settings">("home");
   const [tabChoice, setTab] = useState<(typeof TABS)[number]>("all");
@@ -508,7 +508,8 @@ export default function App() {
     }
     tileAt(focus)?.scrollIntoView({
       block: "nearest",
-      inline: "nearest",
+      // Home's row is a carousel: the focused game stays first while the row glides.
+      inline: grid.current?.hasAttribute("data-carousel") ? "start" : "nearest",
       behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
         ? "instant"
         : "smooth",
@@ -1152,15 +1153,12 @@ export default function App() {
                           />
                         </div>
                       )}
-                      {page === "home" && (
-                        <button onClick={() => setPage("library")}>
-                          {t("browseLibrary")} <ArrowRightIcon />
-                        </button>
-                      )}
                     </div>
                     {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>). */}
                     <div
                       className={page === "home" ? "game-row" : "grid"}
+                      data-carousel={page === "home" || undefined}
+                      data-up={page === "home" ? ".primary-action" : undefined}
                       ref={grid}
                       role="group"
                       aria-label={t("library")}
@@ -1192,15 +1190,6 @@ export default function App() {
                           />
                         </Fragment>
                       ))}
-                      {page === "home" && visible.length > homeTiles && (
-                        <button
-                          className="browse-tile"
-                          onClick={() => setPage("library")}
-                        >
-                          <SquaresFourIcon aria-hidden />
-                          {t("browseLibrary")}
-                        </button>
-                      )}
                     </div>
                   </section>
                 </>
