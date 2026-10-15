@@ -2721,8 +2721,21 @@ select:focus-visible,
     box-shadow 0.2s,
     border-color 0.2s;
 }
+/* The selected game's art fades in, then drifts slowly (a 40 s Ken Burns) so Home feels alive.
+   Transform only, so the compositor animates it; main clips the slight zoom. */
 .backdrop {
-  animation: art-reveal 0.24s ease-out;
+  animation:
+    art-reveal 0.24s ease-out,
+    backdrop-drift 40s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes backdrop-drift {
+  from {
+    transform: scale(1.04) translate3d(-1%, -0.6%, 0);
+  }
+  to {
+    transform: scale(1.1) translate3d(1%, 0.6%, 0);
+  }
 }
 dialog[open] {
   animation: dialog-enter 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
