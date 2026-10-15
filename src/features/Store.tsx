@@ -1,7 +1,6 @@
 import {
   ArrowClockwiseIcon,
   ArrowUpRightIcon,
-  ArrowUUpLeftIcon,
   CaretLeftIcon,
   CaretRightIcon,
   CompassIcon,
@@ -129,10 +128,6 @@ export function Store({
   const [search, setSearch] = useState("");
   const { wishlist, setWishlist } = saved;
   const [selected, setSelected] = useState<Deal | null>(null);
-  // The recommendation just hidden in this dialog, for its Undo button.
-  const [lastHidden, setLastHidden] = useState<Similar | null>(null);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: another game's dialog starts without an undo.
-  useEffect(() => setLastHidden(null), [selected?.gameID]);
   useEffect(() => {
     onModal(!!selected);
     return () => onModal(false);
@@ -523,9 +518,7 @@ export function Store({
         <div>
           <p className="eyebrow">{t("store")}</p>
           <h1>{t("storeIntro")}</h1>
-          <p className="feature-description">
-            {t(demo ? "demoPrices" : "storeNote")}
-          </p>
+          {demo && <p className="feature-description">{t("demoPrices")}</p>}
         </div>
         {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>). */}
         <div className="segmented" role="group" aria-label={t("store")}>
@@ -682,7 +675,7 @@ export function Store({
           {visible.map((d, i) => (
             <button
               className="deal-card"
-              key={d.gameID || `steam:${d.steamAppID}`}
+              key={d.dealID || d.gameID || `steam:${d.steamAppID}`}
               aria-current={i === focus}
               onFocus={() => setFocus(i)}
               onMouseEnter={() => setFocus(i)}
@@ -787,53 +780,59 @@ export function Store({
           </p>
           <h1>{selected.title}</h1>
           <div className="compare-summary">
-            <p className="muted">{t(demo ? "demoPrices" : "storeNote")}</p>
-            <button data-wishlist-toggle onClick={() => toggle(selected)}>
-              <HeartIcon
-                weight={
+            {demo && <p className="muted">{t("demoPrices")}</p>}
+            <div className="compare-actions">
+              <button data-wishlist-toggle onClick={() => toggle(selected)}>
+                <HeartIcon
+                  weight={
+                    wishlist.some((g) => g.gameID === selected.gameID)
+                      ? "fill"
+                      : "regular"
+                  }
+                />
+                {t(
                   wishlist.some((g) => g.gameID === selected.gameID)
-                    ? "fill"
-                    : "regular"
-                }
-              />
-              {t(
-                wishlist.some((g) => g.gameID === selected.gameID)
-                  ? "removeWishlist"
-                  : "addWishlist",
-              )}
-            </button>
-            {selected.steamAppID && (
-              <>
-                <button
-                  aria-pressed={opinionOf(selected.steamAppID) === "liked"}
-                  onClick={() =>
-                    selected.steamAppID &&
-                    judge(selected.steamAppID, "liked", selected.title)
-                  }
-                >
-                  <ThumbsUpIcon
-                    weight={
-                      opinionOf(selected.steamAppID) === "liked"
-                        ? "fill"
-                        : "regular"
+                    ? "removeWishlist"
+                    : "addWishlist",
+                )}
+              </button>
+              {selected.steamAppID && (
+                <>
+                  <button
+                    aria-pressed={opinionOf(selected.steamAppID) === "liked"}
+                    onClick={() =>
+                      selected.steamAppID &&
+                      judge(selected.steamAppID, "liked", selected.title)
                     }
-                  />
-                  {t("like")}
-                </button>
-                <button
-                  aria-pressed={
-                    opinionOf(selected.steamAppID) === "notInterested"
-                  }
-                  onClick={() =>
-                    selected.steamAppID &&
-                    judge(selected.steamAppID, "notInterested", selected.title)
-                  }
-                >
-                  <EyeSlashIcon />
-                  {t("notInterested")}
-                </button>
-              </>
-            )}
+                  >
+                    <ThumbsUpIcon
+                      weight={
+                        opinionOf(selected.steamAppID) === "liked"
+                          ? "fill"
+                          : "regular"
+                      }
+                    />
+                    {t("like")}
+                  </button>
+                  <button
+                    aria-pressed={
+                      opinionOf(selected.steamAppID) === "notInterested"
+                    }
+                    onClick={() =>
+                      selected.steamAppID &&
+                      judge(
+                        selected.steamAppID,
+                        "notInterested",
+                        selected.title,
+                      )
+                    }
+                  >
+                    <EyeSlashIcon />
+                    {t("notInterested")}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
           {compareError ? (
             <div className="inline-error" role="alert">
@@ -875,24 +874,29 @@ export function Store({
                           )}
                         </span>
                         <span className="offer-price">
-                          <strong>
-                            {steam
-                              ? money(steam.final, steam.currency, lang)
-                              : price(offer.price)}
-                          </strong>
-                          {off > 0 && (
-                            <>
-                              <del>
-                                {steam
-                                  ? money(steam.initial, steam.currency, lang)
-                                  : price(offer.retailPrice)}
-                              </del>
+                          {/* Two lines: what it costs (and the cut), then what it was and the dollars. */}
+                          <span>
+                            <strong>
+                              {steam
+                                ? money(steam.final, steam.currency, lang)
+                                : price(offer.price)}
+                            </strong>
+                            {off > 0 && (
                               <span className="offer-discount">−{off}%</span>
-                            </>
-                          )}
-                          {/* The converted price says where it came from, without hovering. */}
-                          {!steam && converted && (
-                            <small>{usd(offer.price, lang)}</small>
+                            )}
+                          </span>
+                          {(off > 0 || (!steam && converted)) && (
+                            <small>
+                              {off > 0 && (
+                                <del>
+                                  {steam
+                                    ? money(steam.initial, steam.currency, lang)
+                                    : price(offer.retailPrice)}
+                                </del>
+                              )}
+                              {/* The converted price says where it came from, without hovering. */}
+                              {!steam && converted && usd(offer.price, lang)}
+                            </small>
                           )}
                         </span>
                         <button
@@ -956,80 +960,26 @@ export function Store({
               ))}
             </section>
           )}
-          {(alsoLike.length > 0 || lastHidden) && (
+          {alsoLike.length > 0 && (
             <section className="also-like" aria-label={t("alsoLike")}>
-              <div className="also-like-head">
-                <h2>{t("alsoLike")}</h2>
-                {/* A hide by mistake comes back right here, without a trip to Settings. */}
-                {lastHidden && notInterested.has(lastHidden.appId) && (
-                  <button
-                    onClick={() => {
-                      judge(lastHidden.appId, "notInterested", lastHidden.name);
-                      setLastHidden(null);
-                      requestAnimationFrame(() =>
-                        document
-                          .querySelector<HTMLElement>(
-                            `dialog[open] .also-like-item .tile[aria-label="${CSS.escape(lastHidden.name)}"]`,
-                          )
-                          ?.focus(),
-                      );
-                    }}
-                  >
-                    <ArrowUUpLeftIcon />
-                    {t("undoHide", { title: lastHidden.name })}
-                  </button>
-                )}
-              </div>
+              <h2>{t("alsoLike")}</h2>
               <div className="also-like-row">
-                {alsoLike.map((s, i) => (
-                  <div className="also-like-item" key={s.appId}>
-                    <button
-                      className="tile"
-                      aria-label={s.name}
-                      title={s.name}
-                      onClick={() => open(fromSimilar(s))}
-                    >
-                      <Cover
-                        game={asGame({
-                          steamAppID: s.appId,
-                          thumb: "",
-                          title: s.name,
-                        })}
-                      />
-                    </button>
-                    <div className="also-like-actions">
-                      <button
-                        aria-label={t("likeGame", { title: s.name })}
-                        title={t("like")}
-                        aria-pressed={opinionOf(s.appId) === "liked"}
-                        onClick={() => judge(s.appId, "liked", s.name)}
-                      >
-                        <ThumbsUpIcon
-                          weight={
-                            opinionOf(s.appId) === "liked" ? "fill" : "regular"
-                          }
-                        />
-                      </button>
-                      <button
-                        aria-label={t("notInterestedGame", { title: s.name })}
-                        title={t("notInterested")}
-                        onClick={() => {
-                          judge(s.appId, "notInterested", s.name);
-                          setLastHidden(s);
-                          // The next recommendation takes its place; so does the focus.
-                          requestAnimationFrame(() => {
-                            const tiles =
-                              document.querySelectorAll<HTMLElement>(
-                                "dialog[open] .also-like-item .tile",
-                              );
-                            (tiles[i] ?? tiles[tiles.length - 1])?.focus();
-                          });
-                        }}
-                      >
-                        <EyeSlashIcon />
-                      </button>
-                    </div>
-                  </div>
+                {alsoLike.map((s) => (
+                  <button
+                    key={s.appId}
+                    className="tile"
+                    aria-label={s.name}
+                    title={s.name}
+                    onClick={() => open(fromSimilar(s))}
+                  >
+                    <Cover
+                      game={asGame({
+                        steamAppID: s.appId,
+                        thumb: "",
+                        title: s.name,
+                      })}
+                    />
+                  </button>
                 ))}
               </div>
             </section>

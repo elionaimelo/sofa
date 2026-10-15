@@ -96,8 +96,11 @@ export function SteamMedia({
           {media.english_only && !lang.startsWith("en") && (
             <p className="game-about-note">{t("descriptionEnglishOnly")}</p>
           )}
+          {/* A stop for the D-pad: reading it scrolls it fully into view before the gallery. */}
           <p
             className="game-about"
+            // biome-ignore lint/a11y/noNoninteractiveTabindex: the controller needs a focus stop to read the text.
+            tabIndex={0}
             lang={media.english_only ? "en" : undefined}
           >
             {media.description}
@@ -182,7 +185,16 @@ function Gallery({ shots, t }: { shots: Shot[]; t: Translate }) {
             key={shot.image}
             aria-label={label(shot, i)}
             aria-current={i === picked}
-            onFocus={() => {
+            onFocus={(e) => {
+              // Coming into the strip from outside, start on the shot on show, as Steam does.
+              const strip = e.currentTarget.parentElement;
+              if (
+                i !== picked &&
+                !strip?.contains(e.relatedTarget as Node | null)
+              ) {
+                strip?.querySelectorAll<HTMLElement>("button")[picked]?.focus();
+                return;
+              }
               pick(i);
               // The strip alone would scroll into view with the big shot cut off above it.
               gallery.current?.scrollIntoView({ block: "nearest" });

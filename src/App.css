@@ -946,7 +946,6 @@ dialog::backdrop {
 }
 .detail-body h1 {
   margin: 0 0 6px;
-  padding-right: 64px;
   font-size: clamp(26px, 3.6vw, 40px);
   line-height: 1.05;
 }
@@ -962,8 +961,18 @@ dialog::backdrop {
   min-height: 0;
   overflow-y: auto;
   padding: 26px;
-  /* Controls scrolled into view stop below the close X, never under it. */
-  scroll-padding-top: 84px;
+  /* The close X keeps a column of its own (right padding): nothing scrolls under it. Focused
+     controls stop clear of both edges. */
+  padding-right: 84px;
+  scroll-padding-block: 26px 32px;
+  /* Content leaving the edges fades instead of being cut mid-line; at rest the padding keeps
+     the title and the last row clear of the fade. */
+  mask-image: linear-gradient(
+    transparent,
+    #000 22px,
+    #000 calc(100% - 22px),
+    transparent
+  );
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1080,6 +1089,10 @@ dialog::backdrop {
   font-size: 14px;
 }
 .game-about {
+  /* Room for the focus ring around the text, without shifting it. */
+  padding: 6px 10px;
+  margin-inline: -10px;
+  border-radius: 10px;
   margin: 0;
   max-width: 70ch;
   color: #d6dae3;
@@ -1164,40 +1177,6 @@ dialog::backdrop {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
-}
-.also-like-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.also-like-head button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-/* A recommendation and its two opinions underneath, reachable with Down. */
-.also-like-item {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-.also-like-actions {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-}
-.also-like-actions button {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-}
-.also-like-actions button[aria-pressed="true"] {
-  background: rgb(204 48 89 / 0.35);
-  border-color: transparent;
 }
 .also-like-row .tile .title {
   padding: 24px 8px 8px;
@@ -1788,6 +1767,8 @@ select:focus-visible,
   filter: drop-shadow(0 1px 3px #111);
 }
 .deal-copy {
+  /* Fills the card: a button centres short content, which pushed the art down. */
+  flex: 1;
   display: flex;
   flex-direction: column;
   padding: 12px 10px 14px;
@@ -1871,13 +1852,18 @@ select:focus-visible,
   }
 }
 .offer-price {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 10px;
+  display: grid;
+  justify-items: end;
+  gap: 2px;
 }
-.offer-price del,
+.offer-price > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .offer-price small {
+  display: flex;
+  gap: 8px;
   color: var(--muted);
   font-size: 14px;
 }
@@ -1895,16 +1881,24 @@ select:focus-visible,
   font-size: 14px;
   font-weight: 650;
 }
+/* The source note on its own line; the game's actions in a row below that wraps. */
 .compare-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  font-size: 13px;
+  display: grid;
+  gap: 10px;
   color: var(--muted);
 }
-.compare-summary button {
-  flex-shrink: 0;
+.compare-summary p {
+  margin: 0;
+}
+.compare-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.compare-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   white-space: nowrap;
 }
 .offer-list {
@@ -2456,10 +2450,6 @@ select:focus-visible,
   }
   .offer-row button {
     width: 100%;
-  }
-  .compare-summary {
-    align-items: flex-start;
-    flex-direction: column;
   }
 }
 @media (prefers-reduced-transparency: reduce) {
