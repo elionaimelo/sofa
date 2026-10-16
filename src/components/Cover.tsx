@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { Game } from "../library";
+import { useEffect, useState } from "react";
+import { type Game, hero } from "../library";
 
 /**
  * Steam's portrait art is missing for some titles and, for newer ones, so is the header on
@@ -63,6 +63,47 @@ export function Cover({ game }: { game: Game }) {
       <span className="title" data-always={!src || undefined}>
         <span>{game.title}</span>
       </span>
+    </>
+  );
+}
+
+/** Home keeps the portrait under the selected card's landscape art as it opens out. */
+export function CarouselCover({
+  game,
+  active,
+}: {
+  game: Game;
+  active: boolean;
+}) {
+  const src = hero(game);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!active || !src || ready) return;
+    let cancelled = false;
+    const image = new Image();
+    image.src = src;
+    void image.decode().then(
+      () => {
+        if (!cancelled) setReady(true);
+      },
+      () => undefined,
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [active, src, ready]);
+  return (
+    <>
+      <Cover game={game} />
+      {ready && (
+        <img
+          className="tile-wide-art"
+          src={src}
+          alt=""
+          width={1920}
+          height={1080}
+        />
+      )}
     </>
   );
 }

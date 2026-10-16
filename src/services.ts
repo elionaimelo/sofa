@@ -1,7 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { MutableRefObject } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import type { Translate } from "./i18n";
 import type { Action } from "./useInput";
 export type MessageKey = Parameters<Translate>[0];
@@ -15,6 +15,22 @@ export const demo =
   !isTauri() &&
   new URLSearchParams(location.search).has("demo");
 export type InputRef = MutableRefObject<((a: Action) => void) | null>;
+const reducedMotion =
+  typeof window === "undefined"
+    ? undefined
+    : window.matchMedia("(prefers-reduced-motion: reduce)");
+const subscribeMotion = (update: () => void) => {
+  reducedMotion?.addEventListener("change", update);
+  return () => reducedMotion?.removeEventListener("change", update);
+};
+/** Follow changes while Sofa is open, including stopping an already playing preview. */
+export function useReducedMotion() {
+  return useSyncExternalStore(
+    subscribeMotion,
+    () => reducedMotion?.matches ?? false,
+    () => false,
+  );
+}
 /** Whether the device has a network right now; follows the browser's online/offline events. */
 export function useOnline() {
   const [online, setOnline] = useState(() => navigator.onLine);
@@ -31,6 +47,8 @@ export function useOnline() {
 }
 /** Set while a Picker list is open; the main window routes every action to it first. */
 export const pickerInput: InputRef = { current: null };
+/** Text entry takes priority over every page, dialog and picker in this window. */
+export const keyboardInput: InputRef = { current: null };
 export function useFeatureInput(ref: InputRef, handler: (a: Action) => void) {
   useEffect(() => {
     ref.current = handler;
@@ -289,15 +307,23 @@ const servedBySofa = () =>
 type VirtualKeyboard = { show(): void };
 /**
  * Spread on text fields. Moving focus onto a field with the controller must not pop the
- * touch keyboard; it opens when the field is activated (A, or a tap). Chromium's
- * VirtualKeyboard API; where it's missing the browser keeps its default behaviour.
+ * keyboard. A opens Sofa's controller keyboard; a tap opens the system touch keyboard.
  */
 export const keyboardOnActivate = {
   virtualkeyboardpolicy: "manual",
-  onClick: () =>
-    (
-      navigator as Navigator & { virtualKeyboard?: VirtualKeyboard }
-    ).virtualKeyboard?.show(),
+  onClick: (event: { currentTarget: HTMLInputElement; detail: number }) => {
+    if (
+      event.detail === 0 &&
+      document.documentElement.classList.contains("gamepad-input")
+    )
+      window.dispatchEvent(
+        new CustomEvent("sofa-text-entry", { detail: event.currentTarget }),
+      );
+    else
+      (
+        navigator as Navigator & { virtualKeyboard?: VirtualKeyboard }
+      ).virtualKeyboard?.show();
+  },
 };
 export async function desktop<T>(
   command: string,

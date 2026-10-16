@@ -13,13 +13,16 @@ import {
   useRef,
   useState,
 } from "react";
-import { Cover } from "./components/Cover";
+import { CarouselCover, Cover } from "./components/Cover";
 import { DialogFooter } from "./components/Dialog";
+import { FavoriteIcon } from "./components/FavoriteIcon";
+import { GameBackdrop } from "./components/GameBackdrop";
+import { GamePreview } from "./components/GamePreview";
+import { HeroInfo } from "./components/HeroInfo";
 import { LaunchScreen } from "./components/LaunchScreen";
 import { Loading } from "./components/Loading";
 import { Picker } from "./components/Picker";
 import { Scene } from "./components/Scene";
-import { SearchField } from "./components/SearchField";
 import { SofaIcon } from "./components/SofaIcon";
 import {
   initialLang,
@@ -34,7 +37,6 @@ import {
   defaultFilters,
   filterGames,
   type Game,
-  gameMeta,
   hero,
   parsePreferences,
   tasteWeights,
@@ -57,23 +59,29 @@ import {
   GaugeIcon,
   GearSixIcon,
   HardDrivesIcon,
-  HeartIcon,
   HouseIcon,
   InfoIcon,
+  MagnifyingGlassIcon,
   PlayIcon,
   PowerIcon,
   SlidersHorizontalIcon,
   SquaresFourIcon,
   StorefrontIcon,
+  WifiHighIcon,
   WifiSlashIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import { categoryLabel, useCategories } from "./features/Categories";
 import { Downloads } from "./features/Downloads";
 import { FiltersDrawer, type FilterTab } from "./features/FiltersDrawer";
-import { GameDetails } from "./features/GameDetails";
+import {
+  captureGameOrigin,
+  GameDetails,
+  type GameOrigin,
+} from "./features/GameDetails";
 import { Onboarding } from "./features/Onboarding";
 import { PowerMenu, TopBatteries, usePower } from "./features/Power";
+import { Search } from "./features/Search";
 import {
   AppearanceSettings,
   AppsSettings,
@@ -135,6 +143,7 @@ const Tile = memo(function Tile({
   game: g,
   index: i,
   current,
+  presentation,
   percent,
   favorite,
   t,
@@ -145,6 +154,7 @@ const Tile = memo(function Tile({
   game: Game;
   index: number;
   current: boolean;
+  presentation: "carousel" | "grid";
   percent: number | undefined;
   favorite: boolean;
   t: Translate;
@@ -155,6 +165,7 @@ const Tile = memo(function Tile({
   return (
     <button
       className="tile"
+      data-game-id={g.id}
       style={
         {
           "--i": i % 18,
@@ -168,8 +179,21 @@ const Tile = memo(function Tile({
       onFocus={() => onFocus(i)}
       onMouseEnter={() => onHover(i)}
       onClick={() => onOpen(g, i)}
+      onTransitionEnd={(event) => {
+        if (
+          event.propertyName === "flex-basis" &&
+          presentation === "carousel" &&
+          current &&
+          document.activeElement === event.currentTarget
+        )
+          glideToStart(event.currentTarget);
+      }}
     >
-      <Cover game={g} />
+      {presentation === "carousel" ? (
+        <CarouselCover game={g} active={current} />
+      ) : (
+        <Cover game={g} />
+      )}
       {!g.installed &&
         (percent != null ? (
           <>
@@ -184,11 +208,14 @@ const Tile = memo(function Tile({
         ) : (
           <span className="install-mark">{t("installGame")}</span>
         ))}
-      {favorite && (
-        <span className="favorite-mark" role="img" aria-label={t("favorite")}>
-          <HeartIcon weight="fill" />
-        </span>
-      )}
+      <span
+        className="favorite-mark"
+        role="img"
+        aria-label={t("favorite")}
+        hidden={!favorite}
+      >
+        <FavoriteIcon active={favorite} />
+      </span>
     </button>
   );
 });
@@ -222,6 +249,9 @@ export default function App() {
   const [page, setPage] = useState<(typeof PAGES)[number] | "settings">("home");
   const [tabChoice, setTab] = useState<(typeof TABS)[number]>("all");
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchOrigin = useRef<DOMRect | undefined>(undefined);
+  const searchInput: InputRef = useRef(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // The drawer's two tabs: the (possibly long) category list, and the other filters.
   const [filterTab, setFilterTab] = useState<FilterTab>("categories");
@@ -241,6 +271,8 @@ export default function App() {
   }, [status]);
   const [lang, setLang] = useState(initialLang);
   const [details, setDetails] = useState<Game | null>(null);
+  const detailOrigin = useRef<GameOrigin | null>(null);
+  const detailInput: InputRef = useRef(null);
   const [settings, setSettings] = useState<SettingsPanel | null>(null);
   const [powerMenu, setPowerMenu] = useState(false);
   // The store's comparison dialog, for the hints only.
@@ -458,6 +490,7 @@ export default function App() {
       },
     }));
   const selected = visible[Math.min(focus, Math.max(0, visible.length - 1))];
+  const preview = details ?? (page === "home" ? selected : undefined);
   useEffect(() => {
     if (!details) return;
     const current = games.find((game) => game.id === details.id);
@@ -518,16 +551,15 @@ export default function App() {
     });
     tiles[nearest]?.focus({ preventScroll: true });
   }, []);
-  const hoverTile = useCallback(
-    (i: number) =>
-      setFocus((f) => {
-        // Only a real change of tile skips the scroll; hovering the same one changes nothing.
-        if (f !== i) hovered.current = true;
-        return i;
-      }),
-    [],
-  );
+  const hoverTile = useCallback((i: number) => {
+    setFocus((f) => {
+      // Only a real change of tile skips the scroll; hovering the same one changes nothing.
+      if (f !== i) hovered.current = true;
+      return i;
+    });
+  }, []);
   const openTile = useCallback((g: Game, i: number) => {
+    detailOrigin.current = captureGameOrigin(g.id);
     setFocus(i);
     setDetails(g);
   }, []);
@@ -583,7 +615,7 @@ export default function App() {
     }
     launchBusy.current = true;
     setLaunching(true);
-    // The launch screen can't show over a dialog, and a failure goes to the footer.
+    // A launch failure returns to the library and its status footer.
     setDetails(null);
     setLaunchScreen(g);
     try {
@@ -656,6 +688,10 @@ export default function App() {
       if (a === "b") setLaunchScreen(null);
       return;
     }
+    if (searchOpen) {
+      searchInput.current?.(a);
+      return;
+    }
     if (onboarding) {
       if (a === "b") finishOnboarding();
       else navigateSpatial(a, document.querySelector("dialog[open]"));
@@ -677,7 +713,9 @@ export default function App() {
       return;
     }
     // A confirmation (uninstall, sign out) takes the controller: B cancels it, one level.
-    const confirm = document.querySelector("[data-confirm]");
+    const confirm = document.querySelector(
+      "[data-confirm]:not([inert], [inert] *)",
+    );
     if (confirm) {
       if (a === "b")
         confirm
@@ -692,6 +730,10 @@ export default function App() {
     }
     const primary = document.querySelector(".primary-nav");
     if (a === "menu" && !document.querySelector("dialog[open]")) {
+      if (details) {
+        document.querySelector<HTMLButtonElement>(".game-back")?.focus();
+        return;
+      }
       (
         primary?.querySelector<HTMLElement>("button[aria-current='page']") ??
         document.querySelector<HTMLElement>(
@@ -718,14 +760,17 @@ export default function App() {
       return;
     }
     if (a === "b") {
-      if (details) closeDetails();
-      else if (settings) setSettings(null);
+      if (details) {
+        if (detailInput.current) detailInput.current("b");
+        else closeDetails();
+      } else if (settings) setSettings(null);
       else if (page === "library" || page === "settings") setPage("home");
       else if (page !== "home") featureInput.current?.(a);
       return;
     }
     if (details || settings) {
-      navigateSpatial(a, document.querySelector("dialog[open]"));
+      if (details) detailInput.current?.(a);
+      else navigateSpatial(a, document.querySelector("dialog[open]"));
       if (a === "x" && details) toggleFavorite(details);
       if (a === "y" && details) toggleHidden(details);
       return;
@@ -794,7 +839,7 @@ export default function App() {
           ],
           ["B", t("close")],
         ]
-      : settings || powerMenu || storeModal
+      : settings || powerMenu || storeModal || searchOpen
         ? [
             ["A", t("selectAction")],
             ...(storeModal
@@ -840,27 +885,43 @@ export default function App() {
         </div>
       }
     >
-      <main className={`page-${page} density-${prefs.density}`}>
-        <a className="skip-link" href="#content">
+      <main
+        className={`page-${page} density-${prefs.density}${details ? " game-open" : ""}`}
+      >
+        <a className="skip-link" href={details ? "#game-details" : "#content"}>
           {t("skipContent")}
         </a>
-        {selected && (page === "home" || page === "library") && (
-          <div
-            key={selected.id}
-            className="backdrop"
-            style={{ backgroundImage: `url("${hero(selected)}")` }}
-          />
-        )}
+        <GameBackdrop
+          src={
+            details
+              ? hero(details)
+              : page === "home" || page === "library"
+                ? hero(selected)
+                : undefined
+          }
+          previous={page === "home" ? hero(visible[focus - 1]) : undefined}
+          next={page === "home" ? hero(visible[focus + 1]) : undefined}
+        >
+          {preview && online && prefs.animatedBackgrounds && (
+            <GamePreview
+              key={preview.id}
+              game={preview}
+              lang={lang}
+              paused={!!launchScreen}
+            />
+          )}
+        </GameBackdrop>
         <header className="app-header">
           <button
             className="brand"
+            inert={!!details}
             onClick={() => setPage("home")}
             aria-label={`Sofa · ${t("home")}`}
           >
             <SofaIcon />
             <span className="brand-name">sofa</span>
           </button>
-          <nav className="primary-nav" aria-label="Sofa">
+          <nav className="primary-nav" aria-label="Sofa" inert={!!details}>
             {PAGES.map((p) => {
               const Icon = pageIcons[p];
               return (
@@ -884,28 +945,35 @@ export default function App() {
               );
             })}
           </nav>
-          <SearchField
-            className="header-search"
-            value={query}
-            name="search"
-            enterKeyHint="search"
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setPage("library");
-              setTab("all");
-            }}
-            onClear={() => setQuery("")}
-            clearLabel={t("clearSearch")}
-            placeholder={t("searchGames")}
-            aria-label={t("searchGames")}
-          />
           <div className="system-bar">
-            {!online && (
-              <span className="offline-pill" role="status">
+            <button
+              onClick={(event) => {
+                searchOrigin.current =
+                  event.currentTarget.getBoundingClientRect();
+                setSearchOpen(true);
+              }}
+              aria-label={t("searchGames")}
+              aria-haspopup="dialog"
+              aria-expanded={searchOpen}
+              title={t("searchGames")}
+            >
+              <MagnifyingGlassIcon />
+            </button>
+            <span
+              className="network-status"
+              data-offline={!online || undefined}
+              role="status"
+              title={t(online ? "online" : "offline")}
+            >
+              {online ? (
+                <WifiHighIcon weight="bold" />
+              ) : (
                 <WifiSlashIcon weight="bold" />
-                {t("offline")}
+              )}
+              <span className={online ? "visually-hidden" : undefined}>
+                {t(online ? "online" : "offline")}
               </span>
-            )}
+            </span>
             <TopBatteries t={t} data={power.data} onOpen={openHud} />
             <button
               onClick={() => setPowerMenu(true)}
@@ -917,7 +985,10 @@ export default function App() {
             <Clock lang={lang} />
             <button
               className={update ? "has-update" : undefined}
-              onClick={() => setPage("settings")}
+              onClick={() => {
+                setDetails(null);
+                setPage("settings");
+              }}
               aria-label={
                 update
                   ? `${t("settings")} · ${t("updateAvailable", { version: update.version })}`
@@ -931,7 +1002,7 @@ export default function App() {
           </div>
         </header>
         <AnimatePresence mode="wait" initial={false}>
-          <Scene key={page}>
+          <Scene key={page} inert={!!details}>
             {page === "library" && (
               <section className="library-toolbar">
                 {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of buttons, not form fields (<fieldset>). */}
@@ -965,14 +1036,16 @@ export default function App() {
                   <kbd aria-hidden>RB</kbd>
                 </div>
                 <div className="tools">
-                  <SearchField
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onClear={() => setQuery("")}
-                    clearLabel={t("clearSearch")}
-                    placeholder={t("searchHint")}
-                    aria-label={t("searchGames")}
-                  />
+                  {query && (
+                    <button
+                      className="search-query"
+                      onClick={() => setQuery("")}
+                      aria-label={t("clearSearch")}
+                    >
+                      <XIcon />
+                      {query}
+                    </button>
+                  )}
                   <button
                     className="filter-toggle"
                     aria-expanded={filtersOpen}
@@ -1129,19 +1202,12 @@ export default function App() {
               ) : (
                 <>
                   {page === "home" && selected && (
-                    <section className="hero-copy" key={selected.id}>
-                      <span className="game-meta">
-                        {selected.source === "xbox"
-                          ? "Xbox"
-                          : selected.source === "custom"
-                            ? t("customGames")
-                            : selected.source.toUpperCase()}{" "}
-                        · {t("installed")}
-                      </span>
-                      <h1>{selected.title}</h1>
-                      <p>
-                        {gameMeta(selected, t, lang, prefs.recent[selected.id])}
-                      </p>
+                    <HeroInfo
+                      game={selected}
+                      t={t}
+                      lang={lang}
+                      recent={prefs.recent[selected.id]}
+                    >
                       <div className="hero-actions">
                         {/* Home lists installed games only. */}
                         <button
@@ -1153,7 +1219,14 @@ export default function App() {
                           <PlayIcon weight="fill" />
                           {t("play")}
                         </button>
-                        <button onClick={() => setDetails(selected)}>
+                        <button
+                          onClick={() => {
+                            detailOrigin.current = captureGameOrigin(
+                              selected.id,
+                            );
+                            setDetails(selected);
+                          }}
+                        >
                           <InfoIcon />
                           {t("details")}
                         </button>
@@ -1161,17 +1234,13 @@ export default function App() {
                           aria-pressed={prefs.favorites.includes(selected.id)}
                           onClick={() => toggleFavorite(selected)}
                         >
-                          <HeartIcon
-                            weight={
-                              prefs.favorites.includes(selected.id)
-                                ? "fill"
-                                : "regular"
-                            }
-                          />{" "}
+                          <FavoriteIcon
+                            active={prefs.favorites.includes(selected.id)}
+                          />
                           {t("favorites")}
                         </button>
                       </div>
-                    </section>
+                    </HeroInfo>
                   )}
                   <Downloads
                     t={t}
@@ -1207,7 +1276,10 @@ export default function App() {
                                 value: "mostPlayed",
                                 label: t("sortMostPlayed"),
                               },
-                              { value: "installed", label: t("sortInstalled") },
+                              {
+                                value: "installed",
+                                label: t("sortInstalled"),
+                              },
                               { value: "title", label: t("titleAsc") },
                               { value: "size", label: t("sortSize") },
                             ]}
@@ -1264,6 +1336,7 @@ export default function App() {
                             game={g}
                             index={i}
                             current={i === focus}
+                            presentation={page === "home" ? "carousel" : "grid"}
                             percent={downloading[g.id]}
                             favorite={prefs.favorites.includes(g.id)}
                             t={t}
@@ -1415,6 +1488,31 @@ export default function App() {
           </HintBar>
         </footer>
         {launchScreen && <LaunchScreen game={launchScreen} t={t} />}
+        {searchOpen && (
+          <Search
+            origin={searchOrigin.current}
+            games={games}
+            prefs={prefs}
+            initialQuery={query}
+            loading={loading}
+            t={t}
+            lang={lang}
+            input={searchInput}
+            onClose={() => setSearchOpen(false)}
+            onOpen={(game) => {
+              detailOrigin.current = captureGameOrigin(game.id);
+              setSearchOpen(false);
+              setDetails(game);
+            }}
+            onBrowse={(search) => {
+              setSearchOpen(false);
+              setQuery(search);
+              setTab("all");
+              setPrefs((p) => ({ ...p, filters: defaultFilters }));
+              setPage("library");
+            }}
+          />
+        )}
         {powerMenu && (
           <PowerMenu
             t={t}
@@ -1425,12 +1523,13 @@ export default function App() {
         )}
         {details && (
           <GameDetails
+            key={details.id}
+            origin={detailOrigin.current}
+            input={detailInput}
             game={details}
             t={t}
             lang={lang}
             prefs={prefs}
-            setPrefs={setPrefs}
-            catalog={categories.catalog}
             sizeEstimate={sizeEstimate.data}
             launching={launching}
             onPlay={(game) => void play(game)}

@@ -1,5 +1,6 @@
 import { ArrowUUpLeftIcon, TrashIcon } from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { Dialog } from "../components/Dialog";
 import type { Translate } from "../i18n";
 import type { Game } from "../library";
 import { demo, desktop, type MessageKey, serviceError } from "../services";
@@ -15,12 +16,10 @@ export function Uninstall({
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<MessageKey | "">("");
-  const cancel = useRef<HTMLButtonElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
   const request = useRef(false);
-  useEffect(() => {
-    if (confirm) cancel.current?.focus();
-  }, [confirm]);
+  const close = () => {
+    if (!busy) setConfirm(false);
+  };
   const uninstall = async () => {
     if (request.current || demo) return;
     request.current = true;
@@ -56,67 +55,63 @@ export function Uninstall({
   )
     return null;
   return (
-    <section
-      className="uninstall-section"
-      data-uninstall-busy={busy || undefined}
-    >
-      <p className="uninstall-note">
-        {t(game.source === "epic" ? "uninstallEpicNote" : "uninstallSteamNote")}
-      </p>
-      {confirm ? (
-        <div className="uninstall-confirm" data-confirm>
-          <h2>{t("uninstallTitle", { title: game.title })}</h2>
-          <p>
-            {t(
-              game.source === "epic"
-                ? "uninstallEpicConfirm"
-                : "uninstallConfirm",
-            )}
-          </p>
-          <div className="detail-actions">
-            <button
-              ref={cancel}
-              data-confirm-cancel
-              aria-disabled={busy}
-              onClick={() => {
-                if (busy) return;
-                setConfirm(false);
-                // Back to the button that asked, not the dialog's close X.
-                requestAnimationFrame(() => trigger.current?.focus());
-              }}
-            >
-              <ArrowUUpLeftIcon />
-              {t("cancel")}
-            </button>
-            <button
-              className="danger-action"
-              disabled={demo}
-              aria-disabled={busy}
-              aria-busy={busy}
-              onClick={() => void uninstall()}
-            >
-              <TrashIcon />
-              {t(busy ? "uninstalling" : "uninstall")}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          ref={trigger}
-          className="uninstall-trigger"
-          disabled={demo}
-          onClick={() => setConfirm(true)}
+    <>
+      <button
+        className="uninstall-trigger"
+        disabled={demo}
+        title={demo ? t("previewUninstall") : undefined}
+        onClick={() => setConfirm(true)}
+      >
+        <TrashIcon />
+        {t("uninstall")}
+      </button>
+      {confirm && (
+        <Dialog
+          label={t("uninstallTitle", { title: game.title })}
+          onClose={close}
         >
-          <TrashIcon />
-          {t("uninstall")}
-        </button>
+          <div
+            className="uninstall-confirm"
+            data-confirm
+            data-uninstall-busy={busy || undefined}
+          >
+            <h2>{t("uninstallTitle", { title: game.title })}</h2>
+            <p>
+              {t(
+                game.source === "epic"
+                  ? "uninstallEpicConfirm"
+                  : "uninstallConfirm",
+              )}
+            </p>
+            <div className="detail-actions">
+              <button
+                data-confirm-cancel
+                data-initial-focus
+                aria-disabled={busy}
+                onClick={close}
+              >
+                <ArrowUUpLeftIcon />
+                {t("cancel")}
+              </button>
+              <button
+                className="danger-action"
+                disabled={demo}
+                aria-disabled={busy}
+                aria-busy={busy}
+                onClick={() => void uninstall()}
+              >
+                <TrashIcon />
+                {t(busy ? "uninstalling" : "uninstall")}
+              </button>
+            </div>
+            {error && (
+              <p className="inline-error" role="alert">
+                {t(error as MessageKey)}
+              </p>
+            )}
+          </div>
+        </Dialog>
       )}
-      {demo && <p className="uninstall-note">{t("previewUninstall")}</p>}
-      {error && (
-        <p className="inline-error" role="alert">
-          {t(error as MessageKey)}
-        </p>
-      )}
-    </section>
+    </>
   );
 }

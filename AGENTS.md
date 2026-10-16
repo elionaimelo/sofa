@@ -31,6 +31,7 @@ Agent skills (TanStack Query, React composition, web interface guidelines, Rust 
 
 ## Ground rules
 
+- Motion is part of the UI: animate meaningful state changes and use shared-element morphs when a card, icon or action opens a related view; keep controller focus stable and honour reduced motion (see `src/AGENTS.md`).
 - Be critical of UI: fewer, better-placed controls beat more, and every visual change is looked at on screen at the Ally's size before it ships (`src/AGENTS.md`, "Reviewing UI changes").
 - Smallest change that works. Reuse what exists (`services.ts`, `library.rs`, `network.rs`) before writing new helpers; no new dependency when an installed one or a few lines do the job.
 - Delete dead code, styles and strings in the same change that makes them dead.

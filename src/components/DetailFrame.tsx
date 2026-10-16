@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { Dialog } from "./Dialog";
 
 /**
- * The fixed-size frame game details and the store comparison share: the art blurred
+ * The store comparison's fixed-size modal frame: the art blurred
  * behind, the cover fixed on the left, scrolling content on the right.
  */
 export function DetailFrame({

@@ -397,6 +397,19 @@ export function AppearanceSettings({
         {prefs.sounds ? <SpeakerHighIcon /> : <SpeakerSlashIcon />}
         {t("interfaceSounds")}: {t(prefs.sounds ? "on" : "off")}
       </button>
+      <button
+        aria-pressed={prefs.animatedBackgrounds}
+        onClick={() =>
+          setPrefs((p) => ({
+            ...p,
+            animatedBackgrounds: !p.animatedBackgrounds,
+          }))
+        }
+      >
+        <MonitorPlayIcon />
+        {t("animatedBackgrounds")}:{" "}
+        {t(prefs.animatedBackgrounds ? "on" : "off")}
+      </button>
       {/* Xbox mode owns the window layout; the toggle only makes sense outside it. */}
       {xboxMode?.active !== true && (
         <button

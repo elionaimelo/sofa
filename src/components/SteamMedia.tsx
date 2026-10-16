@@ -9,9 +9,11 @@ import type { Translate } from "../i18n";
 
 /** A screenshot or trailer from a game's Steam page (`store_media`, `game_media`). */
 type Shot = { image: string; video: string | null };
+export type Gameplay = { video: string; start: number; end: number };
 export type Media = {
   description: string;
   gallery: Shot[];
+  gameplay?: Gameplay | null;
   controller: "full" | "partial" | null;
   /** Steam Deck compatibility: 1 unsupported, 2 playable, 3 verified. */
   deck: number | null;

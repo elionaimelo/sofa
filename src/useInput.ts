@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { desktop } from "./services";
+import { desktop, keyboardInput } from "./services";
 export type Action =
   | "up"
   | "down"
@@ -77,9 +77,11 @@ export function useInput(
   const cb = useRef(onAction);
   cb.current = onAction;
   useEffect(() => {
+    const dispatch = (action: Action) =>
+      (keyboardInput.current ?? cb.current)(action);
     const fire = (a: Action) => {
       document.documentElement.classList.add("gamepad-input");
-      cb.current(a);
+      dispatch(a);
     };
     // The widget tells sofa.log once that it loaded and which way controller input arrives,
     // so a device report shows where navigation stops.
@@ -112,7 +114,7 @@ export function useInput(
       if (a && (!e.repeat || ["up", "down", "left", "right"].includes(a))) {
         document.documentElement.classList.remove("gamepad-input");
         e.preventDefault();
-        cb.current(a);
+        dispatch(a);
       }
     };
     window.addEventListener("keydown", onKey);

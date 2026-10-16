@@ -392,6 +392,14 @@ pub struct Shot {
     video: Option<String>,
 }
 
+/// A publisher's in-game footage, with a bounded excerpt that avoids promotional slates.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Gameplay {
+    video: String,
+    start: u16,
+    end: u16,
+}
+
 /// What Steam's page says about a game: its short description, its gallery and the facts a
 /// controller player checks before installing or buying it.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
@@ -399,6 +407,7 @@ pub struct Media {
     description: String,
     /// Trailers first, then screenshots, in Steam's order.
     gallery: Vec<Shot>,
+    gameplay: Option<Gameplay>,
     /// "full" or "partial", as the store page lists it; None when it lists nothing.
     controller: Option<String>,
     /// Steam Deck compatibility: 1 unsupported, 2 playable, 3 verified.
@@ -463,6 +472,31 @@ fn parse_description(details: &Value, app_id: &str) -> String {
         .to_owned()
 }
 
+fn parse_gameplay(data: &Value, app_id: &str) -> Option<Gameplay> {
+    let movies = data["movies"].as_array()?;
+    // Reviewed gameplay excerpts from the publishers' Steam uploads, not their cover trailers.
+    let curated = match app_id {
+        "870780" => Some((256795957, 64, 96)),
+        "1091500" => Some((256975573, 10, 40)),
+        "1245620" => Some((256843493, 70, 100)),
+        "1145360" => Some((256801288, 136, 148)),
+        _ => None,
+    };
+    if let Some((id, start, end)) = curated
+        && let Some(video) = movies.iter().find(|movie| movie["id"].as_u64() == Some(id))
+            .and_then(|movie| steam_cdn(movie["hls_h264"].as_str()))
+    {
+        return Some(Gameplay { video, start, end });
+    }
+    movies.iter().find_map(|movie| {
+        let name = movie["name"].as_str()?.to_ascii_lowercase();
+        if !name.contains("gameplay") || name.contains("teaser") {
+            return None;
+        }
+        Some(Gameplay { video: steam_cdn(movie["hls_h264"].as_str())?, start: 20, end: 50 })
+    })
+}
+
 fn parse_media(details: &Value, app_id: &str) -> Media {
     let data = &details[app_id]["data"];
     let description = parse_description(details, app_id);
@@ -477,6 +511,7 @@ fn parse_media(details: &Value, app_id: &str) -> Media {
     Media {
         description,
         gallery: trailers.take(3).chain(screenshots.take(12)).collect(),
+        gameplay: parse_gameplay(data, app_id),
         controller,
         deck: None,
         english_only: false,
@@ -520,11 +555,11 @@ pub async fn game_media(
 /// Steam lists later shows up the next day. `app_id` must be numeric: it names the file.
 async fn media(app_id: &str, language: &str, app: &tauri::AppHandle, cache: &StoreCache) -> Result<Media, String> {
     use tauri::Manager;
-    let key = format!("media:{app_id}:{language}");
+    let key = format!("media-v4:{app_id}:{language}");
     if let Some(media) = cache.fresh(&key, DAY)? {
         return serde_json::from_value(media).map_err(|_| "invalidResponse".into());
     }
-    let file = app.path().app_cache_dir().ok().map(|dir| dir.join("store-media-v3").join(format!("{app_id}-{language}.json")));
+    let file = app.path().app_cache_dir().ok().map(|dir| dir.join("store-media-v4").join(format!("{app_id}-{language}.json")));
     let media = match file.as_deref().and_then(read_media) {
         Some(media) => media,
         None => {
@@ -960,6 +995,48 @@ mod tests {
         );
         assert_eq!(parse_reviews(&serde_json::json!({"query_summary": {"total_positive": 0, "total_reviews": 0}})), None);
         assert_eq!(steam_language("de"), None);
+    }
+
+    #[test]
+    fn gameplay_is_found_beyond_the_gallery_trailer_limit() {
+        let data = serde_json::json!({"movies": [
+            {"name": "CGI Trailer", "hls_h264": "https://video.akamai.steamstatic.com/cgi.m3u8"},
+            {"name": "Launch Trailer", "hls_h264": "https://video.akamai.steamstatic.com/launch.m3u8"},
+            {"name": "Accolades", "hls_h264": "https://video.akamai.steamstatic.com/awards.m3u8"},
+            {"name": "Official Gameplay", "hls_h264": "https://video.akamai.steamstatic.com/gameplay.m3u8"}
+        ]});
+        assert_eq!(parse_gameplay(&data, "10"), Some(Gameplay {
+            video: "https://video.akamai.steamstatic.com/gameplay.m3u8".into(), start: 20, end: 50,
+        }));
+    }
+
+    #[test]
+    fn promotional_trailers_do_not_fill_a_missing_gameplay_preview() {
+        let data = serde_json::json!({"movies": [
+            {"name": "Launch Trailer", "hls_h264": "https://video.akamai.steamstatic.com/launch.m3u8"},
+            {"name": "Gameplay Teaser", "hls_h264": "https://video.akamai.steamstatic.com/teaser.m3u8"}
+        ]});
+        assert_eq!(parse_gameplay(&data, "10"), None);
+    }
+
+    #[test]
+    fn gameplay_rejects_untrusted_video_hosts_and_insecure_urls() {
+        let data = serde_json::json!({"movies": [
+            {"name": "Gameplay", "hls_h264": "https://steamstatic.com.evil.example/game.m3u8"},
+            {"name": "Gameplay", "hls_h264": "http://video.akamai.steamstatic.com/game.m3u8"}
+        ]});
+        assert_eq!(parse_gameplay(&data, "10"), None);
+    }
+
+    #[test]
+    fn control_uses_the_reviewed_in_game_excerpt() {
+        let data = serde_json::json!({"movies": [
+            {"id": 256795524, "name": "Control Ultimate Edition Trailer", "hls_h264": "https://video.akamai.steamstatic.com/launch.m3u8"},
+            {"id": 256795957, "name": "What is Control", "hls_h264": "https://video.akamai.steamstatic.com/game.m3u8"}
+        ]});
+        assert_eq!(parse_gameplay(&data, "870780"), Some(Gameplay {
+            video: "https://video.akamai.steamstatic.com/game.m3u8".into(), start: 64, end: 96,
+        }));
     }
 
     #[test]

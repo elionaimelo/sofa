@@ -222,6 +222,8 @@ export type Preferences = {
   opinionTitles: Record<string, string>;
   /** Interface sounds (moving focus, A, B). */
   sounds: boolean;
+  /** Muted game previews behind Home and the full-screen game page. */
+  animatedBackgrounds: boolean;
 };
 const sorts: Preferences["sort"][] = [
   "recent",
@@ -248,6 +250,7 @@ export const defaults: Preferences = {
   notInterested: [],
   opinionTitles: {},
   sounds: true,
+  animatedBackgrounds: true,
 };
 const ids = (v: unknown): string[] =>
   Array.isArray(v)
@@ -288,6 +291,7 @@ export function parsePreferences(
     liked,
     notInterested,
     sounds: p.sounds !== false,
+    animatedBackgrounds: p.animatedBackgrounds !== false,
     opinionTitles: Object.fromEntries(
       Object.entries(
         p.opinionTitles && typeof p.opinionTitles === "object"
