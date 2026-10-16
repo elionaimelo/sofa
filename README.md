@@ -1,77 +1,63 @@
 # Sofa
 
-Controller-first game library for Windows handhelds and the couch. Tauri 2 (Rust) + React.
+A game launcher for Windows handhelds (like the ROG Ally) that you use with a controller. Think SteamOS, on Windows.
 
-- First run needs no setup: installed games are found on their own. Only when nothing is found and no store account is connected, Sofa offers once to connect Steam and Epic.
-- Finds installed games from **Steam**, **Epic**, **GOG** and Xbox/Microsoft Store GDK packages, plus programs added in Settings → Apps. Xbox titles launch through their Windows package identity; older Store games without a GDK manifest can be added manually. Connecting a Steam or Epic Games account in Settings adds owned, uninstalled games. When GOG Galaxy is installed, Sofa also reads its local library cache to show owned, uninstalled GOG games; installation opens their Galaxy page.
-- Home with contextual artwork and muted gameplay excerpts, recently played games, and responsive icon navigation on handhelds. Game pages morph from their cover; global Spotlight search opens from its icon and supports controller text entry. Animated backgrounds can be disabled in Appearance and follow reduced motion. Library filters combine source, search, favorites, play history, cover availability, sorting and multiple categories.
-- Categories are available for detected titles: Steam catalog genres/tags are cached for offline use; previously saved custom categories remain available in the filters. Category acquisition depends on public Steam store markup; unavailable/age-gated listings are left unknown.
-- Uninstall installed titles from their details with confirmation, without leaving Sofa: for Steam, Sofa closes Steam in the background, removes the title's folder under `steamapps/common` and its manifest (validated to stay inside the library, never through a link) and starts Steam again in the tray; it refuses while a Steam game is running. Epic is uninstalled by validating its local build manifest and removing only listed files. Epic requires the game/launcher to be closed; unlisted saves/mods stay on disk. Invalid/encrypted manifests, permissions or unavailable uninstallers produce errors rather than fabricated success. Library refresh verifies completion.
-- Game details with launch, favorites, hide and restore. An uninstalled game shows the same badges and its Steam description, trailers and screenshots instead of "not played in Sofa yet" (Epic and GOG titles use the Steam page of the same name). Preferences and successful launches are saved locally.
-- Gamepad navigation: D-pad/stick move, **A** details/activate, **B** back, **X** favorite, **LB/RB** switch source (change a focused setting in dialogs), **LT/RT** previous/next page in Store Discover, **Y** install update (hide/restore in game details), **Start** settings, **View** main navigation, hold **View + Start** to toggle the HUD (works while a game has focus). Keyboard: arrows, Enter, Escape, X, Q/E, Page Up/Down, U, F2, F4 (power), Home, M (main navigation). Held directions repeat after 350 ms, then every 120 ms; a diagonal stick push follows its stronger axis.
-- Settings for language, cover size, sorting, fullscreen, interface sounds, library refresh and update checks. Interface sounds are short blips synthesized with the Web Audio API (a tick when focus moves, a pair on A and on B); every webview starts with `--autoplay-policy=no-user-gesture-required`, since a gamepad press is not a user gesture and they would stay silent. Updates are checked at start and every 6 hours; a dot on the settings button marks a pending one.
-- Steam and Epic ownership sync sign in on the store's own login page (Steam Guard, QR and Epic two-factor work); Sofa never sees the password, only the session cookies. Steam's session is kept in the app's webview cookie store and renewed through Steam's refresh page; Epic's refresh token is kept in `epic-session.json` (app data dir) and rotated on every renewal. Both are deleted on disconnect. Epic titles come from the launcher's public catalog with the Epic Games Launcher's own client id.
-- Store: live deals and price comparison through CheapShark, with a local wishlist. Wishlist prices are checked every 6 hours (CheapShark in batches of 25); a game cheaper than when it was saved shows "Price dropped", and a dot on Store announces drops and Epic's free games until the Store is opened. A connected Steam account's wishlist (even a private one, through the session's own token) can be imported; titles CheapShark doesn't list are left out. Discover opens with Epic's free games of the week from its public promotions feed; their store page is resolved in Rust from the game id. Each page of deals is ordered by the player's taste: the Steam tags of their games (weighted by hours, recent sessions and favourites, from Steam's public store item API) against each deal's tags; unrelated deals keep their order behind. The comparison has Like and Not interested (also under each "You may also like" tile): a liked game counts toward the taste like a favorite, one marked Not interested pulls similar games back and is never shown again in Discover or recommendations. A hide by mistake can be undone right there, and Settings → Library lists hidden recommendations by name to show any of them again. These opinions live in the preferences with the rest of the player's choices. Each game's comparison opens with badges for controller support, Steam Deck compatibility and the share of positive Steam reviews (public `appdetails`, deck compatibility report and `appreviews` endpoints), then its short description, trailers and screenshots from Steam's public `appdetails` API in the interface language, kept for 30 days in the app cache dir (`store-media/`). Trailers are HLS streams the webview plays natively; focus or tap picks a shot, A or a tap on the trailer toggles its sound, and shows "You may also like": what Steam's public "More like this" page suggests for it, leaving out games the player already has. Purchases open the provider redirect in the browser. Prices follow the price region in Settings → Appearance: Steam offers show Steam's own regional price, every other store's US dollar price is shown converted (marked ≈) with ECB reference rates from Frankfurter. Releases lists upcoming Windows games from Steam and opens a title's Steam page.
-- Top bar: device battery and up to two controller battery indicators; additional controllers are grouped with a link to full details. Battery details: charge, design/full capacity, health and cycle count when supplied by the OS; approximate controller battery levels via Windows XInput.
-- Windows power menu: shutdown, restart and supported hibernation, each requiring confirmation. Commands do not force-close apps.
-- Publisher affiliate links: prepared for approved tracking links per game. Configuration is fixed in the distributed build; see [affiliate setup](docs/affiliate-setup.md). Your affiliate revenue remains inactive until your program is approved and configured.
-- Xbox Game Bar widget ("Sofa" in the Game Bar home menu, Xbox button or Win+G): the same HUD inside the Game Bar overlay. It is a small UWP package installed with Sofa that loads the HUD from a local server (`127.0.0.1:47811`) Sofa runs while open, so it needs Sofa running.
-- Quick settings and HUD. The HUD is Sofa's Xbox Game Bar widget only, so it shows over games: a tap on the ROG Ally's Armoury Crate button, the battery icon, View + Start and Settings → HUD open Game Bar; holding Armoury Crate opens the task switcher, and Command Center brings Sofa back to the front. The widget has these controls: live FPS and frame time from RivaTuner Statistics Server's shared memory (when it runs) and the GPU's 3D load from Windows performance counters, read every 2 s only while the HUD is open; the game running now (Steam's running title with session and total play time, or the game Sofa launched last) with Close game, which asks it to close as its own close button would, and Force close, which ends its processes after a confirmation (only processes inside that game's install folder are touched), Silent/Balanced/Turbo firmware profiles and a custom 5–30 W power limit on the original ROG Ally (RC71L) with its ASUS system driver, resolution and refresh rate (until the next restart), brightness, CPU Boost, Windows Auto HDR and battery details. Tiles appear only when the piece that does the work is installed: framerate limit through RivaTuner Statistics Server (its global profile, via `RTSSHooks64.dll`), fan curve presets through the ASUS ACPI driver, stick lighting and desktop mouse mode through the Ally's HID interface, and "prefer external controller", which disables the built-in pad with `pnputil` (UAC). "Save for this game" stores the current profile, TDP, display mode and brightness; Sofa applies them before launching that game and restores the previous values after detecting its exit. The baseline survives an app restart. The firmware decides the actual wattage of a profile.
-- Languages: English, Português (Brasil), Español. Follows the OS language and can be changed in the header.
-- Settings → Apps opens the Steam and Epic launchers found on the device and adds the user's own programs (an emulator, a tool) through a controller-driven folder browser. Added programs also appear in the Library. The webview only handles listing indexes and ids; paths stay in `apps.json`.
-- OTA updates through GitHub Releases, signed with the Tauri updater key. Settings → Updates shows the installed version and opens `sofa.log` (app data dir) for diagnostics; it records Steam sign-in steps and launch-time settings, never tokens or cookie values.
-- Registers as an **Xbox full screen experience home app** (Windows 11 24H2+): Settings → Gaming → Xbox mode (formerly Full screen experience) → pick Sofa. The installer also turns on **Enter Xbox mode on startup** (`StartupToGamingHome`) unless you already set it; Settings → Appearance toggles it and can switch to Xbox mode right away through the documented `SetGamingFullScreenExperience` API. On builds older than 26100.8328 / 26200.8328 the desktop can still win the startup race.
+Built with Tauri 2 (Rust) and React.
 
-## What the installer changes on your machine
+## What it does
 
-Being listed as a home app needs a package identity, which Windows only grants through a signed MSIX.
-Sofa uses the same approach as Winhanced, so the installer (run as administrator) does this:
+- **One library.** Finds your installed games from Steam, Epic, GOG and the Xbox app on its own, with no setup. Connect your Steam or Epic account to also see games you own but haven't installed.
+- **Made for the controller.** Everything works with the gamepad: browse, search, launch, uninstall and change settings without touching the screen.
+- **Store.** Compares PC game prices, keeps a wishlist (you can import yours from Steam), warns when a saved game gets cheaper and shows Epic's free games of the week.
+- **HUD over your games.** An Xbox Game Bar widget shows FPS and lets you change power mode, TDP, fan curve, brightness and resolution while you play. Settings can be saved per game.
+- **Xbox mode home.** Sofa can replace the Xbox full screen experience home app, so it opens when your device starts (Windows 11 24H2+).
+- **Updates itself** from GitHub Releases.
+- English, Português (Brasil) and Español.
 
-1. Turns on **developer mode** (`AppModelUnlock`), because the `gamingHome` capability is authorized with a developer-mode SCCD.
-2. Installs the self-signed **`CN=Sofa` certificate** into `LocalMachine\TrustedPeople` so the identity package is trusted.
-3. Registers `Sofa.Identity.msix` as a sparse package pointing at the install folder.
-4. Sets Sofa as the home app **only if none is chosen yet**; your later choice in Settings is kept across updates.
+### Controls
 
-Uninstalling removes the package, the home-app setting (if it is Sofa) and the certificate. Developer mode is left on.
+| Button | Action |
+| --- | --- |
+| D-pad / stick | Move |
+| A | Open / confirm |
+| B | Back |
+| X | Favorite |
+| Y | Install update (hide in game details) |
+| LB / RB | Switch source |
+| LT / RT | Previous / next page in the Store |
+| Start | Settings |
+| View | Main menu |
+| View + Start (hold) | Open the HUD |
+
+The keyboard works too: arrows, Enter and Escape.
+
+## What the installer changes
+
+To be listed as an Xbox mode home app, Windows requires a signed package. The installer (run as administrator):
+
+1. Turns on **developer mode**.
+2. Installs the self-signed **`CN=Sofa` certificate** so that package is trusted.
+3. Registers the Sofa package.
+4. Sets Sofa as the home app, **only if you haven't picked one yet**.
+
+Uninstalling removes the package, the certificate and the home-app setting. Developer mode stays on.
+
+Your store passwords never reach Sofa: you sign in on Steam's and Epic's own pages, and disconnecting deletes the session.
 
 ## Develop
 
 ```sh
 npm install
-npm run tauri dev
-npm test # Node 22.6+ (TypeScript stripping)
-cargo test --manifest-path src-tauri/Cargo.toml
+npm run tauri dev   # app with hot reload
+npm run check       # everything the CI runs
 ```
 
-## Add a language
+`npm run dev` opens just the interface in the browser; add `?demo=1` for a demo library.
 
-Add an entry to `dicts` in `src/i18n.ts` plus its name in `LANGS`. TypeScript fails the build if a key is missing.
+Rules for contributors (and AI agents) are in [AGENTS.md](AGENTS.md), including how to release. More detail:
 
-## Release (OTA)
+- [Library and release rules](docs/biblioteca-e-lancamentos.md)
+- [Windows checks](docs/windows-validation.md)
+- [Affiliate setup](docs/affiliate-setup.md)
 
-1. Bump the version in `package.json`, `package-lock.json` (top two entries), `src-tauri/Cargo.toml`, the `sofa` entry in `src-tauri/Cargo.lock`, and the user agent in `src-tauri/src/network.rs`.
-2. Commit, push to `main`, and push tag `vX.Y.Z`.
-3. The release workflow runs `check`, `widget`, and `release` jobs. Publish the draft only after all three pass and the installer and `latest.json` are present. Installed apps show an update banner on their next check.
-
-The private signing key lives outside the repo (`~/.tauri/sofa.key`) and in the `TAURI_SIGNING_PRIVATE_KEY*` repo secrets. If you lose it, already-installed apps can no longer receive updates.
-
-## Browser preview
-
-`npm run dev` opens the interface without desktop APIs. Add `?demo=1` to the URL for a development-only demo library with its own preferences; demo games cannot launch. The demo includes real gameplay excerpts for Control, Cyberpunk 2077, Elden Ring and Hades, without desktop APIs or account setup. Production builds never include an active demo library.
-
-## Remaining scope
-
-Steam prices use the selected region; other store prices are converted approximately from USD. The store has a Steam release calendar for upcoming Windows games. [Library and release rules](docs/biblioteca-e-lancamentos.md) describe the current integrations and their limits. The quick panel works over windowed/borderless games. Microsoft Store discovery, per-game restoration, ROG Ally firmware profile switching, Game Bar focus, Xbox FSE registration and OTA installation require the [Windows end-to-end checks](docs/windows-validation.md).
-
-## Design direction
-
-The interface uses the [Taste Skill redesign workflow](https://github.com/Leonxlnx/taste-skill/tree/main/skills/redesign-skill): audit the existing app, improve it within its stack, and verify the result. Outfit is bundled locally, Phosphor icons share one family, touch targets are at least 44px, and reduced-motion/transparency preferences are respected.
-
-## Optional integration checks
-
-```sh
-cargo test --manifest-path src-tauri/Cargo.toml cheapshark_live_contract -- --ignored
-cargo test --manifest-path src-tauri/Cargo.toml native_metrics_warmup_and_cache -- --ignored
-```
-
-These checks use the live provider and local OS, respectively; the ordinary test suite remains offline.
+The update signing key lives outside the repo (`~/.tauri/sofa.key` and the `TAURI_SIGNING_PRIVATE_KEY*` secrets). If it is lost, installed apps stop receiving updates.
