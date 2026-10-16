@@ -2796,22 +2796,6 @@ select:focus-visible,
     padding: 18px;
   }
 }
-.partner-offers {
-  margin-top: 12px;
-  padding-top: 22px;
-  border-top: 1px solid rgb(255 255 255 / 0.1);
-}
-.partner-offers h2 {
-  font-size: 20px;
-  font-weight: 550;
-  margin-bottom: 10px;
-}
-.partner-offers > p {
-  margin-bottom: 16px;
-}
-.partner-offers .offer-row {
-  margin-top: 8px;
-}
 .scene {
   position: relative;
   display: flex;
@@ -3467,8 +3451,7 @@ main:not(.floating-hud) :is(button, input, select):not(.tile, .deal-card) {
   padding-inline: 22px;
   font-weight: 600;
 }
-.collection-heading :is(h1, h2),
-.partner-offers h2 {
+.collection-heading :is(h1, h2) {
   font-size: 25px;
 }
 .game-row .tile {

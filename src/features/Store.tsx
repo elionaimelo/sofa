@@ -41,7 +41,6 @@ import {
   money,
   type Notify,
   navigateControls,
-  type PartnerOffer,
   queryError,
   type Shop,
   type StoreGame,
@@ -280,15 +279,6 @@ export function Store({
       document.querySelector<HTMLElement>("dialog[open] [data-best]")?.focus();
   }, [comparison]);
   const compareError = queryError(compareQuery.error);
-  // Partner offers are optional extras: failures just hide them.
-  const partners =
-    useQuery({
-      ...commandQuery<PartnerOffer[]>("partner_offers", {
-        steamAppId: selected?.steamAppID,
-      }),
-      enabled: !!selected?.steamAppID && !demo,
-      staleTime: 60 * 60_000,
-    }).data ?? [];
   const visible = useMemo(
     () =>
       tab === "discover"
@@ -1003,37 +993,6 @@ export function Store({
             t={t}
             lang={lang}
           />
-          {partners.length > 0 && (
-            <section className="partner-offers">
-              <h2>{t("partnerOffers")}</h2>
-              <p className="muted">{t("affiliateDisclosure")}</p>
-              {partners.map((offer) => (
-                <div className="offer-row" key={offer.id}>
-                  <span>{offer.shop}</span>
-                  {offer.quote && offer.quote.expires_at > Date.now() / 1000 ? (
-                    <strong>
-                      {new Intl.NumberFormat(lang, {
-                        style: "currency",
-                        currency: offer.quote.currency,
-                      }).format(Number(offer.quote.amount))}
-                    </strong>
-                  ) : (
-                    <span className="muted">{t("checkPriceOnStore")}</span>
-                  )}
-                  <button
-                    onClick={() => {
-                      void desktop("open_partner_offer", {
-                        id: offer.id,
-                      }).catch((e) => notify(serviceError(e)));
-                    }}
-                  >
-                    {t("buy")}
-                    <ArrowUpRightIcon />
-                  </button>
-                </div>
-              ))}
-            </section>
-          )}
           {alsoLike.length > 0 && (
             <section className="also-like" aria-label={t("alsoLike")}>
               <h2>{t("alsoLike")}</h2>

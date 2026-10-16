@@ -58,6 +58,5 @@ Rules for contributors (and AI agents) are in [AGENTS.md](AGENTS.md), including 
 
 - [Library and release rules](docs/biblioteca-e-lancamentos.md)
 - [Windows checks](docs/windows-validation.md)
-- [Affiliate setup](docs/affiliate-setup.md)
 
 The update signing key lives outside the repo (`~/.tauri/sofa.key` and the `TAURI_SIGNING_PRIVATE_KEY*` secrets). If it is lost, installed apps stop receiving updates.

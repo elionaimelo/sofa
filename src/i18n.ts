@@ -93,11 +93,6 @@ const en = {
   filterNoMatches: "No games match these filters.",
   filteredCount: "{installed} of {total} games installed",
   showResults: "Show games",
-  partnerOffers: "Partner stores",
-  affiliateDisclosure:
-    "Affiliate links: Sofa may earn a commission on completed purchases.",
-  checkPriceOnStore: "Check price at the store",
-  affiliateNotConfigured: "Affiliate links are not configured yet.",
   deviceBattery: "Device battery",
   controllerBattery: "Controller battery",
   battery_unknown: "Status unavailable",
@@ -495,12 +490,6 @@ const dicts = {
     filterNoMatches: "Nenhum jogo corresponde a esses filtros.",
     filteredCount: "{installed} de {total} jogos instalados",
     showResults: "Ver jogos",
-    partnerOffers: "Lojas parceiras",
-    affiliateDisclosure:
-      "Links de afiliado: o Sofa pode receber comissão pelas compras concluídas.",
-    checkPriceOnStore: "Consulte o preço na loja",
-    affiliateNotConfigured:
-      "Os links de afiliado ainda não estão configurados.",
     deviceBattery: "Bateria do dispositivo",
     controllerBattery: "Bateria dos controles",
     battery_unknown: "Estado indisponível",
@@ -904,12 +893,6 @@ const dicts = {
     filterNoMatches: "Ningún juego coincide con estos filtros.",
     filteredCount: "{installed} de {total} juegos instalados",
     showResults: "Ver juegos",
-    partnerOffers: "Tiendas asociadas",
-    affiliateDisclosure:
-      "Enlaces de afiliado: Sofa puede recibir una comisión por compras completadas.",
-    checkPriceOnStore: "Consulta el precio en la tienda",
-    affiliateNotConfigured:
-      "Los enlaces de afiliado aún no están configurados.",
     deviceBattery: "Batería del dispositivo",
     controllerBattery: "Batería de los mandos",
     battery_unknown: "Estado no disponible",

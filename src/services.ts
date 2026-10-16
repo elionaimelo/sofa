@@ -262,7 +262,6 @@ const serviceErrors: MessageKey[] = [
   "powerControlUnavailable",
   "hibernateUnavailable",
   "confirmationRequired",
-  "affiliateNotConfigured",
   "installUnavailable",
   "steamLoginCancelled",
   "steamSessionExpired",
@@ -466,9 +465,3 @@ export const dealArt = (
   d.steamAppID && /^\d+$/.test(d.steamAppID)
     ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${d.steamAppID}/${wide ? "library_hero" : "library_600x900"}.jpg`
     : d.thumb;
-
-export type PartnerOffer = {
-  id: string;
-  shop: string;
-  quote: { amount: string; currency: string; expires_at: number } | null;
-};

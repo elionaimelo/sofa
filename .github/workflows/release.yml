@@ -141,7 +141,6 @@ jobs:
       # which the app polls at releases/latest/download/latest.json.
       - uses: tauri-apps/tauri-action@v1
         env:
-          SOFA_PUBLISHER_CONFIG: ${{ vars.SOFA_PUBLISHER_CONFIG }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
