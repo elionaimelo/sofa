@@ -576,18 +576,18 @@ pub async fn game_media(
 /// Steam lists later shows up the next day. `app_id` must be numeric: it names the file.
 async fn media(app_id: &str, language: &str, app: &tauri::AppHandle, cache: &StoreCache) -> Result<Media, String> {
     use tauri::Manager;
-    let key = format!("media-v4:{app_id}:{language}");
+    let key = format!("media-v5:{app_id}:{language}");
     if let Some(media) = cache.fresh(&key, DAY)? {
         return serde_json::from_value(media).map_err(|_| "invalidResponse".into());
     }
-    let file = app.path().app_cache_dir().ok().map(|dir| dir.join("store-media-v4").join(format!("{app_id}-{language}.json")));
+    let file = app.path().app_cache_dir().ok().map(|dir| dir.join("store-media-v5").join(format!("{app_id}-{language}.json")));
     let media = match file.as_deref().and_then(read_media) {
         Some(media) => media,
         None => {
             let details: Value = network::json(
                 network::client()?
                     .get("https://store.steampowered.com/api/appdetails")
-                    .query(&[("appids", app_id), ("l", language), ("filters", "basic,screenshots,movies")]),
+                    .query(&[("appids", app_id), ("l", language), ("filters", "basic,developers,screenshots,movies,metacritic,release_date")]),
             )
             .await?;
             let mut media = parse_media(&details, app_id);
@@ -1011,6 +1011,15 @@ mod tests {
         assert_eq!(parse_media(&full, "10").controller.as_deref(), Some("full"));
         let odd = serde_json::json!({"10": {"data": {"controller_support": "<b>"}}});
         assert_eq!(parse_media(&odd, "10").controller, None);
+        let facts = serde_json::json!({"10": {"data": {
+            "developers": [" Eidos-Montréal ", "Other"],
+            "release_date": {"date": "9/dez./2021"},
+            "metacritic": {"score": 78}
+        }}});
+        let facts = parse_media(&facts, "10");
+        assert_eq!((facts.developer.as_deref(), facts.released, facts.metacritic), (Some("Eidos-Montréal"), Some(2021), Some(78)));
+        assert_eq!(release_year("Coming soon"), None);
+        assert_eq!(release_year("Dec 9, 2020"), Some(2020));
         assert_eq!(parse_deck(&serde_json::json!({"results": {"resolved_category": 3}})), Some(3));
         assert_eq!(parse_deck(&serde_json::json!({"results": {"resolved_category": 0}})), None);
         assert_eq!(

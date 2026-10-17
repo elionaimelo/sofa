@@ -1455,6 +1455,7 @@ dialog:has(.controller-keyboard) {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  font-variant-numeric: tabular-nums;
 }
 .price-drop {
   position: absolute;

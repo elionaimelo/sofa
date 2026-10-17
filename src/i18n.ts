@@ -146,7 +146,8 @@ const en = {
   wishlistPriceNote:
     "Prices are checked every 6 hours. A dot on Store means a saved game got cheaper or a new free game is out.",
   importSteamWishlist: "Import from Steam",
-  importingWishlist: "Importing your Steam wishlist…",
+  importingWishlist: "Reading your Steam wishlist…",
+  importingWishlistProgress: "Finding prices: game {checked} of {total}…",
   wishlistImported: "{count} games added from your Steam wishlist.",
   priceDropped: "Price dropped",
   freeOnEpic: "Free on Epic this week",
@@ -551,7 +552,8 @@ const dicts = {
     wishlistPriceNote:
       "Os preços são consultados a cada 6 horas. Uma bolinha na Loja indica que um jogo salvo ficou mais barato ou que há um novo jogo grátis.",
     importSteamWishlist: "Importar da Steam",
-    importingWishlist: "Importando sua lista de desejos da Steam…",
+    importingWishlist: "Lendo sua lista de desejos da Steam…",
+    importingWishlistProgress: "Buscando preços: jogo {checked} de {total}…",
     wishlistImported:
       "{count} jogos adicionados da sua lista de desejos da Steam.",
     priceDropped: "Preço caiu",
@@ -961,7 +963,8 @@ const dicts = {
     wishlistPriceNote:
       "Los precios se consultan cada 6 horas. Un punto en Tienda indica que un juego guardado bajó de precio o que hay un nuevo juego gratis.",
     importSteamWishlist: "Importar de Steam",
-    importingWishlist: "Importando tu lista de deseados de Steam…",
+    importingWishlist: "Leyendo tu lista de deseados de Steam…",
+    importingWishlistProgress: "Buscando precios: juego {checked} de {total}…",
     wishlistImported:
       "{count} juegos añadidos desde tu lista de deseados de Steam.",
     priceDropped: "Bajó de precio",

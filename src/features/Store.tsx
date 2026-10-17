@@ -14,6 +14,7 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Channel } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Cover, CoverImage } from "../components/Cover";
 import { DetailFrame } from "../components/DetailFrame";
@@ -305,10 +306,16 @@ export function Store({
               }),
     [deals, wishlist, tab, query, saved.prices],
   );
-  // The connected Steam account's wishlist, added to Sofa's; Rust paces the lookups.
+  // The connected Steam account's wishlist, added to Sofa's; Rust paces the lookups and
+  // reports [checked, total] so the button can count up.
+  const [importProgress, setImportProgress] = useState<[number, number]>();
   const importSteam = useMutation({
-    mutationFn: () => desktop<Deal[]>("import_steam_wishlist"),
+    mutationFn: () =>
+      desktop<Deal[]>("import_steam_wishlist", {
+        onProgress: new Channel<[number, number]>(setImportProgress),
+      }),
     onMutate: () => notify("importingWishlist"),
+    onSettled: () => setImportProgress(undefined),
     onSuccess: (imported) => {
       const fresh = imported.filter(
         (d) => !wishlist.some((g) => g.gameID === d.gameID),
@@ -597,11 +604,14 @@ export function Store({
               onClick={() => !importSteam.isPending && importSteam.mutate()}
             >
               <SteamLogoIcon />
-              {t(
-                importSteam.isPending
-                  ? "importingWishlist"
-                  : "importSteamWishlist",
-              )}
+              {!importSteam.isPending
+                ? t("importSteamWishlist")
+                : importProgress
+                  ? t("importingWishlistProgress", {
+                      checked: String(importProgress[0] + 1),
+                      total: String(importProgress[1]),
+                    })
+                  : t("importingWishlist")}
             </button>
           )}
         </div>
