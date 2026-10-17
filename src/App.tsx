@@ -432,6 +432,15 @@ export default function App() {
       ),
     [games],
   );
+  // Games per store, as the store tabs show them; hidden games don't count.
+  const sourceCounts = useMemo(() => {
+    const hidden = new Set(prefs.hidden);
+    const counts: Partial<Record<Game["source"], number>> = {};
+    for (const game of games)
+      if (!hidden.has(game.id))
+        counts[game.source] = (counts[game.source] ?? 0) + 1;
+    return counts;
+  }, [games, prefs.hidden]);
   // A source tab disappears when its last game does; fall back to "all" without an extra render.
   const tab = availableTabs.includes(tabChoice) ? tabChoice : "all";
   // Typing stays responsive with thousands of owned games; the grid catches up a frame later.
@@ -1031,6 +1040,9 @@ export default function App() {
                                 : s === "steam"
                                   ? "Steam"
                                   : "Epic"}
+                      {s !== "all" && s !== "favorites" && (
+                        <span>{sourceCounts[s] ?? 0}</span>
+                      )}
                     </button>
                   ))}
                   <kbd aria-hidden>RB</kbd>

@@ -791,6 +791,12 @@ button > .favorite-icon {
 .source-tabs button[aria-pressed="true"] {
   color: white;
 }
+.source-tabs button span {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
 .source-tabs button[aria-pressed="true"]::after {
   content: "";
   position: absolute;
