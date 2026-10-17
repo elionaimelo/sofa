@@ -8,6 +8,7 @@ import {
   filterGames,
   formatSize,
   type Game,
+  gameFacts,
   hoursPlayed,
   mergeLibrary,
   parsePendingInstalls,
@@ -320,6 +321,44 @@ test("sizes and hours read the way a console shows them", () => {
   assert.equal(hoursPlayed(90, "en"), "1.5 h");
   assert.equal(hoursPlayed(588, "pt-BR"), "9,8 h");
   assert.equal(hoursPlayed(1230, "es"), "21 h");
+});
+
+test("the game page lists only the facts it knows, in the player's language", () => {
+  const now = Date.UTC(2026, 9, 17);
+  const game: Game = {
+    ...games[0],
+    playtime: 90,
+    size: 1.5 * 1024 ** 3,
+    last_played: Date.UTC(2026, 9, 4, 12) / 1000,
+  };
+  assert.deepEqual(
+    gameFacts(
+      game,
+      { developer: "Valve", released: 2007, metacritic: null },
+      defaults,
+      "pt-BR",
+      undefined,
+      now,
+    ),
+    [
+      ["factDeveloper", "Valve"],
+      ["factReleased", "2007"],
+      ["factPlayed", "1,5 h"],
+      ["factLastPlayed", "4 de out."],
+      ["factSize", "1,5 GB"],
+    ],
+  );
+  assert.deepEqual(
+    gameFacts(
+      { ...games[0], installed: false },
+      undefined,
+      defaults,
+      "en",
+      700 * 1024 ** 2,
+      now,
+    ),
+    [["factDownload", "700 MB"]],
+  );
 });
 
 test("the store puts deals closest to the player's taste first, the rest keeps its order", () => {

@@ -108,6 +108,52 @@ export function gameMeta(
     .filter(Boolean)
     .join(" · ");
 }
+type FactKey =
+  | "factDeveloper"
+  | "factReleased"
+  | "factMetacritic"
+  | "factPlayed"
+  | "factLastPlayed"
+  | "factSize"
+  | "factDownload";
+/** Labelled facts for the open game's strip; anything unknown is left out. */
+export function gameFacts(
+  game: Game,
+  steam:
+    | {
+        developer?: string | null;
+        released?: number | null;
+        metacritic?: number | null;
+      }
+    | undefined,
+  p: Pick<Preferences, "recent">,
+  lang: string,
+  estimate?: number,
+  now = Date.now(),
+): [FactKey, string][] {
+  const last = Math.max(p.recent[game.id] ?? 0, (game.last_played ?? 0) * 1000);
+  const sameYear = new Date(last).getFullYear() === new Date(now).getFullYear();
+  const facts: [FactKey, string][] = [
+    ["factDeveloper", steam?.developer ?? ""],
+    ["factReleased", steam?.released ? String(steam.released) : ""],
+    ["factMetacritic", steam?.metacritic ? String(steam.metacritic) : ""],
+    ["factPlayed", game.playtime ? hoursPlayed(game.playtime, lang) : ""],
+    [
+      "factLastPlayed",
+      last
+        ? new Date(last).toLocaleDateString(lang, {
+            day: "numeric",
+            month: "short",
+            year: sameYear ? undefined : "numeric",
+          })
+        : "",
+    ],
+    game.installed
+      ? ["factSize", game.size != null ? formatSize(game.size, lang) : ""]
+      : ["factDownload", estimate != null ? formatSize(estimate, lang) : ""],
+  ];
+  return facts.filter(([, value]) => value);
+}
 export type Similar = { appId: string; name: string };
 /** Steam user tags per app id, with how strongly players applied each. */
 export type TagWeights = Record<string, { tagid: number; weight: number }[]>;

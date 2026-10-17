@@ -534,13 +534,8 @@ button:active:not([aria-disabled="true"]) {
   max-width: 720px;
 }
 /* An uninstalled game with no play time has no facts line; don't leave a gap. */
-:is(.detail-meta-line, .hero-info > p):empty {
+.hero-info > p:empty {
   display: none;
-}
-.detail-meta-line {
-  margin: 0;
-  color: var(--muted);
-  font-size: 15px;
 }
 .filter-tabs span {
   margin-left: 8px;
@@ -2879,13 +2874,46 @@ select:focus-visible,
   text-wrap: balance;
   overflow-wrap: anywhere;
 }
+/* The open game's facts: small eyebrow labels over values, split by hairlines. */
+.game-facts {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 12px 0;
+  border-block: 1px solid var(--glass-border);
+}
+.game-facts:empty {
+  display: none;
+}
+.game-facts div {
+  min-width: 0;
+  padding: 2px 22px;
+  border-left: 1px solid var(--glass-border);
+}
+.game-facts div:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.game-facts dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.game-facts dd {
+  margin: 4px 0 0;
+  font-size: 19px;
+  white-space: nowrap;
+}
+.game-facts dd.skeleton {
+  width: 72px;
+  height: 1.2em;
+  border-radius: 6px;
+}
 .game-view-actions {
   margin-top: 6px;
   gap: 10px;
-}
-.game-view .detail-meta-line {
-  font-size: 17px;
-  line-height: 1.5;
 }
 .game-view-actions button {
   min-height: 52px;

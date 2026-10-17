@@ -20,6 +20,10 @@ export type Media = {
   reviews: { positive: number; total: number } | null;
   /** Steam had no description in Sofa's language and answered in English. */
   english_only: boolean;
+  developer?: string | null;
+  /** Release year. */
+  released?: number | null;
+  metacritic?: number | null;
 };
 const deckLabels = {
   1: "deckUnsupported",

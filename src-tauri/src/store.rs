@@ -416,6 +416,13 @@ pub struct Media {
     #[serde(default)]
     english_only: bool,
     reviews: Option<Reviews>,
+    /// The first studio Steam credits, the release year and the Metacritic score.
+    #[serde(default)]
+    developer: Option<String>,
+    #[serde(default)]
+    released: Option<u16>,
+    #[serde(default)]
+    metacritic: Option<u8>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -497,6 +504,13 @@ fn parse_gameplay(data: &Value, app_id: &str) -> Option<Gameplay> {
     })
 }
 
+/// Steam writes the date in the asked language ("9/dez./2020", "Dec 9, 2020"); the year reads the same.
+fn release_year(date: &str) -> Option<u16> {
+    date.split(|c: char| !c.is_ascii_digit())
+        .filter(|part| part.len() == 4)
+        .find_map(|part| part.parse().ok().filter(|year| (1970..=2100).contains(year)))
+}
+
 fn parse_media(details: &Value, app_id: &str) -> Media {
     let data = &details[app_id]["data"];
     let description = parse_description(details, app_id);
@@ -516,6 +530,13 @@ fn parse_media(details: &Value, app_id: &str) -> Media {
         deck: None,
         english_only: false,
         reviews: None,
+        developer: data["developers"][0]
+            .as_str()
+            .map(str::trim)
+            .filter(|name| !name.is_empty() && name.len() <= 80)
+            .map(str::to_owned),
+        released: data["release_date"]["date"].as_str().and_then(release_year),
+        metacritic: data["metacritic"]["score"].as_u64().filter(|score| (1..=100).contains(score)).map(|score| score as u8),
     }
 }
 
@@ -661,16 +682,19 @@ async fn lookup(app_id: &str, cache: &StoreCache) -> Result<Option<Deal>, String
 
 /// The connected account's Steam wishlist as deals the store can compare, highest priority
 /// first. Titles CheapShark doesn't list are left out; at most 60, and uncached lookups are
-/// paced so CheapShark isn't flooded.
+/// paced so CheapShark isn't flooded. `on_progress` gets `[checked, total]` as it goes.
 #[tauri::command]
 pub async fn import_steam_wishlist(
     app: tauri::AppHandle,
     session: tauri::State<'_, crate::accounts::SteamLibrarySession>,
     cache: tauri::State<'_, StoreCache>,
+    on_progress: tauri::ipc::Channel<[usize; 2]>,
 ) -> Result<Vec<Deal>, String> {
     let app_ids = crate::accounts::wishlist(&app, &session).await?;
+    let total = app_ids.len().min(60);
     let mut deals = Vec::new();
-    for app_id in app_ids.iter().take(60).map(u32::to_string) {
+    for (checked, app_id) in app_ids.iter().take(total).map(u32::to_string).enumerate() {
+        let _ = on_progress.send([checked, total]);
         let known = cache.fresh(&format!("lookup:{app_id}"), DAY)?.is_some();
         if let Ok(Some(deal)) = lookup(&app_id, &cache).await {
             deals.push(deal);

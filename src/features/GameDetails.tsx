@@ -12,7 +12,7 @@ import { useLayoutEffect, useRef } from "react";
 import { FavoriteIcon } from "../components/FavoriteIcon";
 import { GameBadges, type Media, SteamMedia } from "../components/SteamMedia";
 import type { Lang, Translate } from "../i18n";
-import { type Game, gameMeta, hero, type Preferences } from "../library";
+import { type Game, gameFacts, hero, type Preferences } from "../library";
 import {
   commandQuery,
   type InputRef,
@@ -223,14 +223,14 @@ export function GameDetails({
   }, [origin, reduced]);
   const favorite = prefs.favorites.includes(game.id);
   const hidden = prefs.hidden.includes(game.id);
-  // What an uninstalled game is, from its Steam page, to help decide on installing it.
+  // The facts strip, and for an uninstalled game what it is, from its Steam page.
   const media = useQuery({
     ...commandQuery<Media>("game_media", {
       id: game.id,
       title: game.title,
       lang,
     }),
-    enabled: !game.installed && isTauri(),
+    enabled: isTauri(),
     // Store pages barely change; Rust keeps them on disk for 30 days.
     staleTime: Number.POSITIVE_INFINITY,
   });
@@ -268,15 +268,30 @@ export function GameDetails({
           · {t(game.installed ? "installed" : "availableToInstall")}
         </p>
         <h1 id="game-heading">{game.title}</h1>
-        <p className="detail-meta-line game-view-meta">
-          {gameMeta(
+        <dl className="game-facts game-view-meta" aria-busy={media.isLoading}>
+          {/* The Steam page's facts take shape where they will land. */}
+          {media.isLoading &&
+            (["factDeveloper", "factReleased", "factMetacritic"] as const).map(
+              (key) => (
+                <div key={key} aria-hidden>
+                  <dt>{t(key)}</dt>
+                  <dd className="skeleton" />
+                </div>
+              ),
+            )}
+          {gameFacts(
             game,
-            t,
+            media.data,
+            prefs,
             lang,
-            prefs.recent[game.id],
-            game.installed ? undefined : (sizeEstimate ?? undefined),
-          )}
-        </p>
+            sizeEstimate ?? undefined,
+          ).map(([key, value]) => (
+            <div key={key}>
+              <dt>{t(key)}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
         <div className="detail-actions game-view-actions">
           <button
             data-initial-focus
